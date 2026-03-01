@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VocaQuest Online</title>
+  <style>
+    /* ============================================
+       VocaQuest Online - Dark Fantasy RPG Theme
+       ============================================ */
+
+    /* --- Reset & Base --- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-dark: rgba(20, 15, 30, 0.95);
+      --bg-darker: rgba(12, 8, 20, 0.98);
+      --bg-panel: rgba(30, 25, 45, 0.92);
+      --border-gold: #c8a84e;
+      --border-gold-dim: #8a7234;
+      --text-warm: #e8d5b0;
+      --text-bright: #f5ecd7;
+      --text-dim: #9a8e76;
+      --accent-green: #4caf50;
+      --accent-red: #f44336;
+      --accent-blue: #42a5f5;
+      --accent-purple: #ab47bc;
+      --accent-orange: #ff9800;
+      --hp-red: #e53935;
+      --hp-red-bg: #4a1515;
+      --mp-blue: #1e88e5;
+      --mp-blue-bg: #0d2b4a;
+      --exp-green: #43a047;
+      --exp-green-bg: #153015;
+      --radius: 8px;
+      --shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+      --shadow-glow: 0 0 15px rgba(200, 168, 78, 0.2);
+      --font: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      --transition: all 0.3s ease;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0a14;
+      font-family: var(--font);
+      color: var(--text-warm);
+      user-select: none;
+    }
+
+    /* --- Game Container --- */
+    #game-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    #game-container canvas {
+      display: block;
+    }
+
+    /* --- Login Screen --- */
+    #login-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(ellipse at center, #1a1a3e 0%, #0a0a14 70%);
+      z-index: 1000;
+    }
+
+    #login-screen.hidden {
+      display: none;
+    }
+
+    .login-card {
+      background: var(--bg-darker);
+      border: 2px solid var(--border-gold);
+      border-radius: 12px;
+      padding: 40px 36px;
+      width: 380px;
+      max-width: 90vw;
+      box-shadow: var(--shadow), var(--shadow-glow);
+      text-align: center;
+    }
+
+    .login-card h1 {
+      font-size: 28px;
+      color: var(--border-gold);
+      margin-bottom: 6px;
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px rgba(200, 168, 78, 0.4);
+    }
+
+    .login-card .subtitle {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 28px;
+    }
+
+    .login-card label {
+      display: block;
+      text-align: left;
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+      margin-top: 14px;
+    }
+
+    .login-card input,
+    .login-card select {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-gold-dim);
+      border-radius: 6px;
+      color: var(--text-bright);
+      font-size: 14px;
+      font-family: var(--font);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .login-card input:focus,
+    .login-card select:focus {
+      border-color: var(--border-gold);
+      box-shadow: 0 0 8px rgba(200, 168, 78, 0.3);
+    }
+
+    .login-card select option {
+      background: #1a1a2e;
+      color: var(--text-warm);
+    }
+
+    .login-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .login-buttons button {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid var(--border-gold);
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: var(--transition);
+      letter-spacing: 1px;
+    }
+
+    .btn-login {
+      background: linear-gradient(135deg, #c8a84e, #a08030);
+      color: #1a1a2e;
+    }
+
+    .btn-login:hover {
+      background: linear-gradient(135deg, #dab85e, #b89040);
+      box-shadow: 0 0 15px rgba(200, 168, 78, 0.5);
+    }
+
+    .btn-register {
+      background: transparent;
+      color: var(--border-gold);
+    }
+
+    .btn-register:hover {
+      background: rgba(200, 168, 78, 0.1);
+    }
+
+    .login-error {
+      color: var(--accent-red);
+      font-size: 13px;
+      margin-top: 12px;
+      min-height: 18px;
+    }
+
+    /* --- HUD --- */
+    #hud {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: none;
+    }
+
+    #hud.visible {
+      display: flex;
+    }
+
+    .hud-level {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--border-gold);
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+      margin-bottom: 2px;
+    }
+
+    .hud-bar-container {
+      width: 220px;
+      height: 18px;
+      background: var(--hp-red-bg);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 9px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hud-bar-container.mp { background: var(--mp-blue-bg); }
+    .hud-bar-container.exp { background: var(--exp-green-bg); }
+
+    .hud-bar-fill {
+      height: 100%;
+      border-radius: 9px;
+      transition: width 0.4s ease;
+      position: relative;
+    }
+
+    .hud-bar-fill.hp { background: linear-gradient(180deg, #ef5350, #c62828); }
+    .hud-bar-fill.mp { background: linear-gradient(180deg, #42a5f5, #1565c0); }
+    .hud-bar-fill.exp { background: linear-gradient(180deg, #66bb6a, #2e7d32); }
+
+    .hud-bar-text {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+      pointer-events: none;
+    }
+
+    .hud-gold {
+      font-size: 14px;
+      color: var(--border-gold);
+      margin-top: 4px;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+    }
+
+    .hud-gold::before {
+      content: '\25C6 ';
+      font-size: 10px;
+    }
+
+    /* --- Quiz Popup --- */
+    #quiz-popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 500;
+      animation: fadeIn 0.2s ease;
+    }
+
+    #quiz-popup.visible {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideDown {
+      from { transform: translateY(-30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .quiz-card {
+      background: var(--bg-darker);
+      border: 2px solid var(--border-gold);
+      border-radius: 12px;
+      padding: 32px 28px;
+      width: 420px;
+      max-width: 92vw;
+      box-shadow: var(--shadow), var(--shadow-glow);
+      text-align: center;
+      animation: slideDown 0.3s ease;
+    }
+
+    .quiz-card .quiz-label {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    .quiz-card .quiz-category {
+      font-size: 12px;
+      color: var(--accent-purple);
+      margin-bottom: 12px;
+    }
+
+    .quiz-card .quiz-word {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 8px;
+      text-shadow: 0 0 20px rgba(255,255,255,0.1);
+    }
+
+    .quiz-timer-container {
+      width: 100%;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      margin: 16px 0 20px;
+      overflow: hidden;
+    }
+
+    .quiz-timer-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-red), var(--accent-orange));
+      border-radius: 3px;
+      width: 100%;
+      transition: none;
+    }
+
+    .quiz-timer-bar.animate {
+      animation: timerShrink 15s linear forwards;
+    }
+
+    @keyframes timerShrink {
+      from { width: 100%; background: linear-gradient(90deg, var(--accent-green), var(--accent-green)); }
+      50% { background: linear-gradient(90deg, var(--accent-orange), #fdd835); }
+      to { width: 0%; background: linear-gradient(90deg, var(--accent-red), var(--accent-orange)); }
+    }
+
+    .quiz-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .quiz-option {
+      padding: 14px 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid var(--border-gold-dim);
+      border-radius: 8px;
+      color: var(--text-warm);
+      font-size: 16px;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .quiz-option:hover {
+      background: rgba(200, 168, 78, 0.15);
+      border-color: var(--border-gold);
+      transform: scale(1.02);
+    }
+
+    .quiz-option:active {
+      transform: scale(0.98);
+    }
+
+    .quiz-option.correct {
+      background: rgba(76, 175, 80, 0.3) !important;
+      border-color: var(--accent-green) !important;
+      color: #fff;
+    }
+
+    .quiz-option.wrong {
+      background: rgba(244, 67, 54, 0.3) !important;
+      border-color: var(--accent-red) !important;
+      color: #fff;
+    }
+
+    .quiz-result {
+      font-size: 20px;
+      font-weight: 700;
+      margin-top: 16px;
+      min-height: 28px;
+    }
+
+    .quiz-result.correct { color: var(--accent-green); }
+    .quiz-result.wrong { color: var(--accent-red); }
+
+    /* --- Chat Box --- */
+    #chat-box {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      width: 340px;
+      z-index: 100;
+      display: none;
+    }
+
+    #chat-box.visible {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-messages {
+      height: 160px;
+      overflow-y: auto;
+      background: rgba(10, 8, 18, 0.75);
+      border: 1px solid rgba(200, 168, 78, 0.3);
+      border-radius: var(--radius) var(--radius) 0 0;
+      padding: 8px 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-gold-dim) transparent;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: var(--border-gold-dim);
+      border-radius: 2px;
+    }
+
+    .chat-msg {
+      padding: 2px 0;
+      word-break: break-word;
+    }
+
+    .chat-msg .sender {
+      font-weight: 600;
+      color: var(--accent-blue);
+    }
+
+    .chat-msg .sender.system {
+      color: var(--accent-orange);
+    }
+
+    .chat-msg .sender.me {
+      color: var(--accent-green);
+    }
+
+    .chat-input-row {
+      display: flex;
+    }
+
+    .chat-input-row input {
+      flex: 1;
+      padding: 8px 12px;
+      background: rgba(20, 15, 30, 0.95);
+      border: 1px solid rgba(200, 168, 78, 0.3);
+      border-top: none;
+      border-radius: 0 0 0 var(--radius);
+      color: var(--text-warm);
+      font-size: 13px;
+      font-family: var(--font);
+      outline: none;
+    }
+
+    .chat-input-row input:focus {
+      border-color: var(--border-gold);
+    }
+
+    .chat-input-row button {
+      padding: 8px 14px;
+      background: var(--border-gold);
+      border: 1px solid var(--border-gold);
+      border-top: none;
+      border-radius: 0 0 var(--radius) 0;
+      color: #1a1a2e;
+      font-weight: 600;
+      font-size: 13px;
+      font-family: var(--font);
+      cursor: pointer;
+    }
+
+    /* --- Inventory Panel --- */
+    #inventory-panel {
+      position: fixed;
+      top: 50%;
+      right: 12px;
+      transform: translateY(-50%);
+      width: 240px;
+      background: var(--bg-dark);
+      border: 2px solid var(--border-gold);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      animation: slideDown 0.2s ease;
+    }
+
+    #inventory-panel.visible {
+      display: flex;
+    }
+
+    .inv-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-gold-dim);
+    }
+
+    .inv-header h3 {
+      font-size: 15px;
+      color: var(--border-gold);
+    }
+
+    .inv-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .inv-close:hover { color: var(--accent-red); }
+
+    .inv-gold {
+      padding: 6px 14px;
+      font-size: 13px;
+      color: var(--border-gold);
+      border-bottom: 1px solid rgba(200,168,78,0.15);
+    }
+
+    .equipment-slots {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      padding: 10px;
+      border-bottom: 1px solid rgba(200,168,78,0.15);
+    }
+
+    .equip-slot {
+      aspect-ratio: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-gold-dim);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: var(--text-dim);
+      cursor: pointer;
+      position: relative;
+      transition: var(--transition);
+    }
+
+    .equip-slot:hover { border-color: var(--border-gold); }
+
+    .equip-slot.filled {
+      border-color: var(--accent-blue);
+      background: rgba(66,165,245,0.1);
+    }
+
+    .equip-slot .slot-label {
+      position: absolute;
+      bottom: 1px;
+      font-size: 8px;
+      color: var(--text-dim);
+    }
+
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      padding: 10px;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .inv-slot {
+      aspect-ratio: 1;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(200,168,78,0.2);
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: var(--transition);
+      min-height: 48px;
+    }
+
+    .inv-slot:hover {
+      border-color: var(--border-gold);
+      background: rgba(200,168,78,0.08);
+    }
+
+    .inv-slot .item-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 3px;
+    }
+
+    .inv-slot .item-name {
+      font-size: 8px;
+      color: var(--text-dim);
+      text-align: center;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+      padding: 0 2px;
+    }
+
+    .inv-slot .item-count {
+      position: absolute;
+      bottom: 2px;
+      right: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-bright);
+      text-shadow: 1px 1px 2px #000;
+    }
+
+    /* Item tooltip */
+    .item-tooltip {
+      position: fixed;
+      background: var(--bg-darker);
+      border: 1px solid var(--border-gold);
+      border-radius: 6px;
+      padding: 10px 12px;
+      min-width: 160px;
+      max-width: 220px;
+      z-index: 600;
+      pointer-events: none;
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      display: none;
+    }
+
+    .item-tooltip.visible {
+      display: block;
+    }
+
+    .item-tooltip .tt-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 4px;
+    }
+
+    .item-tooltip .tt-type {
+      font-size: 11px;
+      color: var(--accent-purple);
+      margin-bottom: 6px;
+    }
+
+    .item-tooltip .tt-stat {
+      color: var(--accent-green);
+      font-size: 12px;
+    }
+
+    .item-tooltip .tt-desc {
+      color: var(--text-dim);
+      font-size: 11px;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    .item-tooltip .tt-price {
+      color: var(--border-gold);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    /* --- Shop Panel --- */
+    #shop-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 480px;
+      max-width: 94vw;
+      max-height: 80vh;
+      background: var(--bg-darker);
+      border: 2px solid var(--border-gold);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow), var(--shadow-glow);
+      z-index: 400;
+      display: none;
+      flex-direction: column;
+      animation: slideDown 0.25s ease;
+    }
+
+    #shop-panel.visible {
+      display: flex;
+    }
+
+    .shop-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-gold-dim);
+    }
+
+    .shop-header h3 {
+      font-size: 17px;
+      color: var(--border-gold);
+    }
+
+    .shop-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .shop-close:hover { color: var(--accent-red); }
+
+    .shop-items {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+
+    .shop-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(200,168,78,0.15);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      transition: var(--transition);
+    }
+
+    .shop-item:hover {
+      background: rgba(200,168,78,0.06);
+      border-color: var(--border-gold-dim);
+    }
+
+    .shop-item-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .shop-item-info {
+      flex: 1;
+    }
+
+    .shop-item-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    .shop-item-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    .shop-item-price {
+      font-size: 14px;
+      color: var(--border-gold);
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .shop-buy-btn {
+      padding: 6px 14px;
+      background: linear-gradient(135deg, #c8a84e, #a08030);
+      border: 1px solid var(--border-gold);
+      border-radius: 4px;
+      color: #1a1a2e;
+      font-weight: 600;
+      font-size: 12px;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: var(--transition);
+      flex-shrink: 0;
+    }
+
+    .shop-buy-btn:hover {
+      background: linear-gradient(135deg, #dab85e, #b89040);
+    }
+
+    /* --- Notification Area --- */
+    #notification-area {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 700;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .notification-toast {
+      padding: 10px 24px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: var(--shadow);
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+      pointer-events: none;
+    }
+
+    .notification-toast.success {
+      background: rgba(76, 175, 80, 0.9);
+      border: 1px solid var(--accent-green);
+      color: #fff;
+    }
+
+    .notification-toast.error {
+      background: rgba(244, 67, 54, 0.9);
+      border: 1px solid var(--accent-red);
+      color: #fff;
+    }
+
+    .notification-toast.info {
+      background: rgba(66, 165, 245, 0.9);
+      border: 1px solid var(--accent-blue);
+      color: #fff;
+    }
+
+    .notification-toast.warning {
+      background: rgba(255, 152, 0, 0.9);
+      border: 1px solid var(--accent-orange);
+      color: #fff;
+    }
+
+    .notification-toast.levelup {
+      background: linear-gradient(135deg, rgba(200,168,78,0.95), rgba(160,128,48,0.95));
+      border: 2px solid var(--border-gold);
+      color: #1a1a2e;
+      font-size: 18px;
+      text-shadow: 0 0 10px rgba(255,255,255,0.3);
+    }
+
+    @keyframes toastIn {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes toastOut {
+      from { opacity: 1; }
+      to { opacity: 0; transform: translateY(-10px); }
+    }
+
+    /* --- Minimap --- */
+    #minimap {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      width: 150px;
+      height: 150px;
+      border: 2px solid var(--border-gold);
+      border-radius: var(--radius);
+      background: var(--bg-dark);
+      z-index: 100;
+      display: none;
+      overflow: hidden;
+    }
+
+    #minimap.visible {
+      display: block;
+    }
+
+    #minimap-canvas {
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+
+    /* --- Karma Display --- */
+    #karma-display {
+      position: fixed;
+      top: 170px;
+      right: 12px;
+      width: 150px;
+      text-align: center;
+      padding: 6px 10px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-gold-dim);
+      border-radius: var(--radius);
+      font-size: 12px;
+      z-index: 100;
+      display: none;
+    }
+
+    #karma-display.visible {
+      display: block;
+    }
+
+    .karma-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--border-gold);
+    }
+
+    .karma-value {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* --- Skills Bar --- */
+    #skills-bar {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      gap: 8px;
+      z-index: 100;
+    }
+
+    #skills-bar.visible {
+      display: flex;
+    }
+
+    .skill-btn {
+      width: 56px;
+      height: 56px;
+      background: var(--bg-dark);
+      border: 2px solid var(--border-gold-dim);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .skill-btn:hover {
+      border-color: var(--border-gold);
+      background: rgba(200,168,78,0.1);
+    }
+
+    .skill-btn .skill-icon {
+      font-size: 20px;
+      margin-bottom: 2px;
+    }
+
+    .skill-btn .skill-key {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .skill-btn .skill-name-label {
+      font-size: 8px;
+      color: var(--text-dim);
+      position: absolute;
+      bottom: 2px;
+    }
+
+    .skill-btn .cooldown-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      border-radius: 6px;
+    }
+
+    .skill-btn .cooldown-overlay.active {
+      display: flex;
+    }
+
+    /* --- Grade Selector --- */
+    #grade-selector {
+      position: fixed;
+      bottom: 12px;
+      right: 12px;
+      z-index: 100;
+      display: none;
+    }
+
+    #grade-selector.visible {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #grade-selector label {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    #grade-selector select {
+      padding: 4px 8px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-gold-dim);
+      border-radius: 4px;
+      color: var(--text-warm);
+      font-size: 12px;
+      font-family: var(--font);
+      outline: none;
+    }
+
+    #grade-selector select:focus {
+      border-color: var(--border-gold);
+    }
+
+    #grade-selector select option {
+      background: #1a1a2e;
+    }
+
+    /* --- Scrollbar --- */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-gold-dim);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Game Canvas Container -->
+  <div id="game-container"></div>
+
+  <!-- Login Screen -->
+  <div id="login-screen">
+    <div class="login-card">
+      <h1>VocaQuest Online</h1>
+      <p class="subtitle">영어 단어를 배우며 모험하자!</p>
+
+      <label for="login-username">닉네임</label>
+      <input type="text" id="login-username" placeholder="닉네임을 입력하세요" maxlength="16" autocomplete="off" />
+
+      <label for="login-password">비밀번호</label>
+      <input type="password" id="login-password" placeholder="비밀번호를 입력하세요" maxlength="32" />
+
+      <label for="login-class">직업 선택</label>
+      <select id="login-class">
+        <option value="warrior">전사 (Warrior)</option>
+        <option value="mage">마법사 (Mage)</option>
+        <option value="archer">궁수 (Archer)</option>
+      </select>
+
+      <div class="login-buttons">
+        <button class="btn-login" id="btn-login">로그인</button>
+        <button class="btn-register" id="btn-register">회원가입</button>
+      </div>
+      <div class="login-error" id="login-error"></div>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-level">Lv. <span id="hud-level-num">1</span></div>
+    <div class="hud-bar-container">
+      <div class="hud-bar-fill hp" id="hp-bar" style="width: 100%"></div>
+      <div class="hud-bar-text"><span id="hp-text">100 / 100</span></div>
+    </div>
+    <div class="hud-bar-container mp">
+      <div class="hud-bar-fill mp" id="mp-bar" style="width: 100%"></div>
+      <div class="hud-bar-text"><span id="mp-text">50 / 50</span></div>
+    </div>
+    <div class="hud-bar-container exp">
+      <div class="hud-bar-fill exp" id="exp-bar" style="width: 0%"></div>
+      <div class="hud-bar-text"><span id="exp-text">0 / 100</span></div>
+    </div>
+    <div class="hud-gold" id="hud-gold">0 Gold</div>
+  </div>
+
+  <!-- Quiz Popup -->
+  <div id="quiz-popup">
+    <div class="quiz-card">
+      <div class="quiz-label">이 단어의 뜻은?</div>
+      <div class="quiz-category" id="quiz-category">Category</div>
+      <div class="quiz-word" id="quiz-word">Hello</div>
+      <div class="quiz-timer-container">
+        <div class="quiz-timer-bar" id="quiz-timer-bar"></div>
+      </div>
+      <div class="quiz-options" id="quiz-options">
+        <button class="quiz-option" data-index="0">Option 1</button>
+        <button class="quiz-option" data-index="1">Option 2</button>
+        <button class="quiz-option" data-index="2">Option 3</button>
+        <button class="quiz-option" data-index="3">Option 4</button>
+      </div>
+      <div class="quiz-result" id="quiz-result"></div>
+    </div>
+  </div>
+
+  <!-- Chat Box -->
+  <div id="chat-box">
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." maxlength="200" autocomplete="off" />
+      <button id="chat-send">전송</button>
+    </div>
+  </div>
+
+  <!-- Inventory Panel -->
+  <div id="inventory-panel">
+    <div class="inv-header">
+      <h3>인벤토리</h3>
+      <button class="inv-close" id="inv-close">&times;</button>
+    </div>
+    <div class="inv-gold" id="inv-gold">0 Gold</div>
+    <div class="equipment-slots" id="equipment-slots">
+      <div class="equip-slot" data-slot="weapon"><span class="slot-label">무기</span></div>
+      <div class="equip-slot" data-slot="helmet"><span class="slot-label">투구</span></div>
+      <div class="equip-slot" data-slot="chestplate"><span class="slot-label">갑옷</span></div>
+      <div class="equip-slot" data-slot="shield"><span class="slot-label">방패</span></div>
+      <div class="equip-slot" data-slot="legs"><span class="slot-label">하의</span></div>
+      <div class="equip-slot" data-slot="boots"><span class="slot-label">신발</span></div>
+      <div class="equip-slot" data-slot="ring"><span class="slot-label">반지</span></div>
+      <div class="equip-slot" data-slot="pendant"><span class="slot-label">목걸이</span></div>
+    </div>
+    <div class="inventory-grid" id="inventory-grid"></div>
+  </div>
+
+  <!-- Shop Panel -->
+  <div id="shop-panel">
+    <div class="shop-header">
+      <h3 id="shop-title">상점</h3>
+      <button class="shop-close" id="shop-close">&times;</button>
+    </div>
+    <div class="shop-items" id="shop-items"></div>
+  </div>
+
+  <!-- Notification Area -->
+  <div id="notification-area"></div>
+
+  <!-- Minimap -->
+  <div id="minimap">
+    <canvas id="minimap-canvas" width="150" height="150"></canvas>
+  </div>
+
+  <!-- Karma Display -->
+  <div id="karma-display">
+    <div class="karma-title" id="karma-title-text">시민</div>
+    <div class="karma-value" id="karma-value-text">카르마: 0</div>
+  </div>
+
+  <!-- Skills Bar -->
+  <div id="skills-bar">
+    <div class="skill-btn" data-skill="0">
+      <span class="skill-icon" id="skill-icon-0">-</span>
+      <span class="skill-key">1</span>
+      <span class="skill-name-label" id="skill-name-0"></span>
+      <div class="cooldown-overlay" id="skill-cd-0"></div>
+    </div>
+    <div class="skill-btn" data-skill="1">
+      <span class="skill-icon" id="skill-icon-1">-</span>
+      <span class="skill-key">2</span>
+      <span class="skill-name-label" id="skill-name-1"></span>
+      <div class="cooldown-overlay" id="skill-cd-1"></div>
+    </div>
+    <div class="skill-btn" data-skill="2">
+      <span class="skill-icon" id="skill-icon-2">-</span>
+      <span class="skill-key">3</span>
+      <span class="skill-name-label" id="skill-name-2"></span>
+      <div class="cooldown-overlay" id="skill-cd-2"></div>
+    </div>
+  </div>
+
+  <!-- Grade Selector -->
+  <div id="grade-selector">
+    <label for="grade-select">학년:</label>
+    <select id="grade-select">
+      <option value="3">3학년</option>
+      <option value="4">4학년</option>
+      <option value="5">5학년</option>
+      <option value="6">6학년</option>
+    </select>
+  </div>
+
+  <!-- Item Tooltip (shared) -->
+  <div class="item-tooltip" id="item-tooltip">
+    <div class="tt-name" id="tt-name"></div>
+    <div class="tt-type" id="tt-type"></div>
+    <div class="tt-stat" id="tt-stats"></div>
+    <div class="tt-desc" id="tt-desc"></div>
+    <div class="tt-price" id="tt-price"></div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
