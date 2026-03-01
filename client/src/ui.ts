@@ -376,7 +376,7 @@ class UIManager {
     }
 
     this.loginError.textContent = "";
-    socket.send(PacketType.LOGIN, { username, password, playerClass });
+    socket.send(PacketType.LOGIN, { name: username, password, playerClass });
   }
 
   private doRegister(): void {
@@ -404,7 +404,7 @@ class UIManager {
     }
 
     this.loginError.textContent = "";
-    socket.send(PacketType.REGISTER, { username, password, playerClass });
+    socket.send(PacketType.REGISTER, { name: username, password, playerClass });
   }
 
   // ================================================
