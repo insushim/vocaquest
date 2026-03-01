@@ -1191,12 +1191,13 @@ class UIManager {
     });
 
     // Stats updates
-    socket.on(PacketType.STATS_UPDATE, (data: PlayerStats) => {
-      this.updateHP(data.hp, data.maxHp);
-      this.updateMP(data.mp, data.maxMp);
-      this.updateEXP(data.exp, data.expToLevel);
-      this.updateLevel(data.level);
-      this.updateGold(data.gold);
+    socket.on(PacketType.STATS_UPDATE, (data: any) => {
+      let s = data.stats || data;
+      this.updateHP(s.hp, s.maxHp);
+      this.updateMP(s.mp, s.maxMp);
+      this.updateEXP(s.exp, s.expToLevel);
+      this.updateLevel(s.level);
+      if (s.gold != null) this.updateGold(s.gold);
     });
 
     // Quiz
@@ -1212,12 +1213,10 @@ class UIManager {
     );
 
     // Inventory & Equipment
-    socket.on(
-      PacketType.INVENTORY_UPDATE,
-      (data: { slots: InventorySlot[]; itemDefs?: Record<string, any> }) => {
-        this.updateInventory(data.slots, data.itemDefs);
-      },
-    );
+    socket.on(PacketType.INVENTORY_UPDATE, (data: any) => {
+      let slots = data.slots || data.inventory || [];
+      this.updateInventory(slots, data.itemDefs);
+    });
 
     socket.on(
       PacketType.EQUIPMENT_UPDATE,

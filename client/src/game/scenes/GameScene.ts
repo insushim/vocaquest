@@ -529,74 +529,80 @@ export class GameScene extends Phaser.Scene {
 
   private setupSocketHandlers(): void {
     // WELCOME: player enters the world
-    socket.on(
-      PacketType.WELCOME,
-      (data: {
-        playerId: string;
-        player: PlayerData;
-        map: MapData;
-        entities: EntityData[];
-      }) => {
-        this.playerId = data.playerId;
-        this.mapData = data.map;
-        this.playerX = data.player.x;
-        this.playerY = data.player.y;
-        this.targetX = data.player.x;
-        this.targetY = data.player.y;
-        this.playerClass = data.player.class;
+    socket.on(PacketType.WELCOME, (data: any) => {
+      this.playerId = data.playerId || data.player?.id;
+      this.mapData = data.map;
+      this.playerX = data.player.x;
+      this.playerY = data.player.y;
+      this.targetX = data.player.x;
+      this.targetY = data.player.y;
+      this.playerClass = data.player.class;
 
-        // Render the tilemap
-        this.renderVisibleTiles();
+      // Render the tilemap
+      this.renderVisibleTiles();
 
-        // Create player sprite
-        this.createPlayerSprite(data.player);
+      // Create player sprite
+      this.createPlayerSprite(data.player);
 
-        // Set up camera
-        const ts = ClientConfig.TILE_SIZE;
-        this.cameras.main.setBounds(
-          0,
-          0,
-          this.mapData.width * ts,
-          this.mapData.height * ts,
-        );
-        this.cameras.main.centerOn(
-          this.playerX * ts + ts / 2,
-          this.playerY * ts + ts / 2,
-        );
+      // Set up camera
+      const ts = ClientConfig.TILE_SIZE;
+      this.cameras.main.setBounds(
+        0,
+        0,
+        this.mapData.width * ts,
+        this.mapData.height * ts,
+      );
+      this.cameras.main.centerOn(
+        this.playerX * ts + ts / 2,
+        this.playerY * ts + ts / 2,
+      );
 
-        // Spawn initial entities
-        for (const entity of data.entities) {
+      // Spawn initial entities (server sends {players:[], mobs:[]} or flat array)
+      let entityList: any[] = [];
+      if (Array.isArray(data.entities)) {
+        entityList = data.entities;
+      } else if (data.entities) {
+        if (data.entities.players) entityList.push(...data.entities.players);
+        if (data.entities.mobs) entityList.push(...data.entities.mobs);
+      }
+      if (data.npcs && Array.isArray(data.npcs)) {
+        for (let npc of data.npcs) {
+          entityList.push({ ...npc, type: "npc" });
+        }
+      }
+      for (const entity of entityList) {
+        if (entity.id !== this.playerId) {
           this.addEntity(entity);
         }
+      }
 
-        // Update UI
-        ui.hideLogin();
-        ui.showHUD();
-        ui.updateSkills(this.playerClass);
+      // Update UI
+      ui.hideLogin();
+      ui.showHUD();
+      ui.updateSkills(this.playerClass);
 
-        if (data.player.stats) {
-          ui.updateHP(data.player.stats.hp, data.player.stats.maxHp);
-          ui.updateMP(data.player.stats.mp, data.player.stats.maxMp);
-          ui.updateEXP(data.player.stats.exp, data.player.stats.expToLevel);
-          ui.updateLevel(data.player.stats.level);
-          ui.updateGold(data.player.stats.gold);
-        }
+      if (data.player.stats) {
+        ui.updateHP(data.player.stats.hp, data.player.stats.maxHp);
+        ui.updateMP(data.player.stats.mp, data.player.stats.maxMp);
+        ui.updateEXP(data.player.stats.exp, data.player.stats.expToLevel);
+        ui.updateLevel(data.player.stats.level);
+        ui.updateGold(data.player.stats.gold);
+      }
 
-        if (data.player.gradeLevel) {
-          ui.setGradeLevel(data.player.gradeLevel);
-        }
+      if (data.player.gradeLevel) {
+        ui.setGradeLevel(data.player.gradeLevel);
+      }
 
-        if (data.player.karma !== undefined) {
-          ui.updateKarma(data.player.karma, data.player.karmaTitle);
-        }
+      if (data.player.karma !== undefined) {
+        ui.updateKarma(data.player.karma, data.player.karmaTitle);
+      }
 
-        ui.addChatMessage(
-          "\uC2DC\uC2A4\uD15C",
-          "VocaQuest Online\uC5D0 \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4!",
-          "system",
-        );
-      },
-    );
+      ui.addChatMessage(
+        "\uC2DC\uC2A4\uD15C",
+        "VocaQuest Online\uC5D0 \uC624\uC2E0 \uAC83\uC744 \uD658\uC601\uD569\uB2C8\uB2E4!",
+        "system",
+      );
+    });
 
     // AUTH_SUCCESS: successful login (server may send welcome separately)
     socket.on(PacketType.AUTH_SUCCESS, () => {
