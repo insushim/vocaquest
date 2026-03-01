@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: vocaquest-online
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: HOST
+        value: "0.0.0.0"
+      - key: PORT
+        value: "10000"
+      - key: NODE_ENV
+        value: "production"
+      - key: SKIP_DATABASE
+        value: "false"
+      - key: MONGODB_URI
+        sync: false

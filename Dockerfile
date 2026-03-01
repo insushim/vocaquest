@@ -10,7 +10,6 @@ COPY client/package.json ./client/
 # Install dependencies
 RUN cd server && npm install
 RUN cd client && npm install
-RUN npm install
 
 # Copy source
 COPY shared/ ./shared/
@@ -37,11 +36,12 @@ COPY --from=builder /app/client/dist/ ./client/dist/
 
 RUN cd server && npm install --omit=dev
 
-EXPOSE 9001
+# Render uses port 10000, configurable via PORT env
+EXPOSE 10000
 
-ENV PORT=9001
 ENV HOST=0.0.0.0
 ENV CLIENT_DIR=../client/dist
-ENV SKIP_DATABASE=true
 
-CMD ["node", "server/dist/server.js"]
+WORKDIR /app/server
+
+CMD ["node", "dist/server.js"]
