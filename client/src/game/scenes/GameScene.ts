@@ -975,156 +975,80 @@ export class GameScene extends Phaser.Scene {
             const tileType = this.mapData.tiles[ty]?.[tx];
             if (tileType === undefined) continue;
 
-            const baseColor = TILE_COLORS[tileType] ?? 0x1a1a2e;
             const px = tx * ts;
             const py = ty * ts;
 
-            // Deterministic pseudo-random per tile for variation
+            // Deterministic hash for color variation
             const hash = ((tx * 2654435761) ^ (ty * 2246822519)) >>> 0;
-            const rand01 = (hash % 1000) / 1000; // 0..1
-            const rand02 = ((hash >> 10) % 1000) / 1000;
-            const rand03 = ((hash >> 20) % 1000) / 1000;
+            const v = (hash % 100) / 100; // 0..1
 
-            // Apply slight color variation to natural tiles
-            let tileColor = baseColor;
+            // Get base color with subtle variation for natural tiles
+            let color = TILE_COLORS[tileType] ?? 0x1a1a2e;
             if (
               tileType === TileType.GRASS ||
               tileType === TileType.DARK_GRASS ||
               tileType === TileType.DIRT ||
-              tileType === TileType.SAND ||
-              tileType === TileType.SNOW
+              tileType === TileType.SAND
             ) {
-              // Vary brightness by +/- 8%
-              const r = (baseColor >> 16) & 0xff;
-              const g = (baseColor >> 8) & 0xff;
-              const b = baseColor & 0xff;
-              const variation = 1.0 + (rand01 - 0.5) * 0.16;
-              const nr = Math.min(255, Math.max(0, Math.round(r * variation)));
-              const ng = Math.min(255, Math.max(0, Math.round(g * variation)));
-              const nb = Math.min(255, Math.max(0, Math.round(b * variation)));
-              tileColor = (nr << 16) | (ng << 8) | nb;
+              const r = (color >> 16) & 0xff;
+              const g = (color >> 8) & 0xff;
+              const b = color & 0xff;
+              const m = 1.0 + (v - 0.5) * 0.12;
+              color =
+                (Math.min(255, (r * m) | 0) << 16) |
+                (Math.min(255, (g * m) | 0) << 8) |
+                Math.min(255, (b * m) | 0);
             }
 
-            this.tileLayer.fillStyle(tileColor, 1);
+            this.tileLayer.fillStyle(color, 1);
             this.tileLayer.fillRect(px, py, ts, ts);
 
-            // Grass decorations: small flowers and pebbles
-            if (
-              tileType === TileType.GRASS ||
-              tileType === TileType.DARK_GRASS
-            ) {
-              // Subtle grass blades / texture lines
-              this.tileLayer.lineStyle(1, 0x3a6b30, 0.15);
-              if (rand01 > 0.3) {
-                const gx = px + rand02 * ts * 0.6 + ts * 0.2;
-                const gy = py + rand03 * ts * 0.6 + ts * 0.2;
-                this.tileLayer.beginPath();
-                this.tileLayer.moveTo(gx, gy);
-                this.tileLayer.lineTo(gx + 2, gy - 4);
-                this.tileLayer.strokePath();
-              }
-              // Small flowers (rare)
-              if (rand01 > 0.85) {
-                const fx = px + rand02 * ts * 0.6 + ts * 0.2;
-                const fy = py + rand03 * ts * 0.6 + ts * 0.2;
-                const flowerColors = [0xffee44, 0xff6688, 0xffffff, 0xcc88ff];
-                const fc = flowerColors[Math.floor(rand02 * 4)];
-                this.tileLayer.fillStyle(fc, 0.8);
-                this.tileLayer.fillCircle(fx, fy, 1.5);
-              }
-              // Small pebbles
-              if (rand01 > 0.7 && rand01 <= 0.85) {
-                const pbx = px + rand03 * ts * 0.5 + ts * 0.25;
-                const pby = py + rand02 * ts * 0.5 + ts * 0.25;
-                this.tileLayer.fillStyle(0x8a8a7a, 0.4);
-                this.tileLayer.fillCircle(pbx, pby, 1.2);
-              }
+            // Tree: darker canopy + trunk
+            if (tileType === TileType.TREE) {
+              this.tileLayer.fillStyle(TREE_TRUNK_COLOR, 1);
+              this.tileLayer.fillRect(
+                px + ts * 0.38,
+                py + ts * 0.55,
+                ts * 0.24,
+                ts * 0.45,
+              );
+              this.tileLayer.fillStyle(0x1e4a12, 1);
+              this.tileLayer.fillCircle(px + ts / 2, py + ts * 0.4, ts * 0.35);
             }
 
-            // Sand: small dots for texture
-            if (tileType === TileType.SAND) {
-              if (rand01 > 0.5) {
-                this.tileLayer.fillStyle(0xc4a95a, 0.3);
-                this.tileLayer.fillCircle(
-                  px + rand02 * ts * 0.8 + ts * 0.1,
-                  py + rand03 * ts * 0.8 + ts * 0.1,
-                  1,
-                );
-              }
-            }
-
-            // Water: wave pattern
+            // Water: lighter highlight strip
             if (tileType === TileType.WATER) {
-              this.tileLayer.lineStyle(1, 0x6ab0e8, 0.25);
-              const waveY1 = py + ts * 0.3;
-              const waveY2 = py + ts * 0.6;
-              this.tileLayer.beginPath();
-              this.tileLayer.moveTo(px + 2, waveY1);
-              this.tileLayer.lineTo(px + ts * 0.25, waveY1 - 2);
-              this.tileLayer.lineTo(px + ts * 0.5, waveY1);
-              this.tileLayer.lineTo(px + ts * 0.75, waveY1 - 2);
-              this.tileLayer.lineTo(px + ts - 2, waveY1);
-              this.tileLayer.strokePath();
-              this.tileLayer.beginPath();
-              this.tileLayer.moveTo(px + ts * 0.1, waveY2);
-              this.tileLayer.lineTo(px + ts * 0.35, waveY2 - 2);
-              this.tileLayer.lineTo(px + ts * 0.6, waveY2);
-              this.tileLayer.lineTo(px + ts * 0.85, waveY2 - 2);
-              this.tileLayer.lineTo(px + ts, waveY2);
-              this.tileLayer.strokePath();
-              // Highlight shimmer
-              this.tileLayer.fillStyle(0xffffff, 0.08);
-              this.tileLayer.fillCircle(
-                px + rand02 * ts * 0.6 + ts * 0.2,
-                py + rand03 * ts * 0.6 + ts * 0.2,
+              this.tileLayer.fillStyle(0x5aa0e0, 0.3);
+              this.tileLayer.fillRect(
+                px + 2,
+                py + ts * 0.3 + ((v * 4) | 0),
+                ts - 4,
+                2,
+              );
+              this.tileLayer.fillRect(
+                px + 6,
+                py + ts * 0.6 + ((v * 3) | 0),
+                ts - 12,
                 2,
               );
             }
 
-            // Stone/wall: cracks and borders
-            if (tileType === TileType.WALL || tileType === TileType.STONE) {
-              this.tileLayer.lineStyle(1, 0x444444, 0.3);
-              this.tileLayer.strokeRect(px, py, ts, ts);
-              // Crack lines
-              if (rand01 > 0.6) {
-                this.tileLayer.lineStyle(1, 0x555555, 0.25);
-                this.tileLayer.beginPath();
-                this.tileLayer.moveTo(
-                  px + rand02 * ts * 0.4 + ts * 0.1,
-                  py + ts * 0.2,
-                );
-                this.tileLayer.lineTo(
-                  px + rand03 * ts * 0.4 + ts * 0.3,
-                  py + ts * 0.5,
-                );
-                this.tileLayer.lineTo(
-                  px + rand02 * ts * 0.3 + ts * 0.4,
-                  py + ts * 0.8,
-                );
-                this.tileLayer.strokePath();
-              }
+            // Wall/stone: border
+            if (
+              tileType === TileType.WALL ||
+              tileType === TileType.STONE ||
+              tileType === TileType.DARK_STONE
+            ) {
+              this.tileLayer.fillStyle(0x000000, 0.15);
+              this.tileLayer.fillRect(px, py, ts, 1);
+              this.tileLayer.fillRect(px, py, 1, ts);
             }
 
-            // Draw tree trunks
-            if (tileType === TileType.TREE) {
-              this.tileLayer.fillStyle(TREE_TRUNK_COLOR, 1);
-              this.tileLayer.fillRect(
-                px + ts * 0.35,
-                py + ts * 0.6,
-                ts * 0.3,
-                ts * 0.4,
-              );
-            }
-
-            // Portal glow effect (static part)
+            // Portal glow
             if (tileType === TileType.PORTAL) {
               this.tileLayer.fillStyle(0xc77dff, 0.3);
               this.tileLayer.fillCircle(px + ts / 2, py + ts / 2, ts * 0.3);
             }
-
-            // Faint grid lines on all tiles for depth
-            this.tileLayer.lineStyle(1, 0x000000, 0.06);
-            this.tileLayer.strokeRect(px, py, ts, ts);
           }
         }
       }
