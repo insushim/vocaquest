@@ -20,6 +20,13 @@ import {
 import { socket } from "../../network";
 import { ui } from "../../ui";
 import { ClientConfig } from "../../config";
+import {
+  generateAllTextures,
+  getPlayerTextureKey,
+  getMobTextureKey,
+  getNpcTextureKey,
+  getTileTextureKey,
+} from "../sprites";
 
 // ---- Tile color palette (dark medieval fantasy) ----
 const TILE_COLORS: Record<number, number> = {
@@ -77,14 +84,17 @@ interface EntityContainerData {
   nameText?: Phaser.GameObjects.Text;
   healthBar?: Phaser.GameObjects.Graphics;
   bodyGraphic?: Phaser.GameObjects.Graphics;
+  bodySprite?: Phaser.GameObjects.Image;
   hp?: number;
   maxHp?: number;
   direction?: Direction;
+  playerClass?: string;
 }
 
 export class GameScene extends Phaser.Scene {
   // ---- Map rendering ----
   private tileLayer: Phaser.GameObjects.Graphics | null = null;
+  private tileImages: Map<string, Phaser.GameObjects.Image> = new Map();
   private tileCache: Map<string, boolean> = new Map();
   private renderedChunks: Set<string> = new Set();
 
@@ -183,6 +193,9 @@ export class GameScene extends Phaser.Scene {
   // ================================================
 
   create(): void {
+    // Pre-render all sprite textures
+    generateAllTextures(this);
+
     // Create the tile layer graphics
     this.tileLayer = this.add.graphics();
     this.tileLayer.setDepth(0);
@@ -252,7 +265,8 @@ export class GameScene extends Phaser.Scene {
         this.playerX = this.targetX;
         this.playerY = this.targetY;
         this.isMoving = false;
-        this.playerSprite.setScale(1, 1); // Reset bob
+        // Switch to idle frame
+        this.swapPlayerTexture(false);
       } else {
         const speed = Math.min(
           dist,
@@ -260,9 +274,17 @@ export class GameScene extends Phaser.Scene {
         );
         this.playerSprite.x += (dx / dist) * speed;
         this.playerSprite.y += (dy / dist) * speed;
-        // Walking bob effect
+        // Walking bob + frame swap
         const bob = Math.sin(this.walkAnimPhase * Math.PI) * 1.5;
         this.playerSprite.y += bob;
+        // Alternate walk frames
+        const walkFrame = Math.floor(this.walkAnimPhase) % 2 === 0;
+        this.swapPlayerTexture(walkFrame);
+        // Flip sprite based on direction
+        const ed = this.playerSprite.getData("entityData") as any;
+        if (ed?.bodySprite) {
+          ed.bodySprite.setFlipX(this.playerDirection === Direction.LEFT);
+        }
       }
     }
 
@@ -969,6 +991,9 @@ export class GameScene extends Phaser.Scene {
           if (this.tileLayer) {
             this.tileLayer.clear();
           }
+          // Destroy all tile images
+          for (const [, img] of this.tileImages) img.destroy();
+          this.tileImages.clear();
           this.clearAllEntities();
           this.renderVisibleTiles();
         }
@@ -1007,11 +1032,23 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
+  /** Swap player sprite between idle and walk textures */
+  private swapPlayerTexture(walking: boolean): void {
+    if (!this.playerSprite) return;
+    const ed = this.playerSprite.getData("entityData") as any;
+    if (!ed?.bodySprite) return;
+    const texKey = getPlayerTextureKey(this.playerClass, walking);
+    if (ed.bodySprite.texture.key !== texKey) {
+      ed.bodySprite.setTexture(texKey);
+    }
+  }
+
   // ================================================
   // Map Rendering
   // ================================================
 
-  /** Render only tiles visible within the camera viewport + buffer */
+  /** Render only tiles visible within the camera viewport + buffer.
+   *  Uses pre-rendered tile textures stamped via drawImage for performance. */
   private renderVisibleTiles(): void {
     if (!this.mapData || !this.tileLayer) return;
 
@@ -1055,263 +1092,18 @@ export class GameScene extends Phaser.Scene {
             const tileType = this.mapData.tiles[ty]?.[tx];
             if (tileType === undefined) continue;
 
+            const tileKey = `${tx},${ty}`;
+            if (this.tileImages.has(tileKey)) continue;
+
             const px = tx * ts;
             const py = ty * ts;
 
-            // Deterministic hash for variation
-            const hash = ((tx * 2654435761) ^ (ty * 2246822519)) >>> 0;
-            const v = (hash % 100) / 100;
-            const h2 = ((tx * 1597334677) ^ (ty * 3812015801)) >>> 0;
-            const v2 = (h2 % 100) / 100;
-
-            // Base color with variation
-            let color = TILE_COLORS[tileType] ?? 0x0a0a18;
-            const isNatural =
-              tileType === TileType.GRASS ||
-              tileType === TileType.DARK_GRASS ||
-              tileType === TileType.DIRT ||
-              tileType === TileType.SAND ||
-              tileType === TileType.SWAMP ||
-              tileType === TileType.SNOW;
-            if (isNatural) {
-              const r = (color >> 16) & 0xff;
-              const g = (color >> 8) & 0xff;
-              const b = color & 0xff;
-              const m = 1.0 + (v - 0.5) * 0.18;
-              color =
-                (Math.min(255, (r * m) | 0) << 16) |
-                (Math.min(255, (g * m) | 0) << 8) |
-                Math.min(255, (b * m) | 0);
-            }
-
-            this.tileLayer.fillStyle(color, 1);
-            this.tileLayer.fillRect(px, py, ts, ts);
-
-            // ---- Detailed tile decorations ----
-            const detailColor = TILE_DETAIL_COLORS[tileType];
-
-            if (
-              tileType === TileType.GRASS ||
-              tileType === TileType.DARK_GRASS
-            ) {
-              // Grass tufts - small vertical lines
-              if (v > 0.3) {
-                const gc = detailColor || 0x3a6a2e;
-                this.tileLayer.fillStyle(gc, 0.6);
-                const cx1 = px + v * ts * 0.7 + 2;
-                const cy1 = py + v2 * ts * 0.6 + 4;
-                this.tileLayer.fillRect(cx1, cy1, 1, 4);
-                this.tileLayer.fillRect(cx1 + 2, cy1 + 1, 1, 3);
-              }
-              if (v2 > 0.5) {
-                this.tileLayer.fillStyle(0x4a8a3a, 0.4);
-                const cx2 = px + v2 * ts * 0.5 + 8;
-                const cy2 = py + v * ts * 0.5 + 8;
-                this.tileLayer.fillRect(cx2, cy2, 1, 3);
-              }
-              // Occasional flower/mushroom
-              if (v > 0.88) {
-                const fc = v2 > 0.5 ? 0xcc8844 : 0x886644;
-                this.tileLayer.fillStyle(fc, 0.5);
-                this.tileLayer.fillCircle(
-                  px + v2 * 20 + 6,
-                  py + v * 18 + 6,
-                  1.5,
-                );
-              }
-            }
-
-            if (tileType === TileType.DIRT) {
-              // Small pebbles
-              if (v > 0.4) {
-                this.tileLayer.fillStyle(0x4a3a22, 0.4);
-                this.tileLayer.fillCircle(
-                  px + v * 24 + 4,
-                  py + v2 * 20 + 6,
-                  1.5,
-                );
-              }
-              if (v2 > 0.6) {
-                this.tileLayer.fillStyle(0x6a5a42, 0.3);
-                this.tileLayer.fillCircle(px + v2 * 18 + 8, py + v * 22 + 4, 1);
-              }
-            }
-
-            if (tileType === TileType.SAND) {
-              // Sand ripple lines
-              this.tileLayer.fillStyle(0x9a8a5a, 0.2);
-              const ry = py + ((v * 8) | 0) + 6;
-              this.tileLayer.fillRect(px + 3, ry, ts - 6, 1);
-              if (v2 > 0.5) {
-                this.tileLayer.fillRect(px + 6, ry + 8, ts - 12, 1);
-              }
-            }
-
-            if (tileType === TileType.TREE) {
-              // Root area - darker ground
-              this.tileLayer.fillStyle(0x1a2a12, 1);
-              this.tileLayer.fillRect(px + 2, py + ts * 0.7, ts - 4, ts * 0.3);
-              // Trunk with bark texture
-              this.tileLayer.fillStyle(TREE_TRUNK_COLOR, 1);
-              this.tileLayer.fillRect(
-                px + ts * 0.35,
-                py + ts * 0.35,
-                ts * 0.3,
-                ts * 0.55,
-              );
-              // Bark detail
-              this.tileLayer.fillStyle(0x2a1a08, 0.4);
-              this.tileLayer.fillRect(px + ts * 0.38, py + ts * 0.42, 2, 6);
-              this.tileLayer.fillRect(px + ts * 0.52, py + ts * 0.5, 2, 5);
-              // Canopy - multiple overlapping circles for fullness
-              this.tileLayer.fillStyle(0x1a4a0e, 1);
-              this.tileLayer.fillCircle(
-                px + ts * 0.38,
-                py + ts * 0.3,
-                ts * 0.28,
-              );
-              this.tileLayer.fillCircle(
-                px + ts * 0.62,
-                py + ts * 0.32,
-                ts * 0.26,
-              );
-              this.tileLayer.fillCircle(
-                px + ts * 0.5,
-                py + ts * 0.22,
-                ts * 0.3,
-              );
-              // Lighter leaf highlights
-              this.tileLayer.fillStyle(0x2a5a1e, 0.6);
-              this.tileLayer.fillCircle(
-                px + ts * 0.45,
-                py + ts * 0.18,
-                ts * 0.14,
-              );
-            }
-
-            if (tileType === TileType.WATER) {
-              // Dark water depth
-              this.tileLayer.fillStyle(0x0e3a5e, 0.4);
-              this.tileLayer.fillRect(px + 1, py + 1, ts - 2, ts - 2);
-              // Wave highlights
-              this.tileLayer.fillStyle(0x3a7aaa, 0.25);
-              const wy1 = py + ts * 0.25 + ((v * 6) | 0);
-              this.tileLayer.fillRect(px + 3, wy1, ts * 0.6, 1);
-              this.tileLayer.fillStyle(0x4a8aba, 0.2);
-              const wy2 = py + ts * 0.6 + ((v2 * 5) | 0);
-              this.tileLayer.fillRect(px + 8, wy2, ts * 0.4, 1);
-              // Edge foam (check adjacent tiles)
-              const aboveTile = this.mapData.tiles[ty - 1]?.[tx];
-              if (aboveTile !== undefined && aboveTile !== TileType.WATER) {
-                this.tileLayer.fillStyle(0x6aaacc, 0.3);
-                this.tileLayer.fillRect(px, py, ts, 3);
-              }
-            }
-
-            if (tileType === TileType.LAVA) {
-              // Bright core
-              this.tileLayer.fillStyle(0xcc4400, 0.5);
-              this.tileLayer.fillCircle(
-                px + ts * 0.4 + v * 8,
-                py + ts * 0.5,
-                ts * 0.2,
-              );
-              this.tileLayer.fillStyle(0xff8800, 0.3);
-              this.tileLayer.fillCircle(
-                px + ts * 0.6,
-                py + ts * 0.3 + v2 * 6,
-                ts * 0.12,
-              );
-            }
-
-            if (
-              tileType === TileType.WALL ||
-              tileType === TileType.STONE ||
-              tileType === TileType.DARK_STONE
-            ) {
-              // Brick/stone pattern
-              this.tileLayer.fillStyle(0x000000, 0.2);
-              this.tileLayer.fillRect(px, py, ts, 1);
-              this.tileLayer.fillRect(px, py, 1, ts);
-              // Mortar line in middle
-              this.tileLayer.fillRect(px, py + ts / 2, ts, 1);
-              // Vertical mortar (offset per row)
-              const offset = ty % 2 === 0 ? ts * 0.4 : ts * 0.8;
-              this.tileLayer.fillRect(px + offset, py, 1, ts / 2);
-              this.tileLayer.fillRect(
-                px + ((offset + ts * 0.5) % ts),
-                py + ts / 2,
-                1,
-                ts / 2,
-              );
-              // Stone highlight
-              this.tileLayer.fillStyle(0xffffff, 0.05);
-              this.tileLayer.fillRect(px + 2, py + 2, ts * 0.3, 1);
-            }
-
-            if (tileType === TileType.FLOOR) {
-              // Flagstone pattern
-              this.tileLayer.fillStyle(0x000000, 0.12);
-              this.tileLayer.fillRect(px, py, ts, 1);
-              this.tileLayer.fillRect(px, py, 1, ts);
-              // Subtle wear marks
-              if (v > 0.7) {
-                this.tileLayer.fillStyle(0x5a4e3a, 0.3);
-                this.tileLayer.fillCircle(px + v2 * 20 + 6, py + v * 18 + 6, 2);
-              }
-            }
-
-            if (tileType === TileType.BRIDGE) {
-              // Plank lines
-              this.tileLayer.fillStyle(0x3a2a0a, 0.3);
-              for (let p = 0; p < 4; p++) {
-                this.tileLayer.fillRect(px, py + p * 8 + 1, ts, 1);
-              }
-              // Railing dots at edges
-              this.tileLayer.fillStyle(0x4a3a1a, 0.5);
-              this.tileLayer.fillRect(px, py, 2, ts);
-              this.tileLayer.fillRect(px + ts - 2, py, 2, ts);
-            }
-
-            if (tileType === TileType.SWAMP) {
-              // Murky bubbles
-              if (v > 0.6) {
-                this.tileLayer.fillStyle(0x3a4a2a, 0.4);
-                this.tileLayer.fillCircle(px + v * 22 + 5, py + v2 * 20 + 6, 2);
-              }
-              // Dark patches
-              this.tileLayer.fillStyle(0x1a2a0e, 0.3);
-              this.tileLayer.fillCircle(px + v2 * 18 + 8, py + v * 16 + 8, 4);
-            }
-
-            if (tileType === TileType.PORTAL) {
-              // Outer glow ring
-              this.tileLayer.fillStyle(0x8a4aaa, 0.25);
-              this.tileLayer.fillCircle(px + ts / 2, py + ts / 2, ts * 0.45);
-              // Inner bright core
-              this.tileLayer.fillStyle(0xaa6acc, 0.4);
-              this.tileLayer.fillCircle(px + ts / 2, py + ts / 2, ts * 0.25);
-              // Center spark
-              this.tileLayer.fillStyle(0xddaaff, 0.5);
-              this.tileLayer.fillCircle(px + ts / 2, py + ts / 2, ts * 0.1);
-            }
-
-            if (tileType === TileType.SNOW) {
-              // Snow sparkle
-              if (v > 0.7) {
-                this.tileLayer.fillStyle(0xffffff, 0.3);
-                this.tileLayer.fillCircle(px + v * 24 + 4, py + v2 * 22 + 5, 1);
-              }
-            }
-
-            if (tileType === TileType.ICE) {
-              // Crack lines
-              this.tileLayer.fillStyle(0x8abace, 0.3);
-              this.tileLayer.fillRect(px + v * 20 + 2, py + 4, 1, ts * 0.4);
-              if (v2 > 0.5) {
-                this.tileLayer.fillRect(px + v2 * 16 + 8, py + 12, ts * 0.3, 1);
-              }
-            }
+            // Create an Image from pre-rendered tile texture
+            const texKey = getTileTextureKey(tileType);
+            const img = this.add.image(px + ts / 2, py + ts / 2, texKey);
+            img.setDepth(0);
+            img.setDisplaySize(ts, ts);
+            this.tileImages.set(tileKey, img);
           }
         }
       }
@@ -1500,12 +1292,26 @@ export class GameScene extends Phaser.Scene {
     );
     container.setDepth(10);
 
-    const body = this.add.graphics();
-    this.drawHumanoid(body, ts, data.class, true);
-    container.add(body);
+    // Use pixel art sprite texture
+    const texKey = getPlayerTextureKey(data.class);
+    const bodySprite = this.add.image(0, -8, texKey);
+    bodySprite.setScale(1.4); // Make character 1.4x for visibility
+    container.add(bodySprite);
 
-    // Name text (higher for bigger sprite)
-    const nameText = this.add.text(0, -ts * 0.7, data.name, {
+    // Shadow under character
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x000000, 0.3);
+    shadow.fillEllipse(0, ts * 0.25, ts * 0.5, ts * 0.15);
+    container.addAt(shadow, 0);
+
+    // Golden selection ring for local player
+    const ring = this.add.graphics();
+    ring.lineStyle(1.5, 0xffd700, 0.5);
+    ring.strokeEllipse(0, ts * 0.25, ts * 0.6, ts * 0.2);
+    container.addAt(ring, 0);
+
+    // Name text
+    const nameText = this.add.text(0, -ts * 0.85, data.name, {
       fontSize: "12px",
       color: "#ffd700",
       fontStyle: "bold",
@@ -1514,6 +1320,13 @@ export class GameScene extends Phaser.Scene {
     });
     nameText.setOrigin(0.5, 1);
     container.add(nameText);
+
+    container.setData("entityData", {
+      id: data.id || this.playerId,
+      type: EntityType.PLAYER,
+      bodySprite,
+      playerClass: data.class,
+    } as any);
 
     this.playerSprite = container;
   }
@@ -1527,11 +1340,18 @@ export class GameScene extends Phaser.Scene {
     );
     container.setDepth(8);
 
-    const body = this.add.graphics();
-    this.drawHumanoid(body, ts, data.class, false);
-    container.add(body);
+    const texKey = getPlayerTextureKey(data.class);
+    const bodySprite = this.add.image(0, -8, texKey);
+    bodySprite.setScale(1.4);
+    container.add(bodySprite);
 
-    const nameText = this.add.text(0, -ts * 0.7, data.name, {
+    // Shadow
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x000000, 0.25);
+    shadow.fillEllipse(0, ts * 0.25, ts * 0.5, ts * 0.15);
+    container.addAt(shadow, 0);
+
+    const nameText = this.add.text(0, -ts * 0.85, data.name, {
       fontSize: "11px",
       color: "#e8d5b0",
       fontStyle: "bold",
@@ -1550,7 +1370,8 @@ export class GameScene extends Phaser.Scene {
       currentX: data.x * ts + ts / 2,
       currentY: data.y * ts + ts / 2,
       nameText,
-      bodyGraphic: body,
+      bodySprite,
+      playerClass: data.class,
     } as EntityContainerData);
 
     this.otherPlayers.set(data.id, container);
@@ -2066,19 +1887,28 @@ export class GameScene extends Phaser.Scene {
     );
     container.setDepth(6);
 
-    const sizeMultiplier = data.isBoss ? 1.2 : 0.9;
-    const halfSize = ts * 0.35 * sizeMultiplier;
+    const sizeMultiplier = data.isBoss ? 1.5 : 1.1;
+    const halfSize = ts * 0.4 * sizeMultiplier;
 
-    const body = this.add.graphics();
-    this.drawMonster(
-      body,
-      ts,
-      data.mobId || data.id,
-      data.level || 1,
-      !!data.isBoss,
-      data.behavior || "",
-    );
-    container.add(body);
+    // Use pixel art mob texture
+    const texKey = getMobTextureKey(data.mobId || data.id);
+    const bodySprite = this.add.image(0, -4, texKey);
+    bodySprite.setScale(sizeMultiplier);
+    container.add(bodySprite);
+
+    // Shadow
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x000000, 0.25);
+    shadow.fillEllipse(0, ts * 0.2, ts * 0.4 * sizeMultiplier, ts * 0.12);
+    container.addAt(shadow, 0);
+
+    // Boss golden aura
+    if (data.isBoss) {
+      const aura = this.add.graphics();
+      aura.lineStyle(2, 0xffcc00, 0.6);
+      aura.strokeEllipse(0, 0, ts * 0.9, ts * 0.7);
+      container.addAt(aura, 0);
+    }
 
     // Name + level text (prefer Korean name)
     const displayName = (data as any).nameKo || data.name || "\uBAB9";
@@ -2111,7 +1941,7 @@ export class GameScene extends Phaser.Scene {
       currentY: data.y * ts + ts / 2,
       nameText,
       healthBar,
-      bodyGraphic: body,
+      bodySprite,
       hp: data.hp,
       maxHp: data.maxHp,
     } as EntityContainerData);
@@ -2207,13 +2037,20 @@ export class GameScene extends Phaser.Scene {
     );
     container.setDepth(7);
 
-    const body = this.add.graphics();
-    // Use npcId for color detection, nameKo for display
-    this.drawNpc(body, ts, (data as any).npcId || data.name || "NPC");
-    container.add(body);
+    // Use pixel art NPC texture
+    const texKey = getNpcTextureKey((data as any).npcId || data.name || "NPC");
+    const bodySprite = this.add.image(0, -8, texKey);
+    bodySprite.setScale(1.4);
+    container.add(bodySprite);
+
+    // Shadow
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x000000, 0.25);
+    shadow.fillEllipse(0, ts * 0.25, ts * 0.5, ts * 0.15);
+    container.addAt(shadow, 0);
 
     const displayName = (data as any).nameKo || data.name || "NPC";
-    const nameText = this.add.text(0, -ts * 0.7, displayName, {
+    const nameText = this.add.text(0, -ts * 0.85, displayName, {
       fontSize: "11px",
       color: "#ffd700",
       fontStyle: "bold",
@@ -2231,7 +2068,7 @@ export class GameScene extends Phaser.Scene {
       currentX: data.x * ts + ts / 2,
       currentY: data.y * ts + ts / 2,
       nameText,
-      bodyGraphic: body,
+      bodySprite,
     } as EntityContainerData);
 
     this.npcs.set(data.id, container);
