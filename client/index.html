@@ -1053,6 +1053,605 @@
       background: var(--border-gold-dim);
       border-radius: 3px;
     }
+
+    /* --- Stat Allocation Panel --- */
+    #stat-panel {
+      position: fixed;
+      top: 50%;
+      right: 20px;
+      transform: translateY(-50%);
+      width: 240px;
+      background: var(--bg-darker);
+      border: 2px solid var(--border-gold);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      z-index: 350;
+      display: none;
+      flex-direction: column;
+      padding: 12px;
+    }
+
+    #stat-panel.visible {
+      display: flex;
+    }
+
+    .stat-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .stat-panel-header h3 {
+      font-size: 14px;
+      color: var(--border-gold);
+      margin: 0;
+    }
+
+    .stat-points-display {
+      font-size: 12px;
+      color: var(--accent-green);
+    }
+
+    .stat-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(200,168,78,0.15);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-warm);
+      flex: 1;
+    }
+
+    .stat-value {
+      font-size: 13px;
+      color: var(--text-bright);
+      width: 30px;
+      text-align: center;
+    }
+
+    .stat-add-btn {
+      width: 24px;
+      height: 24px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-gold-dim);
+      border-radius: 4px;
+      color: var(--accent-green);
+      font-size: 14px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .stat-add-btn:hover {
+      background: var(--border-gold-dim);
+      color: #fff;
+    }
+
+    /* --- Enhance Panel --- */
+    #enhance-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 360px;
+      max-width: 90vw;
+      background: var(--bg-darker);
+      border: 2px solid var(--accent-orange);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow), 0 0 20px rgba(255,152,0,0.2);
+      z-index: 450;
+      display: none;
+      flex-direction: column;
+      padding: 20px;
+    }
+
+    #enhance-panel.visible {
+      display: flex;
+    }
+
+    .enhance-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .enhance-header h3 {
+      font-size: 16px;
+      color: var(--accent-orange);
+      margin: 0;
+    }
+
+    .enhance-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .enhance-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    .enhance-slots {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .enhance-slot {
+      width: 80px;
+      height: 80px;
+      background: var(--bg-panel);
+      border: 2px dashed var(--border-gold-dim);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 11px;
+      color: var(--text-dim);
+      transition: var(--transition);
+    }
+
+    .enhance-slot.filled {
+      border-style: solid;
+      border-color: var(--border-gold);
+    }
+
+    .enhance-slot .item-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+
+    .enhance-arrow {
+      font-size: 24px;
+      color: var(--accent-orange);
+      font-weight: bold;
+    }
+
+    .enhance-btn {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #ff9800, #e65100);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .enhance-btn:hover {
+      background: linear-gradient(135deg, #ffb74d, #ff9800);
+      box-shadow: 0 0 15px rgba(255,152,0,0.4);
+    }
+
+    .enhance-result {
+      text-align: center;
+      font-size: 14px;
+      font-weight: bold;
+      margin-top: 12px;
+      min-height: 20px;
+    }
+
+    .enhance-result.success {
+      color: var(--accent-green);
+    }
+
+    .enhance-result.fail {
+      color: var(--accent-red);
+    }
+
+    /* --- Enhancement indicator on inventory items --- */
+    .item-enhance {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      font-size: 10px;
+      color: var(--accent-orange);
+      font-weight: bold;
+      text-shadow: 0 0 4px rgba(255,152,0,0.5);
+    }
+
+    /* --- Stat panel button in HUD --- */
+    .hud-stat-btn {
+      position: absolute;
+      bottom: -24px;
+      right: 0;
+      font-size: 11px;
+      color: var(--border-gold);
+      background: var(--bg-panel);
+      border: 1px solid var(--border-gold-dim);
+      border-radius: 4px;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+
+    .hud-stat-btn:hover {
+      background: var(--border-gold-dim);
+      color: #fff;
+    }
+
+    /* --- Character Creation Stats --- */
+    .class-preview {
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-gold-dim);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .class-preview-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .class-preview-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.4;
+      text-align: left;
+    }
+
+    .creation-stats {
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--accent-green);
+      border-radius: 6px;
+    }
+
+    .creation-stats-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--text-warm);
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(200,168,78,0.2);
+    }
+
+    .creation-points-left {
+      color: var(--accent-green);
+      font-weight: 600;
+    }
+
+    .creation-stat-row {
+      display: flex;
+      align-items: center;
+      padding: 3px 0;
+      gap: 6px;
+    }
+
+    .cs-label {
+      flex: 1;
+      font-size: 12px;
+      color: var(--text-warm);
+    }
+
+    .cs-btn {
+      width: 24px;
+      height: 24px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-gold-dim);
+      border-radius: 4px;
+      color: var(--text-warm);
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+    }
+
+    .cs-btn:hover {
+      background: var(--border-gold-dim);
+      color: #fff;
+    }
+
+    .cs-value {
+      width: 28px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-bright);
+    }
+
+    .creation-recommended {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--accent-blue);
+      font-style: italic;
+    }
+
+    /* --- Auto-Attack Toggle --- */
+    .hud-auto-attack {
+      position: absolute;
+      bottom: -48px;
+      right: 0;
+      font-size: 11px;
+      color: var(--text-dim);
+      background: var(--bg-panel);
+      border: 1px solid var(--border-gold-dim);
+      border-radius: 4px;
+      padding: 2px 8px;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .hud-auto-attack.active {
+      color: var(--accent-green);
+      border-color: var(--accent-green);
+    }
+
+    /* --- Kill Combo Display --- */
+    #combo-display {
+      position: fixed;
+      top: 50%;
+      right: 20px;
+      transform: translateY(-50%);
+      z-index: 150;
+      text-align: center;
+      pointer-events: none;
+      display: none;
+    }
+
+    #combo-display.visible {
+      display: block;
+    }
+
+    .combo-count {
+      font-size: 36px;
+      font-weight: 900;
+      color: var(--accent-orange);
+      text-shadow: 0 0 20px rgba(255,152,0,0.6), 2px 2px 4px rgba(0,0,0,0.8);
+      animation: comboPulse 0.3s ease;
+    }
+
+    .combo-label {
+      font-size: 14px;
+      color: var(--accent-orange);
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+    }
+
+    .combo-bonus {
+      font-size: 12px;
+      color: var(--accent-green);
+      margin-top: 4px;
+    }
+
+    @keyframes comboPulse {
+      0% { transform: scale(1.5); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1.0); }
+    }
+
+    /* --- Death Screen Overlay --- */
+    #death-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(80, 0, 0, 0.7);
+      z-index: 800;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+
+    #death-screen.visible {
+      display: flex;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .death-title {
+      font-size: 48px;
+      font-weight: 900;
+      color: var(--accent-red);
+      text-shadow: 0 0 30px rgba(244,67,54,0.5);
+      margin-bottom: 12px;
+    }
+
+    .death-message {
+      font-size: 16px;
+      color: var(--text-warm);
+      margin-bottom: 8px;
+    }
+
+    .death-penalty {
+      font-size: 14px;
+      color: var(--accent-orange);
+      margin-bottom: 24px;
+    }
+
+    .death-respawn-btn {
+      padding: 14px 40px;
+      background: linear-gradient(135deg, #c8a84e, #a08030);
+      border: 2px solid var(--border-gold);
+      border-radius: 8px;
+      color: #1a1a2e;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .death-respawn-btn:hover {
+      background: linear-gradient(135deg, #dab85e, #b89040);
+      box-shadow: 0 0 20px rgba(200,168,78,0.5);
+    }
+
+    .death-timer {
+      font-size: 14px;
+      color: var(--text-dim);
+      margin-top: 12px;
+    }
+
+    /* --- Zone Name Display --- */
+    #zone-name {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 120;
+      text-align: center;
+      pointer-events: none;
+      display: none;
+    }
+
+    #zone-name.visible {
+      display: block;
+      animation: zoneFadeInOut 3s ease forwards;
+    }
+
+    .zone-name-text {
+      font-size: 32px;
+      font-weight: 900;
+      color: var(--border-gold);
+      text-shadow: 0 0 20px rgba(200,168,78,0.5), 2px 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .zone-level-text {
+      font-size: 14px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    @keyframes zoneFadeInOut {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      15% { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+      75% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* --- Potion Quick Slot --- */
+    #potion-quickslot {
+      position: fixed;
+      bottom: 76px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      gap: 6px;
+      z-index: 100;
+    }
+
+    #potion-quickslot.visible {
+      display: flex;
+    }
+
+    .potion-slot {
+      width: 40px;
+      height: 40px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-gold-dim);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .potion-slot:hover {
+      border-color: var(--border-gold);
+    }
+
+    .potion-slot .potion-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+    }
+
+    .potion-slot .potion-count {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-bright);
+      position: absolute;
+      bottom: 1px;
+      right: 3px;
+    }
+
+    .potion-slot .potion-key {
+      position: absolute;
+      top: 1px;
+      left: 3px;
+      font-size: 8px;
+      color: var(--text-dim);
+    }
+
+    /* --- Boss Announcement --- */
+    #boss-announce {
+      position: fixed;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 900;
+      text-align: center;
+      pointer-events: none;
+      display: none;
+    }
+
+    #boss-announce.visible {
+      display: block;
+      animation: bossAnnounce 4s ease forwards;
+    }
+
+    .boss-announce-text {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--accent-red);
+      text-shadow: 0 0 30px rgba(244,67,54,0.8), 2px 2px 6px rgba(0,0,0,0.9);
+      letter-spacing: 3px;
+    }
+
+    .boss-announce-sub {
+      font-size: 16px;
+      color: var(--accent-orange);
+      margin-top: 6px;
+    }
+
+    @keyframes bossAnnounce {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(2); }
+      10% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* --- Login card wider for stat allocation --- */
+    .login-card {
+      width: 420px;
+    }
   </style>
 </head>
 <body>
@@ -1075,9 +1674,55 @@
       <label for="login-class">직업 선택</label>
       <select id="login-class">
         <option value="warrior">전사 (Warrior)</option>
+        <option value="knight">기사 (Knight)</option>
         <option value="mage">마법사 (Mage)</option>
         <option value="archer">궁수 (Archer)</option>
       </select>
+
+      <!-- Class preview -->
+      <div id="class-preview" class="class-preview">
+        <div class="class-preview-icon" id="class-preview-icon"></div>
+        <div class="class-preview-desc" id="class-preview-desc">근접 물리 전투 전문가. 높은 HP와 공격력.</div>
+      </div>
+
+      <!-- Initial stat allocation (register only) -->
+      <div id="creation-stats" class="creation-stats" style="display:none;">
+        <div class="creation-stats-header">
+          <span>초기 스탯 배분</span>
+          <span class="creation-points-left">남은 포인트: <span id="creation-points">10</span></span>
+        </div>
+        <div class="creation-stat-row">
+          <span class="cs-label">STR (힘)</span>
+          <button class="cs-btn" data-cstat="str" data-dir="-1">-</button>
+          <span class="cs-value" id="cs-str">0</span>
+          <button class="cs-btn" data-cstat="str" data-dir="1">+</button>
+        </div>
+        <div class="creation-stat-row">
+          <span class="cs-label">DEX (민첩)</span>
+          <button class="cs-btn" data-cstat="dex" data-dir="-1">-</button>
+          <span class="cs-value" id="cs-dex">0</span>
+          <button class="cs-btn" data-cstat="dex" data-dir="1">+</button>
+        </div>
+        <div class="creation-stat-row">
+          <span class="cs-label">INT (지능)</span>
+          <button class="cs-btn" data-cstat="int" data-dir="-1">-</button>
+          <span class="cs-value" id="cs-int">0</span>
+          <button class="cs-btn" data-cstat="int" data-dir="1">+</button>
+        </div>
+        <div class="creation-stat-row">
+          <span class="cs-label">CON (체력)</span>
+          <button class="cs-btn" data-cstat="con" data-dir="-1">-</button>
+          <span class="cs-value" id="cs-con">0</span>
+          <button class="cs-btn" data-cstat="con" data-dir="1">+</button>
+        </div>
+        <div class="creation-stat-row">
+          <span class="cs-label">WIS (지혜)</span>
+          <button class="cs-btn" data-cstat="wis" data-dir="-1">-</button>
+          <span class="cs-value" id="cs-wis">0</span>
+          <button class="cs-btn" data-cstat="wis" data-dir="1">+</button>
+        </div>
+        <div class="creation-recommended" id="creation-recommended">추천: 전사는 STR/CON에 집중</div>
+      </div>
 
       <div class="login-buttons">
         <button class="btn-login" id="btn-login">로그인</button>
@@ -1103,6 +1748,50 @@
       <div class="hud-bar-text"><span id="exp-text">0 / 100</span></div>
     </div>
     <div class="hud-gold" id="hud-gold">0 Gold</div>
+    <button class="hud-stat-btn" id="hud-stat-btn">스탯(T)</button>
+    <button class="hud-auto-attack" id="hud-auto-attack">자동공격(A): OFF</button>
+  </div>
+
+  <!-- Kill Combo Display -->
+  <div id="combo-display">
+    <div class="combo-count" id="combo-count">0</div>
+    <div class="combo-label">COMBO!</div>
+    <div class="combo-bonus" id="combo-bonus">+0% EXP</div>
+  </div>
+
+  <!-- Death Screen -->
+  <div id="death-screen">
+    <div class="death-title">YOU DIED</div>
+    <div class="death-message" id="death-message">사망했습니다</div>
+    <div class="death-penalty" id="death-penalty">경험치 5% 손실</div>
+    <button class="death-respawn-btn" id="death-respawn-btn">부활하기</button>
+    <div class="death-timer" id="death-timer"></div>
+  </div>
+
+  <!-- Zone Name Display -->
+  <div id="zone-name">
+    <div class="zone-name-text" id="zone-name-text"></div>
+    <div class="zone-level-text" id="zone-level-text"></div>
+  </div>
+
+  <!-- Boss Announcement -->
+  <div id="boss-announce">
+    <div class="boss-announce-text" id="boss-announce-text"></div>
+    <div class="boss-announce-sub" id="boss-announce-sub"></div>
+  </div>
+
+  <!-- Potion Quick Slot -->
+  <div id="potion-quickslot">
+    <div class="potion-slot" id="potion-hp" data-potion="health">
+      <span class="potion-key">F1</span>
+      <div class="potion-icon" style="background:#e53935;"></div>
+      <span class="potion-count" id="potion-hp-count">0</span>
+    </div>
+    <div class="potion-slot" id="potion-mp" data-potion="mana">
+      <span class="potion-key">F2</span>
+      <div class="potion-icon" style="background:#1e88e5;"></div>
+      <span class="potion-count" id="potion-mp-count">0</span>
+    </div>
   </div>
 
   <!-- Quiz Popup -->
@@ -1195,6 +1884,82 @@
       <span class="skill-key">3</span>
       <span class="skill-name-label" id="skill-name-2"></span>
       <div class="cooldown-overlay" id="skill-cd-2"></div>
+    </div>
+    <div class="skill-btn" data-skill="3">
+      <span class="skill-icon" id="skill-icon-3">-</span>
+      <span class="skill-key">4</span>
+      <span class="skill-name-label" id="skill-name-3"></span>
+      <div class="cooldown-overlay" id="skill-cd-3"></div>
+    </div>
+    <div class="skill-btn" data-skill="4">
+      <span class="skill-icon" id="skill-icon-4">-</span>
+      <span class="skill-key">5</span>
+      <span class="skill-name-label" id="skill-name-4"></span>
+      <div class="cooldown-overlay" id="skill-cd-4"></div>
+    </div>
+    <div class="skill-btn" data-skill="5">
+      <span class="skill-icon" id="skill-icon-5">-</span>
+      <span class="skill-key">6</span>
+      <span class="skill-name-label" id="skill-name-5"></span>
+      <div class="cooldown-overlay" id="skill-cd-5"></div>
+    </div>
+  </div>
+
+  <!-- Stat Allocation Panel -->
+  <div id="stat-panel">
+    <div class="stat-panel-header">
+      <h3>스탯 배분</h3>
+      <span class="stat-points-display">포인트: <span id="stat-points">0</span></span>
+      <button class="stat-close" id="stat-close">&times;</button>
+    </div>
+    <div class="stat-rows">
+      <div class="stat-row">
+        <span class="stat-label">STR (힘)</span>
+        <span class="stat-value" id="stat-str">0</span>
+        <button class="stat-add-btn" data-stat="str">+</button>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">DEX (민첩)</span>
+        <span class="stat-value" id="stat-dex">0</span>
+        <button class="stat-add-btn" data-stat="dex">+</button>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">INT (지능)</span>
+        <span class="stat-value" id="stat-int">0</span>
+        <button class="stat-add-btn" data-stat="int">+</button>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">CON (체력)</span>
+        <span class="stat-value" id="stat-con">0</span>
+        <button class="stat-add-btn" data-stat="con">+</button>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">WIS (지혜)</span>
+        <span class="stat-value" id="stat-wis">0</span>
+        <button class="stat-add-btn" data-stat="wis">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enhance Panel -->
+  <div id="enhance-panel">
+    <div class="enhance-header">
+      <h3>장비 강화</h3>
+      <button class="enhance-close" id="enhance-close">&times;</button>
+    </div>
+    <div class="enhance-body">
+      <p class="enhance-desc">강화할 장비와 강화 주문서를 선택하세요.</p>
+      <div class="enhance-slots">
+        <div class="enhance-slot" id="enhance-item-slot">
+          <span>장비</span>
+        </div>
+        <span class="enhance-arrow">+</span>
+        <div class="enhance-slot" id="enhance-scroll-slot">
+          <span>주문서</span>
+        </div>
+      </div>
+      <button class="enhance-btn" id="enhance-btn">강화하기</button>
+      <div class="enhance-result" id="enhance-result-text"></div>
     </div>
   </div>
 

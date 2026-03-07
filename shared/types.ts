@@ -34,6 +34,7 @@ export enum PacketType {
   STATS_UPDATE = "stats_update",
   LEVEL_UP = "level_up",
   EXP_GAIN = "exp_gain",
+  ALLOCATE_STAT = "allocate_stat",
 
   // Quiz
   QUIZ_SHOW = "quiz_show",
@@ -50,6 +51,10 @@ export enum PacketType {
   PICKUP_ITEM = "pickup_item",
   USE_ITEM = "use_item",
   LOOT_DROP = "loot_drop",
+
+  // Enhancement
+  ENHANCE_ITEM = "enhance_item",
+  ENHANCE_RESULT = "enhance_result",
 
   // Shop
   SHOP_OPEN = "shop_open",
@@ -72,6 +77,10 @@ export enum PacketType {
   ENTITY_LIST = "entity_list",
   MOB_SPAWN = "mob_spawn",
   NPC_INTERACT = "npc_interact",
+
+  // Status Effects
+  STATUS_EFFECT = "status_effect",
+  STATUS_REMOVE = "status_remove",
 
   // Ping
   PING = "ping",
@@ -111,8 +120,26 @@ export interface EntityData {
 // ---- Player ----
 export enum PlayerClass {
   WARRIOR = "warrior",
+  KNIGHT = "knight",
   MAGE = "mage",
   ARCHER = "archer",
+}
+
+// Stat allocation types
+export enum StatType {
+  STR = "str",
+  DEX = "dex",
+  INT = "int",
+  CON = "con",
+  WIS = "wis",
+}
+
+export interface AllocatedStats {
+  [StatType.STR]: number;
+  [StatType.DEX]: number;
+  [StatType.INT]: number;
+  [StatType.CON]: number;
+  [StatType.WIS]: number;
 }
 
 export interface PlayerStats {
@@ -127,6 +154,16 @@ export interface PlayerStats {
   expToLevel: number;
   level: number;
   gold: number;
+  // Extended combat stats
+  critRate: number; // % chance (0-100)
+  critDamage: number; // multiplier (e.g. 1.5 = 150%)
+  dodgeRate: number; // % chance (0-100)
+  attackSpeed: number; // attacks per second
+  magicAttack: number; // for mage scaling
+  magicDefense: number;
+  // Stat points
+  statPoints: number;
+  allocatedStats: AllocatedStats;
 }
 
 export interface PlayerData extends EntityData {
@@ -137,6 +174,30 @@ export interface PlayerData extends EntityData {
   karmaTitle: string;
   gradeLevel: number;
   equipment: EquipmentSlots;
+}
+
+// ---- Status Effects ----
+export enum StatusEffectType {
+  POISON = "poison",
+  STUN = "stun",
+  SLOW = "slow",
+  CURSE = "curse",
+  BLEED = "bleed",
+  BURN = "burn",
+  FREEZE = "freeze",
+  BLIND = "blind",
+  SHIELD_BUFF = "shield_buff",
+  ATTACK_BUFF = "attack_buff",
+  SPEED_BUFF = "speed_buff",
+  REGEN_BUFF = "regen_buff",
+  MAGIC_BARRIER = "magic_barrier",
+}
+
+export interface StatusEffect {
+  type: StatusEffectType;
+  duration: number; // ms remaining
+  value: number; // effect magnitude
+  sourceId: string; // who applied it
 }
 
 // ---- Mob ----
@@ -177,6 +238,15 @@ export interface MobDefinition {
   width: number;
   height: number;
   zone: string;
+  magicAttack?: number;
+  magicDefense?: number;
+  critRate?: number;
+  statusEffects?: {
+    type: StatusEffectType;
+    chance: number;
+    duration: number;
+    value: number;
+  }[];
 }
 
 // ---- Items ----
@@ -193,6 +263,7 @@ export enum ItemType {
   MATERIAL = "material",
   QUEST = "quest",
   TOOL = "tool",
+  SCROLL = "scroll",
 }
 
 export enum EquipSlot {
@@ -206,17 +277,36 @@ export enum EquipSlot {
   PENDANT = "pendant",
 }
 
+// Weapon sub-types
+export enum WeaponType {
+  SWORD = "sword",
+  TWO_HANDED_SWORD = "two_handed_sword",
+  STAFF = "staff",
+  BOW = "bow",
+  DAGGER = "dagger",
+  SPEAR = "spear",
+  AXE_WEAPON = "axe_weapon",
+  MACE = "mace",
+}
+
 export interface ItemDefinition {
   id: string;
   name: string;
   nameKo: string;
   type: ItemType;
   equipSlot?: EquipSlot;
+  weaponType?: WeaponType;
   attack?: number;
   defense?: number;
   hp?: number;
   mp?: number;
   speed?: number;
+  critRate?: number;
+  critDamage?: number;
+  dodgeRate?: number;
+  attackSpeed?: number;
+  magicAttack?: number;
+  magicDefense?: number;
   healAmount?: number;
   mpRestore?: number;
   price: number;
@@ -227,11 +317,20 @@ export interface ItemDefinition {
   stackable: boolean;
   color: string;
   classReq?: PlayerClass;
+  enhanceable?: boolean;
+  maxEnhance?: number;
+  // Scroll-specific
+  scrollType?: "enhance" | "teleport" | "return" | "buff";
+  buffType?: StatusEffectType;
+  buffDuration?: number;
+  buffValue?: number;
+  teleportZone?: string;
 }
 
 export interface InventorySlot {
   itemId: string;
   count: number;
+  enhancement?: number; // +0 ~ +10
 }
 
 export interface EquipmentSlots {
@@ -245,12 +344,43 @@ export interface EquipmentSlots {
   [EquipSlot.PENDANT]: string | null;
 }
 
+// Enhancement levels for equipped items
+export interface EquipmentEnhancements {
+  [EquipSlot.WEAPON]: number;
+  [EquipSlot.HELMET]: number;
+  [EquipSlot.CHESTPLATE]: number;
+  [EquipSlot.LEGS]: number;
+  [EquipSlot.BOOTS]: number;
+  [EquipSlot.SHIELD]: number;
+  [EquipSlot.RING]: number;
+  [EquipSlot.PENDANT]: number;
+}
+
 export interface LootDrop {
   itemId: string;
   chance: number;
   minCount: number;
   maxCount: number;
 }
+
+// ---- Enhancement System ----
+export const ENHANCE_MAX = 10;
+export const ENHANCE_SUCCESS_RATES: number[] = [
+  1.0, // +0 -> +1: 100%
+  0.9, // +1 -> +2: 90%
+  0.8, // +2 -> +3: 80%
+  0.7, // +3 -> +4: 70%
+  0.6, // +4 -> +5: 60%
+  0.5, // +5 -> +6: 50%
+  0.4, // +6 -> +7: 40%
+  0.33, // +7 -> +8: 33%
+  0.25, // +8 -> +9: 25%
+  0.2, // +9 -> +10: 20%
+];
+// Destruction starts at +4 and above on failure
+export const ENHANCE_DESTROY_THRESHOLD = 4;
+// Downgrade by 1 on failure below threshold
+export const ENHANCE_DOWNGRADE_ON_FAIL = true;
 
 // ---- Map ----
 export enum TileType {
@@ -322,6 +452,7 @@ export enum NpcType {
   SHOP = "shop",
   QUEST = "quest",
   INFO = "info",
+  ENHANCE = "enhance",
 }
 
 export interface NpcDefinition {
@@ -407,14 +538,32 @@ export enum SkillId {
   SLASH = "slash",
   SHIELD_BASH = "shield_bash",
   WAR_CRY = "war_cry",
+  BERSERK = "berserk",
+  GROUND_SLAM = "ground_slam",
+  WHIRLWIND = "whirlwind",
+  // Knight
+  HOLY_STRIKE = "holy_strike",
+  DIVINE_SHIELD = "divine_shield",
+  PROVOKE = "provoke",
+  HOLY_BLESSING = "holy_blessing",
+  JUDGMENT = "judgment",
+  GUARDIAN_AURA = "guardian_aura",
   // Mage
   FIREBALL = "fireball",
   ICE_BLAST = "ice_blast",
   HEAL = "heal",
+  LIGHTNING_BOLT = "lightning_bolt",
+  METEOR = "meteor",
+  MAGIC_BARRIER = "magic_barrier",
+  TELEPORT_SPELL = "teleport_spell",
+  CURSE_SPELL = "curse_spell",
   // Archer
   POWER_SHOT = "power_shot",
   MULTI_SHOT = "multi_shot",
   EVASION = "evasion",
+  POISON_ARROW = "poison_arrow",
+  EXPLOSIVE_ARROW = "explosive_arrow",
+  EAGLE_EYE = "eagle_eye",
 }
 
 export interface SkillDefinition {
@@ -433,13 +582,16 @@ export interface SkillDefinition {
   aoeRadius?: number;
   healAmount?: number;
   buffDuration?: number;
+  statusEffect?: StatusEffectType;
+  statusDuration?: number;
+  statusValue?: number;
 }
 
 // ---- Constants ----
 export const TILE_SIZE = 32;
 export const TICK_RATE = 20;
 export const TICK_INTERVAL = 1000 / TICK_RATE;
-export const MAX_INVENTORY_SLOTS = 20;
+export const MAX_INVENTORY_SLOTS = 28;
 export const MAX_CHAT_LENGTH = 200;
 export const QUIZ_TIME_LIMIT = 15000;
 export const QUIZ_OPTIONS_COUNT = 4;
@@ -450,7 +602,23 @@ export const KARMA_LOSS_PER_KILL = 50;
 export const KARMA_GAIN_PER_MOB = 1;
 export const EXP_BASE = 100;
 export const EXP_GROWTH = 1.5;
+export const STAT_POINTS_PER_LEVEL = 3;
+export const MAX_LEVEL = 50;
 
 export function expForLevel(level: number): number {
   return Math.floor(EXP_BASE * Math.pow(level, EXP_GROWTH));
 }
+
+// Stat point effects
+export const STAT_EFFECTS = {
+  [StatType.STR]: { attack: 1, hp: 3 },
+  [StatType.DEX]: {
+    dodgeRate: 0.3,
+    critRate: 0.2,
+    attackSpeed: 0.02,
+    speed: 0.1,
+  },
+  [StatType.INT]: { magicAttack: 1.5, mp: 5, magicDefense: 0.5 },
+  [StatType.CON]: { hp: 8, defense: 0.5, magicDefense: 0.3 },
+  [StatType.WIS]: { mp: 8, magicDefense: 0.8, healAmount: 0.02 },
+};

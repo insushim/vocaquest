@@ -47,6 +47,7 @@ const TREE_TRUNK_COLOR = 0x6b4423;
 // ---- Class colors ----
 const CLASS_COLORS: Record<string, number> = {
   [PlayerClass.WARRIOR]: 0xf44336,
+  [PlayerClass.KNIGHT]: 0x42a5f5,
   [PlayerClass.MAGE]: 0x7e57c2,
   [PlayerClass.ARCHER]: 0x4caf50,
 };
@@ -109,6 +110,16 @@ export class GameScene extends Phaser.Scene {
   private key1: Phaser.Input.Keyboard.Key | null = null;
   private key2: Phaser.Input.Keyboard.Key | null = null;
   private key3: Phaser.Input.Keyboard.Key | null = null;
+  private key4: Phaser.Input.Keyboard.Key | null = null;
+  private key5: Phaser.Input.Keyboard.Key | null = null;
+  private key6: Phaser.Input.Keyboard.Key | null = null;
+  private keyT: Phaser.Input.Keyboard.Key | null = null;
+  private keyF1: Phaser.Input.Keyboard.Key | null = null;
+  private keyF2: Phaser.Input.Keyboard.Key | null = null;
+
+  // ---- Auto attack ----
+  private autoAttackTimer: number = 0;
+  private autoAttackInterval: number = 1500;
 
   // ---- Visual effects ----
   private damageTexts: {
@@ -258,6 +269,50 @@ export class GameScene extends Phaser.Scene {
       this.minimapTimer = 0;
       this.updateMinimap();
     }
+
+    // ---- Update player position for zone tracking ----
+    ui.updatePlayerPosition(this.playerX, this.playerY);
+
+    // ---- Auto-attack ----
+    if (ui.isAutoAttack() && this.selectedTarget) {
+      this.autoAttackTimer += delta;
+      if (this.autoAttackTimer >= this.autoAttackInterval) {
+        this.autoAttackTimer = 0;
+        const targetContainer = this.mobs.get(this.selectedTarget);
+        if (targetContainer) {
+          socket.send(PacketType.ATTACK, { targetId: this.selectedTarget });
+        } else {
+          // Target gone, find nearest mob
+          this.autoSelectNearestMob();
+        }
+      }
+    }
+  }
+
+  /** Auto-select nearest mob for auto-attack */
+  private autoSelectNearestMob(): void {
+    if (!this.playerSprite) return;
+    let closestId: string | null = null;
+    let closestDist = Infinity;
+    const ts = ClientConfig.TILE_SIZE;
+    const attackRange = ts * 3;
+
+    for (const [id, container] of this.mobs) {
+      const dx = container.x - this.playerSprite.x;
+      const dy = container.y - this.playerSprite.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < attackRange && dist < closestDist) {
+        closestDist = dist;
+        closestId = id;
+      }
+    }
+
+    if (closestId) {
+      this.selectedTarget = closestId;
+      socket.send(PacketType.ATTACK, { targetId: closestId });
+    } else {
+      this.selectedTarget = null;
+    }
   }
 
   // ================================================
@@ -287,6 +342,12 @@ export class GameScene extends Phaser.Scene {
     this.key3 = this.input.keyboard.addKey(
       Phaser.Input.Keyboard.KeyCodes.THREE,
     );
+    this.key4 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR);
+    this.key5 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE);
+    this.key6 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SIX);
+    this.keyT = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T);
+    this.keyF1 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F1);
+    this.keyF2 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F2);
 
     // Keyboard handlers (only when chat not focused)
     this.keyI.on("down", () => {
@@ -311,6 +372,26 @@ export class GameScene extends Phaser.Scene {
     });
     this.key3.on("down", () => {
       if (!ui.isChatFocused()) ui.useSkill(2);
+    });
+    this.key4.on("down", () => {
+      if (!ui.isChatFocused()) ui.useSkill(3);
+    });
+    this.key5.on("down", () => {
+      if (!ui.isChatFocused()) ui.useSkill(4);
+    });
+    this.key6.on("down", () => {
+      if (!ui.isChatFocused()) ui.useSkill(5);
+    });
+    this.keyT.on("down", () => {
+      if (!ui.isChatFocused()) ui.toggleStatPanel();
+    });
+    this.keyF1.on("down", (e: KeyboardEvent) => {
+      e.preventDefault();
+      if (!ui.isChatFocused()) ui.useQuickPotionByKey("health");
+    });
+    this.keyF2.on("down", (e: KeyboardEvent) => {
+      e.preventDefault();
+      if (!ui.isChatFocused()) ui.useQuickPotionByKey("mana");
     });
 
     // Click to move / interact
@@ -549,8 +630,8 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.setBounds(
         0,
         0,
-        this.mapData.width * ts,
-        this.mapData.height * ts,
+        this.mapData!.width * ts,
+        this.mapData!.height * ts,
       );
       this.cameras.main.centerOn(
         this.playerX * ts + ts / 2,
@@ -595,6 +676,11 @@ export class GameScene extends Phaser.Scene {
 
       if (data.player.karma !== undefined) {
         ui.updateKarma(data.player.karma, data.player.karmaTitle);
+      }
+
+      // Pass zone data for zone name display
+      if (data.map && data.map.zones) {
+        ui.setMapZones(data.map.zones);
       }
 
       ui.addChatMessage(
@@ -664,14 +750,38 @@ export class GameScene extends Phaser.Scene {
     );
 
     // MOB_SPAWN: new mob appeared
-    socket.on(PacketType.MOB_SPAWN, (data: MobData) => {
-      this.addEntity(data);
+    socket.on(PacketType.MOB_SPAWN, (data: any) => {
+      const mobData: MobData = data.mob || data;
+      this.addEntity(mobData);
+      // Boss spawn announcement
+      if (mobData.behavior === MobBehavior.BOSS && mobData.nameKo) {
+        ui.showBossAnnouncement(mobData.nameKo, "");
+      }
     });
 
     // ENTITY_DEATH: entity died
     socket.on(
       PacketType.ENTITY_DEATH,
-      (data: { id: string; killerName?: string }) => {
+      (data: {
+        id: string;
+        killerName?: string;
+        killerId?: string;
+        expLost?: number;
+      }) => {
+        // Check if the local player died
+        if (data.id === this.playerId) {
+          ui.showDeathScreen(data.expLost);
+          if (this.playerSprite) {
+            this.playerSprite.setAlpha(0.3);
+          }
+          return;
+        }
+
+        // Mob/player died — if we killed it, add combo
+        if (data.killerId === this.playerId) {
+          ui.addCombo();
+        }
+
         const container = this.findContainer(data.id);
         if (container) {
           this.playDeathAnimation(container);
@@ -788,20 +898,33 @@ export class GameScene extends Phaser.Scene {
     );
 
     // RESPAWN
-    socket.on(PacketType.RESPAWN, (data: { x: number; y: number }) => {
-      const ts = ClientConfig.TILE_SIZE;
-      this.playerX = data.x;
-      this.playerY = data.y;
-      this.targetX = data.x;
-      this.targetY = data.y;
-      this.isMoving = false;
+    socket.on(
+      PacketType.RESPAWN,
+      (data: { x: number; y: number; stats?: any }) => {
+        const ts = ClientConfig.TILE_SIZE;
+        this.playerX = data.x;
+        this.playerY = data.y;
+        this.targetX = data.x;
+        this.targetY = data.y;
+        this.isMoving = false;
 
-      if (this.playerSprite) {
-        this.playerSprite.x = data.x * ts + ts / 2;
-        this.playerSprite.y = data.y * ts + ts / 2;
-        this.playerSprite.setAlpha(1);
-      }
-    });
+        if (this.playerSprite) {
+          this.playerSprite.x = data.x * ts + ts / 2;
+          this.playerSprite.y = data.y * ts + ts / 2;
+          this.playerSprite.setAlpha(1);
+        }
+
+        // Update stats after respawn
+        if (data.stats) {
+          ui.updateHP(data.stats.hp, data.stats.maxHp);
+          ui.updateMP(data.stats.mp, data.stats.maxMp);
+          ui.updateEXP(data.stats.exp, data.stats.expToLevel);
+        }
+
+        ui.hideDeathScreen();
+        this.selectedTarget = null;
+      },
+    );
   }
 
   // ================================================

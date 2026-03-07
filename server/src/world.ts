@@ -301,6 +301,7 @@ export class World {
     targetId: string,
     targetType: EntityType,
     damage: number,
+    isCrit: boolean = false,
   ): void {
     this.broadcast(PacketType.COMBAT_HIT, {
       attackerId,
@@ -308,13 +309,21 @@ export class World {
       targetId,
       targetType,
       damage,
+      isCrit,
     });
   }
 
-  broadcastEntityDeath(entityId: string, entityType: EntityType): void {
+  broadcastEntityDeath(
+    entityId: string,
+    entityType: EntityType,
+    killerId?: string,
+    expLost?: number,
+  ): void {
     this.broadcast(PacketType.ENTITY_DEATH, {
       id: entityId,
       type: entityType,
+      killerId,
+      expLost,
     });
   }
 

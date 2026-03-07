@@ -79,6 +79,50 @@ let zones: MapZone[] = [
     levelRange: [20, 30],
     bgColor: "#1A0A2E",
   },
+  {
+    id: "volcanic_cavern",
+    name: "Volcanic Cavern",
+    nameKo: "화산 동굴",
+    x: 5,
+    y: 80,
+    width: 35,
+    height: 40,
+    levelRange: [30, 35],
+    bgColor: "#4A1500",
+  },
+  {
+    id: "ancient_ruins",
+    name: "Ancient Ruins",
+    nameKo: "고대 유적",
+    x: 80,
+    y: 42,
+    width: 40,
+    height: 36,
+    levelRange: [35, 40],
+    bgColor: "#4A3B2A",
+  },
+  {
+    id: "abyssal_depths",
+    name: "Abyssal Depths",
+    nameKo: "심연의 깊이",
+    x: 80,
+    y: 160,
+    width: 40,
+    height: 35,
+    levelRange: [40, 45],
+    bgColor: "#0A001A",
+  },
+  {
+    id: "dragons_sanctum",
+    name: "Dragon's Sanctum",
+    nameKo: "드래곤의 성소",
+    x: 160,
+    y: 160,
+    width: 35,
+    height: 35,
+    levelRange: [45, 50],
+    bgColor: "#3A1500",
+  },
 ];
 
 // ---- Seeded RNG for deterministic maps ----
@@ -244,6 +288,74 @@ export function generateMap(): MapData {
     }
   }
 
+  // Volcanic Cavern: dark stone with lava
+  for (let y = 80; y < 120; y++) {
+    for (let x = 5; x < 40; x++) {
+      tiles[y][x] = TileType.DARK_STONE;
+    }
+  }
+  for (let y = 80; y < 120; y++) {
+    for (let x = 5; x < 40; x++) {
+      if (rng() < 0.08) {
+        tiles[y][x] = TileType.LAVA;
+      }
+    }
+  }
+  // Volcanic Cavern walls (cave walls)
+  for (let y = 80; y < 120; y++) {
+    for (let x = 5; x < 40; x++) {
+      if (rng() < 0.04) {
+        tiles[y][x] = TileType.WALL;
+      }
+    }
+  }
+
+  // Ancient Ruins: stone floor with walls scattered
+  for (let y = 42; y < 78; y++) {
+    for (let x = 80; x < 120; x++) {
+      tiles[y][x] = TileType.STONE;
+    }
+  }
+  for (let y = 42; y < 78; y++) {
+    for (let x = 80; x < 120; x++) {
+      if (rng() < 0.06) {
+        tiles[y][x] = TileType.WALL;
+      } else if (rng() < 0.03) {
+        tiles[y][x] = TileType.DARK_STONE;
+      }
+    }
+  }
+
+  // Abyssal Depths: dark stone and swamp
+  for (let y = 160; y < 195; y++) {
+    for (let x = 80; x < 120; x++) {
+      tiles[y][x] = rng() < 0.3 ? TileType.SWAMP : TileType.DARK_STONE;
+    }
+  }
+  for (let y = 160; y < 195; y++) {
+    for (let x = 80; x < 120; x++) {
+      if (rng() < 0.03) {
+        tiles[y][x] = TileType.LAVA;
+      }
+    }
+  }
+
+  // Dragon's Sanctum: lava and dark stone fortress
+  for (let y = 160; y < 195; y++) {
+    for (let x = 160; x < 195; x++) {
+      tiles[y][x] = TileType.DARK_STONE;
+    }
+  }
+  for (let y = 160; y < 195; y++) {
+    for (let x = 160; x < 195; x++) {
+      if (rng() < 0.1) {
+        tiles[y][x] = TileType.LAVA;
+      } else if (rng() < 0.04) {
+        tiles[y][x] = TileType.WALL;
+      }
+    }
+  }
+
   // ---- Water features ----
   // Lake between town and meadow
   placeWaterFeature(tiles, 78, 100, 3);
@@ -343,6 +455,48 @@ export function generateMap(): MapData {
     { mobId: "death_knight", x: 150, y: 105, count: 2, radius: 7 },
     { mobId: "death_knight", x: 170, y: 90, count: 2, radius: 6 },
     { mobId: "dark_overlord", x: 160, y: 100, count: 1, radius: 3 },
+
+    // Volcanic Cavern
+    { mobId: "flame_imp", x: 15, y: 90, count: 4, radius: 7 },
+    { mobId: "flame_imp", x: 30, y: 100, count: 3, radius: 6 },
+    { mobId: "magma_golem", x: 20, y: 95, count: 3, radius: 7 },
+    { mobId: "magma_golem", x: 35, y: 110, count: 2, radius: 6 },
+    { mobId: "fire_drake", x: 25, y: 100, count: 2, radius: 8 },
+    { mobId: "fire_drake", x: 15, y: 110, count: 2, radius: 6 },
+    { mobId: "obsidian_knight", x: 30, y: 90, count: 2, radius: 7 },
+    { mobId: "obsidian_knight", x: 20, y: 105, count: 2, radius: 6 },
+    { mobId: "infernal_guardian", x: 22, y: 100, count: 1, radius: 3 },
+
+    // Ancient Ruins
+    { mobId: "cursed_mage", x: 90, y: 52, count: 3, radius: 7 },
+    { mobId: "cursed_mage", x: 105, y: 65, count: 2, radius: 6 },
+    { mobId: "stone_guardian", x: 95, y: 55, count: 3, radius: 7 },
+    { mobId: "stone_guardian", x: 110, y: 50, count: 2, radius: 6 },
+    { mobId: "phantom", x: 100, y: 60, count: 2, radius: 8 },
+    { mobId: "phantom", x: 85, y: 70, count: 2, radius: 6 },
+    { mobId: "rune_knight", x: 105, y: 55, count: 2, radius: 7 },
+    { mobId: "rune_knight", x: 90, y: 68, count: 2, radius: 6 },
+    { mobId: "ancient_dragon", x: 100, y: 60, count: 1, radius: 3 },
+
+    // Abyssal Depths
+    { mobId: "abyss_watcher", x: 90, y: 170, count: 3, radius: 7 },
+    { mobId: "abyss_watcher", x: 105, y: 180, count: 2, radius: 6 },
+    { mobId: "void_serpent", x: 95, y: 175, count: 2, radius: 8 },
+    { mobId: "void_serpent", x: 110, y: 170, count: 2, radius: 6 },
+    { mobId: "chaos_demon", x: 100, y: 180, count: 2, radius: 7 },
+    { mobId: "chaos_demon", x: 85, y: 185, count: 2, radius: 6 },
+    { mobId: "nightmare", x: 95, y: 185, count: 2, radius: 7 },
+    { mobId: "nightmare", x: 110, y: 175, count: 2, radius: 6 },
+    { mobId: "abyss_lord", x: 100, y: 178, count: 1, radius: 3 },
+
+    // Dragon's Sanctum
+    { mobId: "elder_wyrm", x: 170, y: 170, count: 3, radius: 7 },
+    { mobId: "elder_wyrm", x: 185, y: 180, count: 2, radius: 6 },
+    { mobId: "celestial_guardian", x: 175, y: 175, count: 2, radius: 7 },
+    { mobId: "celestial_guardian", x: 180, y: 185, count: 2, radius: 6 },
+    { mobId: "void_dragon", x: 180, y: 175, count: 2, radius: 8 },
+    { mobId: "void_dragon", x: 170, y: 185, count: 2, radius: 6 },
+    { mobId: "dragon_emperor", x: 178, y: 178, count: 1, radius: 3 },
   ];
 
   // Ensure spawn points are on walkable tiles
@@ -369,7 +523,13 @@ export function generateMap(): MapData {
               tiles[spawn.y][spawn.x] = TileType.SNOW;
               break;
             case "shadow_realm":
+            case "volcanic_cavern":
+            case "abyssal_depths":
+            case "dragons_sanctum":
               tiles[spawn.y][spawn.x] = TileType.DARK_STONE;
+              break;
+            case "ancient_ruins":
+              tiles[spawn.y][spawn.x] = TileType.STONE;
               break;
             default:
               tiles[spawn.y][spawn.x] = TileType.GRASS;
@@ -392,6 +552,8 @@ export function generateMap(): MapData {
     { npcId: "potion_brewer", x: 110, y: 110 },
     { npcId: "jeweler", x: 95, y: 100 },
     { npcId: "elite_merchant", x: 105, y: 100 },
+    { npcId: "blacksmith", x: 100, y: 105 },
+    { npcId: "scroll_merchant", x: 95, y: 105 },
   ];
 
   // Ensure NPC locations are walkable

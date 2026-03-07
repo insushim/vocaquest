@@ -40,6 +40,9 @@ export class Mob {
   respawnTimer: number | null;
   isDead: boolean;
 
+  // Status effects
+  statusEffects: Map<string, { type: string; endsAt: number; value: number }>;
+
   // Internal AI timers
   private roamCooldown: number;
   private moveCooldown: number;
@@ -63,6 +66,33 @@ export class Mob {
     this.isDead = false;
     this.roamCooldown = 0;
     this.moveCooldown = 0;
+    this.statusEffects = new Map();
+  }
+
+  applyStatusEffect(type: string, duration: number, value: number): void {
+    this.statusEffects.set(type, {
+      type,
+      endsAt: Date.now() + duration,
+      value,
+    });
+  }
+
+  isStunned(): boolean {
+    let stun = this.statusEffects.get("stun");
+    return !!stun && Date.now() < stun.endsAt;
+  }
+
+  updateStatusEffects(): void {
+    let now = Date.now();
+    let expired: string[] = [];
+    for (let [key, effect] of this.statusEffects) {
+      if (now >= effect.endsAt) {
+        expired.push(key);
+      }
+    }
+    for (let key of expired) {
+      this.statusEffects.delete(key);
+    }
   }
 
   update(world: World, deltaTime: number): void {
@@ -74,8 +104,18 @@ export class Mob {
       return;
     }
 
+    this.updateStatusEffects();
     this.roamCooldown -= deltaTime;
     this.moveCooldown -= deltaTime;
+
+    // Stunned mobs can't act
+    if (this.isStunned()) return;
+
+    // Slowed mobs move slower
+    let slowEffect = this.statusEffects.get("slow");
+    if (slowEffect && Date.now() < slowEffect.endsAt) {
+      this.moveCooldown += deltaTime * 0.5; // 50% slower movement
+    }
 
     switch (this.state) {
       case "idle":
@@ -224,7 +264,22 @@ export class Mob {
         this.target.id,
         EntityType.PLAYER,
         actualDamage,
+        false,
       );
+
+      // Apply mob status effects
+      if (this.definition.statusEffects) {
+        for (let se of this.definition.statusEffects) {
+          if (Math.random() < se.chance) {
+            this.target.applyStatusEffect(
+              se.type,
+              se.duration,
+              se.value,
+              this.id,
+            );
+          }
+        }
+      }
 
       if (this.target.isDead) {
         this.target = null;
@@ -292,7 +347,7 @@ export class Mob {
     killer.connection.send("stats_update", { stats: killer.stats });
 
     // Broadcast death
-    world.broadcastEntityDeath(this.id, EntityType.MOB);
+    world.broadcastEntityDeath(this.id, EntityType.MOB, killer.id);
 
     // Roll loot drops and start quiz
     let drops = this.rollDrops();

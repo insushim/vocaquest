@@ -10,12 +10,14 @@ import type {
   VocabWord,
   SkillDefinition,
   LootDrop,
+  StatusEffect,
 } from "../../shared/types";
 import {
   PacketType,
   EntityType,
   SkillId,
   PlayerClass,
+  StatusEffectType,
   KARMA_LOSS_PER_KILL,
   KARMA_GAIN_PER_MOB,
   QUIZ_OPTIONS_COUNT,
@@ -35,38 +37,159 @@ let vocabData = vocabJson as VocabData;
 // ---- Combat System ----
 
 export let CombatSystem = {
-  calculateDamage(attackerAtk: number, defenderDef: number): number {
+  calculateDamage(
+    attackerAtk: number,
+    defenderDef: number,
+    critRate: number = 0,
+    critDamage: number = 1.5,
+  ): { damage: number; isCrit: boolean } {
     let base = attackerAtk - Math.floor(defenderDef / 2);
     let variance = Math.floor(Math.random() * 7) - 3; // -3 to +3
-    return Math.max(1, base + variance);
+    let damage = Math.max(1, base + variance);
+
+    // Critical hit check
+    let isCrit = Math.random() * 100 < critRate;
+    if (isCrit) {
+      damage = Math.floor(damage * critDamage);
+    }
+
+    return { damage, isCrit };
+  },
+
+  calculateMagicDamage(
+    magicAtk: number,
+    magicDef: number,
+    skillMultiplier: number,
+    critRate: number = 0,
+    critDamage: number = 1.5,
+  ): { damage: number; isCrit: boolean } {
+    let base = magicAtk * skillMultiplier - Math.floor(magicDef / 3);
+    let variance = Math.floor(Math.random() * 5) - 2;
+    let damage = Math.max(1, Math.floor(base) + variance);
+
+    let isCrit = Math.random() * 100 < critRate;
+    if (isCrit) {
+      damage = Math.floor(damage * critDamage);
+    }
+
+    return { damage, isCrit };
   },
 
   calculateSkillDamage(
     player: Player,
     skill: SkillDefinition,
     targetDef: number,
-  ): number {
+    targetMagicDef: number = 0,
+  ): { damage: number; isCrit: boolean } {
+    let isMagicSkill =
+      player.playerClass === PlayerClass.MAGE ||
+      skill.id === SkillId.HOLY_STRIKE ||
+      skill.id === SkillId.JUDGMENT ||
+      skill.id === SkillId.HOLY_BLESSING;
+
+    if (isMagicSkill && player.stats.magicAttack > player.stats.attack) {
+      return this.calculateMagicDamage(
+        player.stats.magicAttack,
+        targetMagicDef,
+        skill.damage,
+        player.stats.critRate,
+        player.stats.critDamage,
+      );
+    }
+
     let baseDamage = player.stats.attack - Math.floor(targetDef / 2);
     let skillDamage = Math.floor(baseDamage * skill.damage);
     let variance = Math.floor(Math.random() * 5) - 2;
-    return Math.max(1, skillDamage + variance);
+    let damage = Math.max(1, skillDamage + variance);
+
+    let isCrit = Math.random() * 100 < player.stats.critRate;
+    if (isCrit) {
+      damage = Math.floor(damage * player.stats.critDamage);
+    }
+
+    return { damage, isCrit };
+  },
+
+  applyStatusEffect(
+    skill: SkillDefinition,
+    targetId: string,
+    attackerId: string,
+    world: World,
+  ): void {
+    if (!skill.statusEffect || !skill.statusDuration) return;
+
+    // For mob targets
+    let mob = world.mobs.get(targetId);
+    if (mob && !mob.isDead) {
+      // Mobs can be stunned/slowed (simplified - just broadcast the effect)
+      if (
+        skill.statusEffect === StatusEffectType.STUN ||
+        skill.statusEffect === StatusEffectType.SLOW
+      ) {
+        mob.applyStatusEffect(
+          skill.statusEffect,
+          skill.statusDuration,
+          skill.statusValue || 0,
+        );
+      }
+    }
+
+    // For player targets (PvP)
+    let targetPlayer = world.players.get(targetId);
+    if (targetPlayer && !targetPlayer.isDead) {
+      targetPlayer.applyStatusEffect(
+        skill.statusEffect,
+        skill.statusDuration,
+        skill.statusValue || 0,
+        attackerId,
+      );
+    }
+
+    // Broadcast status effect
+    world.broadcast(PacketType.STATUS_EFFECT, {
+      targetId,
+      effectType: skill.statusEffect,
+      duration: skill.statusDuration,
+      value: skill.statusValue || 0,
+    });
   },
 
   processAttack(attacker: Player, targetId: string, world: World): void {
+    // Check if player is stunned
+    if (attacker.isStunned()) {
+      attacker.connection.send(PacketType.NOTIFICATION, {
+        message: "You are stunned!",
+        messageKo: "기절 상태입니다!",
+      });
+      return;
+    }
+
     // Find target - could be mob or player
     let mob = world.mobs.get(targetId);
     if (mob && !mob.isDead) {
-      // Check range (1 tile for melee)
+      // Check range based on class
+      let maxRange = 2;
+      if (attacker.playerClass === PlayerClass.ARCHER) maxRange = 6;
+      if (attacker.playerClass === PlayerClass.MAGE) maxRange = 5;
+
       let dist = Math.abs(attacker.x - mob.x) + Math.abs(attacker.y - mob.y);
-      if (dist > 2) return;
+      if (dist > maxRange) return;
 
       if (attacker.attackCooldown > 0) return;
-      attacker.attackCooldown = 1000; // 1s attack speed
+
+      // Attack speed affects cooldown
+      let attackInterval = Math.max(
+        400,
+        Math.floor(1000 / attacker.stats.attackSpeed),
+      );
+      attacker.attackCooldown = attackInterval;
       attacker.lastCombatTime = Date.now();
 
-      let damage = this.calculateDamage(
+      let { damage, isCrit } = this.calculateDamage(
         attacker.stats.attack,
         mob.definition.defense,
+        attacker.stats.critRate,
+        attacker.stats.critDamage,
       );
       let actualDamage = mob.takeDamage(damage, attacker);
 
@@ -76,6 +199,7 @@ export let CombatSystem = {
         mob.id,
         EntityType.MOB,
         actualDamage,
+        isCrit,
       );
 
       if (mob.hp <= 0) {
@@ -98,12 +222,18 @@ export let CombatSystem = {
       if (dist > 2) return;
 
       if (attacker.attackCooldown > 0) return;
-      attacker.attackCooldown = 1000;
+      let attackInterval = Math.max(
+        400,
+        Math.floor(1000 / attacker.stats.attackSpeed),
+      );
+      attacker.attackCooldown = attackInterval;
       attacker.lastCombatTime = Date.now();
 
-      let damage = this.calculateDamage(
+      let { damage, isCrit } = this.calculateDamage(
         attacker.stats.attack,
         targetPlayer.stats.defense,
+        attacker.stats.critRate,
+        attacker.stats.critDamage,
       );
       let actualDamage = targetPlayer.takeDamage(damage, attacker.id);
 
@@ -113,6 +243,7 @@ export let CombatSystem = {
         targetPlayer.id,
         EntityType.PLAYER,
         actualDamage,
+        isCrit,
       );
 
       if (targetPlayer.isDead) {
@@ -127,6 +258,15 @@ export let CombatSystem = {
     targetId: string | null,
     world: World,
   ): void {
+    // Check stun
+    if (player.isStunned()) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "You are stunned!",
+        messageKo: "기절 상태입니다!",
+      });
+      return;
+    }
+
     let check = player.canUseSkill(skillId);
     if (!check.ok) {
       player.connection.send(PacketType.NOTIFICATION, {
@@ -139,17 +279,46 @@ export let CombatSystem = {
     let skill = SKILLS[skillId] as SkillDefinition;
     player.consumeMpForSkill(skillId);
 
-    // Self-buff skills (War Cry, Evasion)
-    if (skill.damage === 0 && skill.buffDuration) {
+    // --- Self-buff skills ---
+    if (skill.damage === 0 && skill.buffDuration && !skill.healAmount) {
       let effect: Record<string, number> = {};
 
-      if (skillId === SkillId.WAR_CRY) {
-        effect.attackPercent = 0.3;
-      } else if (skillId === SkillId.EVASION) {
-        effect.evasion = 1;
+      switch (skillId) {
+        case SkillId.WAR_CRY:
+          effect.attackPercent = 0.3;
+          break;
+        case SkillId.BERSERK:
+          effect.attackPercent = 0.5;
+          effect.speedPercent = 0.3;
+          effect.defensePercent = -0.2;
+          break;
+        case SkillId.EVASION:
+          effect.evasion = 1;
+          break;
+        case SkillId.DIVINE_SHIELD:
+          effect.charges = skill.statusValue || 5;
+          break;
+        case SkillId.MAGIC_BARRIER:
+          effect.absorb = skill.statusValue || 200;
+          break;
+        case SkillId.GUARDIAN_AURA:
+          effect.defensePercent = 0.4;
+          effect.regenBoost = 1;
+          break;
+        case SkillId.EAGLE_EYE:
+          effect.critRateBonus = 30;
+          effect.rangeBonus = 3;
+          break;
       }
 
-      player.buffs.set(skillId, {
+      let buffKey =
+        skillId === SkillId.DIVINE_SHIELD
+          ? "divine_shield"
+          : skillId === SkillId.MAGIC_BARRIER
+            ? "magic_barrier"
+            : skillId;
+
+      player.buffs.set(buffKey, {
         endsAt: Date.now() + skill.buffDuration,
         effect,
       });
@@ -159,13 +328,17 @@ export let CombatSystem = {
       let currentMp = player.stats.mp;
       let currentExp = player.stats.exp;
       let currentGold = player.stats.gold;
+      let sp = player.stats.statPoints;
       player.stats = player.calculateStats();
       player.stats.hp = currentHp;
       player.stats.mp = currentMp;
       player.stats.exp = currentExp;
       player.stats.gold = currentGold;
+      player.stats.statPoints = sp;
 
-      player.connection.send(PacketType.STATS_UPDATE, { stats: player.stats });
+      player.connection.send(PacketType.STATS_UPDATE, {
+        stats: player.stats,
+      });
       world.broadcast(PacketType.SKILL_EFFECT, {
         playerId: player.id,
         skillId,
@@ -175,14 +348,36 @@ export let CombatSystem = {
       return;
     }
 
-    // Heal skill
+    // --- Heal + buff combo (Holy Blessing) ---
     if (skill.healAmount && skill.healAmount > 0) {
       let healAmount = Math.floor(player.stats.maxHp * skill.healAmount);
       player.stats.hp = Math.min(
         player.stats.maxHp,
         player.stats.hp + healAmount,
       );
-      player.connection.send(PacketType.STATS_UPDATE, { stats: player.stats });
+
+      // Apply defense buff if Holy Blessing
+      if (skillId === SkillId.HOLY_BLESSING && skill.buffDuration) {
+        player.buffs.set(skillId, {
+          endsAt: Date.now() + skill.buffDuration,
+          effect: { defensePercent: 0.2 },
+        });
+        let currentHp = player.stats.hp;
+        let currentMp = player.stats.mp;
+        let currentExp = player.stats.exp;
+        let currentGold = player.stats.gold;
+        let sp = player.stats.statPoints;
+        player.stats = player.calculateStats();
+        player.stats.hp = currentHp;
+        player.stats.mp = currentMp;
+        player.stats.exp = currentExp;
+        player.stats.gold = currentGold;
+        player.stats.statPoints = sp;
+      }
+
+      player.connection.send(PacketType.STATS_UPDATE, {
+        stats: player.stats,
+      });
       world.broadcast(PacketType.SKILL_EFFECT, {
         playerId: player.id,
         skillId,
@@ -192,7 +387,25 @@ export let CombatSystem = {
       return;
     }
 
-    // Damage skills
+    // --- Teleport skill ---
+    if (skillId === SkillId.TELEPORT_SPELL) {
+      player.x = 100;
+      player.y = 100;
+      player.connection.send(PacketType.TELEPORT, { x: player.x, y: player.y });
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Teleported to town.",
+        messageKo: "마을로 텔레포트했습니다.",
+      });
+      world.broadcast(PacketType.SKILL_EFFECT, {
+        playerId: player.id,
+        skillId,
+        targetId: player.id,
+        damage: 0,
+      });
+      return;
+    }
+
+    // --- Damage skills ---
     if (!targetId) {
       player.connection.send(PacketType.NOTIFICATION, {
         message: "No target selected.",
@@ -203,7 +416,6 @@ export let CombatSystem = {
 
     // Check AoE
     if (skill.aoe && skill.aoeRadius) {
-      // Get all entities near target
       let targetEntity =
         world.mobs.get(targetId) || world.players.get(targetId);
       if (!targetEntity) return;
@@ -225,10 +437,11 @@ export let CombatSystem = {
         let mobDist =
           Math.abs(targetEntity.x - mob.x) + Math.abs(targetEntity.y - mob.y);
         if (mobDist <= skill.aoeRadius) {
-          let damage = this.calculateSkillDamage(
+          let { damage, isCrit } = this.calculateSkillDamage(
             player,
             skill,
             mob.definition.defense,
+            mob.definition.magicDefense || 0,
           );
           let actualDamage = mob.takeDamage(damage, player);
           world.broadcastCombatHit(
@@ -237,11 +450,50 @@ export let CombatSystem = {
             mob.id,
             EntityType.MOB,
             actualDamage,
+            isCrit,
           );
+
+          // Apply status effect
+          if (skill.statusEffect) {
+            this.applyStatusEffect(skill, mob.id, player.id, world);
+          }
 
           if (mob.hp <= 0) {
             mob.die(player, world);
             KarmaSystem.onMobKill(player);
+          }
+        }
+      }
+
+      // Also hit players in AoE (PvP)
+      for (let [, target] of world.players) {
+        if (target.isDead || target.id === player.id) continue;
+        let pDist =
+          Math.abs(targetEntity.x - target.x) +
+          Math.abs(targetEntity.y - target.y);
+        if (pDist <= skill.aoeRadius) {
+          let { damage, isCrit } = this.calculateSkillDamage(
+            player,
+            skill,
+            target.stats.defense,
+            target.stats.magicDefense,
+          );
+          let actualDamage = target.takeDamage(damage, player.id);
+          world.broadcastCombatHit(
+            player.id,
+            EntityType.PLAYER,
+            target.id,
+            EntityType.PLAYER,
+            actualDamage,
+            isCrit,
+          );
+
+          if (skill.statusEffect) {
+            this.applyStatusEffect(skill, target.id, player.id, world);
+          }
+
+          if (target.isDead) {
+            KarmaSystem.onPlayerKill(player, target, world);
           }
         }
       }
@@ -265,10 +517,11 @@ export let CombatSystem = {
           return;
         }
 
-        let damage = this.calculateSkillDamage(
+        let { damage, isCrit } = this.calculateSkillDamage(
           player,
           skill,
           mob.definition.defense,
+          mob.definition.magicDefense || 0,
         );
         let actualDamage = mob.takeDamage(damage, player);
         world.broadcastCombatHit(
@@ -277,7 +530,12 @@ export let CombatSystem = {
           mob.id,
           EntityType.MOB,
           actualDamage,
+          isCrit,
         );
+
+        if (skill.statusEffect) {
+          this.applyStatusEffect(skill, mob.id, player.id, world);
+        }
 
         if (mob.hp <= 0) {
           mob.die(player, world);
@@ -303,10 +561,11 @@ export let CombatSystem = {
             Math.abs(player.y - targetPlayer.y);
           if (dist > skill.range) return;
 
-          let damage = this.calculateSkillDamage(
+          let { damage, isCrit } = this.calculateSkillDamage(
             player,
             skill,
             targetPlayer.stats.defense,
+            targetPlayer.stats.magicDefense,
           );
           let actualDamage = targetPlayer.takeDamage(damage, player.id);
           world.broadcastCombatHit(
@@ -315,7 +574,12 @@ export let CombatSystem = {
             targetPlayer.id,
             EntityType.PLAYER,
             actualDamage,
+            isCrit,
           );
+
+          if (skill.statusEffect) {
+            this.applyStatusEffect(skill, targetPlayer.id, player.id, world);
+          }
 
           if (targetPlayer.isDead) {
             KarmaSystem.onPlayerKill(player, targetPlayer, world);
@@ -339,33 +603,26 @@ export let CombatSystem = {
 
 export let QuizSystem = {
   generateQuiz(player: Player): QuizQuestion | null {
-    // Determine grade level string
     let gradeKey = String(player.gradeLevel);
     let level = vocabData.levels[gradeKey];
     if (!level || level.words.length === 0) {
-      // Fallback to level 1
       level = vocabData.levels["1"];
       if (!level) return null;
     }
 
-    // Filter out already used words in this session
     let available = level.words.filter((w) => !player.usedWords.has(w.id));
 
-    // If all used, reset the dedup set
     if (available.length === 0) {
       player.usedWords.clear();
       available = level.words;
     }
 
-    // Pick random word
     let word = available[Math.floor(Math.random() * available.length)];
     player.usedWords.add(word.id);
 
-    // Generate wrong options from same level
     let wrongOptions: string[] = [];
     let allWords = level.words.filter((w) => w.id !== word.id);
 
-    // Shuffle and pick 3 wrong answers
     let shuffled = [...allWords].sort(() => Math.random() - 0.5);
     for (let w of shuffled) {
       if (wrongOptions.length >= QUIZ_OPTIONS_COUNT - 1) break;
@@ -374,7 +631,6 @@ export let QuizSystem = {
       }
     }
 
-    // If not enough wrong options, pad with words from other levels
     if (wrongOptions.length < QUIZ_OPTIONS_COUNT - 1) {
       for (let [key, lvl] of Object.entries(vocabData.levels)) {
         if (key === gradeKey) continue;
@@ -387,7 +643,6 @@ export let QuizSystem = {
       }
     }
 
-    // Build options array: correct + wrong, then shuffle
     let options = [word.korean, ...wrongOptions];
     options = options.sort(() => Math.random() - 0.5);
 
@@ -407,18 +662,13 @@ export let QuizSystem = {
       return { correct: false, drops: [] };
     }
 
-    // answerId is the index in the options array that the player picked
-    // The quiz answer data stores the correct answer string
-    // We need to validate against the stored correct answer
-    let isCorrect = answerId >= 0; // Will be checked via the stored data
+    let isCorrect = answerId >= 0;
 
-    // Reset quiz state
     let quizData = player.quizAnswer;
     player.quizPending = false;
     player.quizAnswer = null;
 
     if (isCorrect) {
-      // Give item drops
       let drops: Array<{ itemId: string; count: number }> = [];
       for (let drop of quizData.drops) {
         let count =
@@ -429,7 +679,6 @@ export let QuizSystem = {
         }
       }
 
-      // Karma bonus for correct quiz
       player.karma += 2;
 
       return { correct: true, drops };
@@ -478,7 +727,7 @@ export let ShopSystem = {
     }
 
     if (!player.addItem(itemId, 1)) {
-      return false; // Inventory full - addItem already notifies
+      return false;
     }
 
     player.stats.gold -= item.price;
@@ -510,6 +759,11 @@ export let ShopSystem = {
     }
 
     let sellGold = item.sellPrice * slot.count;
+    // Enhancement bonus to sell price
+    if (slot.enhancement && slot.enhancement > 0) {
+      sellGold = Math.floor(sellGold * (1 + slot.enhancement * 0.15));
+    }
+
     player.stats.gold += sellGold;
     player.removeItem(slotIndex, slot.count);
 
@@ -557,7 +811,7 @@ export let KarmaSystem = {
 
   onMobKill(player: Player): void {
     player.karma += KARMA_GAIN_PER_MOB;
-    player.killStreak = 0; // Reset PvP kill streak on PvE kill (optional)
+    player.killStreak = 0;
 
     let title = getKarmaTitle(player.karma);
     player.connection.send(PacketType.KARMA_UPDATE, {

@@ -38,11 +38,11 @@ const CLASS_SKILLS: Record<PlayerClass, SkillDisplay[]> = {
       nameKo: "베기",
       icon: "\u2694",
       mpCost: 10,
-      cooldown: 2,
+      cooldown: 3,
     },
     {
       id: SkillId.SHIELD_BASH,
-      nameKo: "방패공격",
+      nameKo: "방패강타",
       icon: "\u26E8",
       mpCost: 15,
       cooldown: 5,
@@ -51,44 +51,130 @@ const CLASS_SKILLS: Record<PlayerClass, SkillDisplay[]> = {
       id: SkillId.WAR_CRY,
       nameKo: "전투함성",
       icon: "\uD83D\uDCA2",
-      mpCost: 20,
+      mpCost: 25,
+      cooldown: 20,
+    },
+    {
+      id: SkillId.BERSERK,
+      nameKo: "광전사",
+      icon: "\uD83D\uDD25",
+      mpCost: 35,
+      cooldown: 30,
+    },
+    {
+      id: SkillId.GROUND_SLAM,
+      nameKo: "대지강타",
+      icon: "\uD83D\uDCA5",
+      mpCost: 30,
+      cooldown: 8,
+    },
+    {
+      id: SkillId.WHIRLWIND,
+      nameKo: "회전참격",
+      icon: "\uD83C\uDF00",
+      mpCost: 40,
+      cooldown: 12,
+    },
+  ],
+  [PlayerClass.KNIGHT]: [
+    {
+      id: SkillId.HOLY_STRIKE,
+      nameKo: "신성일격",
+      icon: "\u2728",
+      mpCost: 12,
+      cooldown: 3,
+    },
+    {
+      id: SkillId.DIVINE_SHIELD,
+      nameKo: "신성방패",
+      icon: "\uD83D\uDEE1",
+      mpCost: 30,
+      cooldown: 25,
+    },
+    {
+      id: SkillId.PROVOKE,
+      nameKo: "도발",
+      icon: "\uD83D\uDCA2",
+      mpCost: 15,
+      cooldown: 8,
+    },
+    {
+      id: SkillId.HOLY_BLESSING,
+      nameKo: "축복",
+      icon: "\uD83D\uDC9A",
+      mpCost: 35,
+      cooldown: 15,
+    },
+    {
+      id: SkillId.JUDGMENT,
+      nameKo: "심판",
+      icon: "\u2694",
+      mpCost: 40,
       cooldown: 10,
+    },
+    {
+      id: SkillId.GUARDIAN_AURA,
+      nameKo: "수호오라",
+      icon: "\uD83D\uDCAB",
+      mpCost: 50,
+      cooldown: 45,
     },
   ],
   [PlayerClass.MAGE]: [
     {
       id: SkillId.FIREBALL,
-      nameKo: "화염구",
+      nameKo: "파이어볼",
       icon: "\uD83D\uDD25",
       mpCost: 15,
-      cooldown: 3,
+      cooldown: 4,
     },
     {
       id: SkillId.ICE_BLAST,
-      nameKo: "얼음폭발",
+      nameKo: "아이스블래스트",
       icon: "\u2744",
       mpCost: 20,
-      cooldown: 5,
+      cooldown: 6,
     },
     {
       id: SkillId.HEAL,
-      nameKo: "치유",
+      nameKo: "힐",
       icon: "\uD83D\uDC9A",
-      mpCost: 25,
+      mpCost: 30,
       cooldown: 8,
+    },
+    {
+      id: SkillId.LIGHTNING_BOLT,
+      nameKo: "라이트닝볼트",
+      icon: "\u26A1",
+      mpCost: 25,
+      cooldown: 5,
+    },
+    {
+      id: SkillId.METEOR,
+      nameKo: "메테오",
+      icon: "\u2604",
+      mpCost: 60,
+      cooldown: 20,
+    },
+    {
+      id: SkillId.MAGIC_BARRIER,
+      nameKo: "마법장벽",
+      icon: "\uD83D\uDEE1",
+      mpCost: 40,
+      cooldown: 30,
     },
   ],
   [PlayerClass.ARCHER]: [
     {
       id: SkillId.POWER_SHOT,
-      nameKo: "강력사격",
+      nameKo: "파워샷",
       icon: "\uD83C\uDFF9",
       mpCost: 10,
-      cooldown: 2,
+      cooldown: 3,
     },
     {
       id: SkillId.MULTI_SHOT,
-      nameKo: "다중사격",
+      nameKo: "멀티샷",
       icon: "\uD83C\uDF1F",
       mpCost: 20,
       cooldown: 6,
@@ -97,8 +183,29 @@ const CLASS_SKILLS: Record<PlayerClass, SkillDisplay[]> = {
       id: SkillId.EVASION,
       nameKo: "회피",
       icon: "\uD83D\uDCA8",
-      mpCost: 15,
+      mpCost: 25,
+      cooldown: 15,
+    },
+    {
+      id: SkillId.POISON_ARROW,
+      nameKo: "독화살",
+      icon: "\u2620",
+      mpCost: 18,
+      cooldown: 5,
+    },
+    {
+      id: SkillId.EXPLOSIVE_ARROW,
+      nameKo: "폭발화살",
+      icon: "\uD83D\uDCA5",
+      mpCost: 30,
       cooldown: 10,
+    },
+    {
+      id: SkillId.EAGLE_EYE,
+      nameKo: "매의눈",
+      icon: "\uD83E\uDD85",
+      mpCost: 20,
+      cooldown: 25,
     },
   ],
 };
@@ -129,6 +236,7 @@ const ITEM_TYPE_NAMES: Record<string, string> = {
   material: "\uC7AC\uB8CC",
   quest: "\uD034\uC2A4\uD2B8",
   tool: "\uB3C4\uAD6C",
+  scroll: "\uC8FC\uBB38\uC11C",
 };
 
 class UIManager {
@@ -195,6 +303,18 @@ class UIManager {
   private ttDesc!: HTMLElement;
   private ttPrice!: HTMLElement;
 
+  private statPanel!: HTMLElement;
+  private statClose!: HTMLElement;
+  private statPointsEl!: HTMLElement;
+  private hudStatBtn!: HTMLElement;
+
+  private enhancePanel!: HTMLElement;
+  private enhanceClose!: HTMLElement;
+  private enhanceItemSlot!: HTMLElement;
+  private enhanceScrollSlot!: HTMLElement;
+  private enhanceBtn!: HTMLElement;
+  private enhanceResultText!: HTMLElement;
+
   // ---- State ----
   private currentPlayerClass: PlayerClass = PlayerClass.WARRIOR;
   private currentSkills: SkillDisplay[] = [];
@@ -216,6 +336,67 @@ class UIManager {
   private currentShopItems: any[] = [];
   // Item definitions cache (received from server with inventory data)
   private itemDefs: Map<string, any> = new Map();
+  private enhanceItemIndex: number = -1;
+  private enhanceScrollIndex: number = -1;
+  private isEnhanceMode: boolean = false;
+
+  // Character creation stats
+  private creationStats: Record<string, number> = {
+    str: 0,
+    dex: 0,
+    int: 0,
+    con: 0,
+    wis: 0,
+  };
+  private creationPointsTotal: number = 10;
+  private isRegisterMode: boolean = false;
+
+  // Auto-attack
+  private autoAttackEnabled: boolean = false;
+  private autoAttackBtn!: HTMLElement;
+
+  // Kill combo
+  private comboCount: number = 0;
+  private comboTimer: number | null = null;
+  private comboDisplay!: HTMLElement;
+  private comboCountEl!: HTMLElement;
+  private comboBonusEl!: HTMLElement;
+
+  // Death screen
+  private deathScreen!: HTMLElement;
+  private deathRespawnBtn!: HTMLElement;
+  private deathTimer!: HTMLElement;
+  private deathPenalty!: HTMLElement;
+  private deathMessage!: HTMLElement;
+
+  // Zone name
+  private zoneNameEl!: HTMLElement;
+  private zoneNameText!: HTMLElement;
+  private zoneLevelText!: HTMLElement;
+  private currentZone: string = "";
+
+  // Boss announce
+  private bossAnnounce!: HTMLElement;
+  private bossAnnounceText!: HTMLElement;
+  private bossAnnounceSub!: HTMLElement;
+
+  // Potion quickslot
+  private potionQuickslot!: HTMLElement;
+  private potionHpCount!: HTMLElement;
+  private potionMpCount!: HTMLElement;
+
+  // Map data ref for zone detection
+  private mapZones: Array<{
+    id: string;
+    nameKo: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    levelRange: [number, number];
+  }> = [];
+  private playerX: number = 0;
+  private playerY: number = 0;
 
   constructor() {
     // Wait for DOM
@@ -235,6 +416,12 @@ class UIManager {
     this.setupSkillHandlers();
     this.setupGradeSelector();
     this.setupTooltip();
+    this.setupStatPanel();
+    this.setupEnhancePanel();
+    this.setupCreationStats();
+    this.setupAutoAttack();
+    this.setupDeathScreen();
+    this.setupPotionQuickslot();
     this.setupSocketListeners();
   }
 
@@ -314,6 +501,38 @@ class UIManager {
     this.ttStats = document.getElementById("tt-stats")!;
     this.ttDesc = document.getElementById("tt-desc")!;
     this.ttPrice = document.getElementById("tt-price")!;
+
+    this.statPanel = document.getElementById("stat-panel")!;
+    this.statClose = document.getElementById("stat-close")!;
+    this.statPointsEl = document.getElementById("stat-points")!;
+    this.hudStatBtn = document.getElementById("hud-stat-btn")!;
+
+    this.enhancePanel = document.getElementById("enhance-panel")!;
+    this.enhanceClose = document.getElementById("enhance-close")!;
+    this.enhanceItemSlot = document.getElementById("enhance-item-slot")!;
+    this.enhanceScrollSlot = document.getElementById("enhance-scroll-slot")!;
+    this.enhanceBtn = document.getElementById("enhance-btn")!;
+    this.enhanceResultText = document.getElementById("enhance-result-text")!;
+
+    // New elements
+    this.autoAttackBtn = document.getElementById("hud-auto-attack")!;
+    this.comboDisplay = document.getElementById("combo-display")!;
+    this.comboCountEl = document.getElementById("combo-count")!;
+    this.comboBonusEl = document.getElementById("combo-bonus")!;
+    this.deathScreen = document.getElementById("death-screen")!;
+    this.deathRespawnBtn = document.getElementById("death-respawn-btn")!;
+    this.deathTimer = document.getElementById("death-timer")!;
+    this.deathPenalty = document.getElementById("death-penalty")!;
+    this.deathMessage = document.getElementById("death-message")!;
+    this.zoneNameEl = document.getElementById("zone-name")!;
+    this.zoneNameText = document.getElementById("zone-name-text")!;
+    this.zoneLevelText = document.getElementById("zone-level-text")!;
+    this.bossAnnounce = document.getElementById("boss-announce")!;
+    this.bossAnnounceText = document.getElementById("boss-announce-text")!;
+    this.bossAnnounceSub = document.getElementById("boss-announce-sub")!;
+    this.potionQuickslot = document.getElementById("potion-quickslot")!;
+    this.potionHpCount = document.getElementById("potion-hp-count")!;
+    this.potionMpCount = document.getElementById("potion-mp-count")!;
   }
 
   // ================================================
@@ -355,6 +574,50 @@ class UIManager {
         this.loginPassword.focus();
       }
     });
+
+    // Class preview update
+    this.loginClass.addEventListener("change", () => {
+      this.updateClassPreview();
+    });
+    this.updateClassPreview();
+  }
+
+  private updateClassPreview(): void {
+    const cls = this.loginClass.value as PlayerClass;
+    const previewIcon = document.getElementById("class-preview-icon");
+    const previewDesc = document.getElementById("class-preview-desc");
+    const recommended = document.getElementById("creation-recommended");
+
+    const classInfo: Record<
+      string,
+      { color: string; desc: string; recommend: string }
+    > = {
+      warrior: {
+        color: "#f44336",
+        desc: "근접 물리 전투 전문가. 높은 HP와 공격력. 광전사 모드로 폭발적 데미지.",
+        recommend: "추천: STR 5, CON 3, DEX 2",
+      },
+      knight: {
+        color: "#42a5f5",
+        desc: "팀의 방패. 높은 방어력과 신성 마법. 도발로 적 어그로 집중.",
+        recommend: "추천: CON 4, STR 3, WIS 3",
+      },
+      mage: {
+        color: "#7e57c2",
+        desc: "강력한 광역 마법 딜러. MP 관리가 핵심. 치유와 텔레포트 가능.",
+        recommend: "추천: INT 5, WIS 3, CON 2",
+      },
+      archer: {
+        color: "#4caf50",
+        desc: "원거리 물리 딜러. 높은 크리티컬과 회피. 독화살로 지속 데미지.",
+        recommend: "추천: DEX 5, STR 3, CON 2",
+      },
+    };
+
+    const info = classInfo[cls] || classInfo.warrior;
+    if (previewIcon) previewIcon.style.background = info.color;
+    if (previewDesc) previewDesc.textContent = info.desc;
+    if (recommended) recommended.textContent = info.recommend;
   }
 
   private doLogin(): void {
@@ -403,8 +666,23 @@ class UIManager {
       return;
     }
 
+    // If not in register mode yet, show stat allocation panel first
+    if (!this.isRegisterMode) {
+      this.isRegisterMode = true;
+      const creationStatsEl = document.getElementById("creation-stats");
+      if (creationStatsEl) creationStatsEl.style.display = "block";
+      this.btnRegister.textContent = "캐릭터 생성";
+      this.showLoginError("스탯을 배분한 후 '캐릭터 생성'을 다시 누르세요.");
+      return;
+    }
+
     this.loginError.textContent = "";
-    socket.send(PacketType.REGISTER, { name: username, password, playerClass });
+    socket.send(PacketType.REGISTER, {
+      name: username,
+      password,
+      playerClass,
+      initialStats: { ...this.creationStats },
+    });
   }
 
   // ================================================
@@ -418,6 +696,7 @@ class UIManager {
     this.karmaDisplay.classList.add("visible");
     this.skillsBar.classList.add("visible");
     this.gradeSelector.classList.add("visible");
+    this.potionQuickslot.classList.add("visible");
   }
 
   hideHUD(): void {
@@ -694,12 +973,25 @@ class UIManager {
       if (slot && slot.itemId) {
         const def = this.itemDefs.get(slot.itemId);
         const color = def?.color || "#888";
-        const name = def?.nameKo || def?.name || slot.itemId;
+        let name = def?.nameKo || def?.name || slot.itemId;
+
+        // Show enhancement level
+        if (slot.enhancement && slot.enhancement > 0) {
+          name = `+${slot.enhancement} ${name}`;
+        }
 
         const icon = document.createElement("div");
         icon.className = "item-icon";
         icon.style.backgroundColor = color;
         slotDiv.appendChild(icon);
+
+        if (slot.enhancement && slot.enhancement > 0) {
+          const enhLabel = document.createElement("div");
+          enhLabel.className = "item-enhance";
+          enhLabel.textContent = `+${slot.enhancement}`;
+          slotDiv.style.position = "relative";
+          slotDiv.appendChild(enhLabel);
+        }
 
         const nameLabel = document.createElement("div");
         nameLabel.className = "item-name";
@@ -713,11 +1005,24 @@ class UIManager {
           slotDiv.appendChild(countLabel);
         }
 
-        // Click to equip/use
+        // Click handling
         slotDiv.addEventListener("click", () => {
+          if (this.isEnhanceMode) {
+            // In enhance mode, select item or scroll
+            if (def?.enhanceable) {
+              this.selectEnhanceItem(i);
+            } else if (def?.scrollType === "enhance") {
+              this.selectEnhanceScroll(i);
+            }
+            return;
+          }
+
           if (def?.equipSlot) {
             socket.send(PacketType.EQUIP_ITEM, { slotIndex: i });
-          } else if (def?.type === ItemType.CONSUMABLE) {
+          } else if (
+            def?.type === ItemType.CONSUMABLE ||
+            def?.type === ItemType.SCROLL
+          ) {
             socket.send(PacketType.USE_ITEM, { slotIndex: i });
           }
         });
@@ -811,6 +1116,13 @@ class UIManager {
     if (def.hp) stats.push(`HP +${def.hp}`);
     if (def.mp) stats.push(`MP +${def.mp}`);
     if (def.speed) stats.push(`\uC2A4\uD53C\uB4DC +${def.speed}`);
+    if (def.critRate) stats.push(`\uCE58\uBA85\uD0C0 +${def.critRate}%`);
+    if (def.critDamage)
+      stats.push(`\uCE58\uBA85\uD0C0\uD53C\uD574 +${def.critDamage}`);
+    if (def.magicAttack)
+      stats.push(`\uB9C8\uBC95\uACF5\uACA9 +${def.magicAttack}`);
+    if (def.magicDefense)
+      stats.push(`\uB9C8\uBC95\uBC29\uC5B4 +${def.magicDefense}`);
     if (def.healAmount) stats.push(`HP \uD68C\uBCF5 ${def.healAmount}`);
     if (def.mpRestore) stats.push(`MP \uD68C\uBCF5 ${def.mpRestore}`);
     this.ttStats.textContent = stats.join("\n");
@@ -849,7 +1161,18 @@ class UIManager {
   // Shop
   // ================================================
 
-  openShop(shopData: { name: string; nameKo: string; items: any[] }): void {
+  openShop(shopData: {
+    name: string;
+    nameKo: string;
+    items: any[];
+    isEnhance?: boolean;
+    shopId?: string;
+  }): void {
+    if (shopData.isEnhance || shopData.shopId === "__enhance__") {
+      this.openEnhancePanel();
+      return;
+    }
+
     this.shopTitle.textContent =
       shopData.nameKo || shopData.name || "\uC0C1\uC810";
     this.currentShopItems = shopData.items || [];
@@ -920,14 +1243,19 @@ class UIManager {
     this.currentPlayerClass = playerClass;
     this.currentSkills = CLASS_SKILLS[playerClass] || [];
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       const skill = this.currentSkills[i];
       const iconEl = document.getElementById(`skill-icon-${i}`);
       const nameEl = document.getElementById(`skill-name-${i}`);
 
-      if (skill && iconEl && nameEl) {
-        iconEl.textContent = skill.icon;
-        nameEl.textContent = skill.nameKo;
+      if (iconEl && nameEl) {
+        if (skill) {
+          iconEl.textContent = skill.icon;
+          nameEl.textContent = skill.nameKo;
+        } else {
+          iconEl.textContent = "-";
+          nameEl.textContent = "";
+        }
       }
     }
   }
@@ -1163,12 +1491,171 @@ class UIManager {
   }
 
   // ================================================
+  // Stat Allocation Panel
+  // ================================================
+
+  private setupStatPanel(): void {
+    this.hudStatBtn.addEventListener("click", () => {
+      this.toggleStatPanel();
+    });
+
+    this.statClose.addEventListener("click", () => {
+      this.statPanel.classList.remove("visible");
+    });
+
+    // Stat add buttons
+    const addBtns = document.querySelectorAll(".stat-add-btn");
+    addBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const statType = (btn as HTMLElement).dataset.stat;
+        if (statType) {
+          socket.send(PacketType.ALLOCATE_STAT, { statType });
+        }
+      });
+    });
+  }
+
+  toggleStatPanel(): void {
+    if (this.statPanel.classList.contains("visible")) {
+      this.statPanel.classList.remove("visible");
+    } else {
+      this.statPanel.classList.add("visible");
+    }
+  }
+
+  updateStatPanel(stats: any): void {
+    if (stats.statPoints !== undefined) {
+      this.statPointsEl.textContent = String(stats.statPoints);
+    }
+    if (stats.allocatedStats) {
+      const as = stats.allocatedStats;
+      const strEl = document.getElementById("stat-str");
+      const dexEl = document.getElementById("stat-dex");
+      const intEl = document.getElementById("stat-int");
+      const conEl = document.getElementById("stat-con");
+      const wisEl = document.getElementById("stat-wis");
+      if (strEl) strEl.textContent = String(as.str || 0);
+      if (dexEl) dexEl.textContent = String(as.dex || 0);
+      if (intEl) intEl.textContent = String(as.int || 0);
+      if (conEl) conEl.textContent = String(as.con || 0);
+      if (wisEl) wisEl.textContent = String(as.wis || 0);
+    }
+  }
+
+  // ================================================
+  // Enhancement Panel
+  // ================================================
+
+  private setupEnhancePanel(): void {
+    this.enhanceClose.addEventListener("click", () => {
+      this.closeEnhancePanel();
+    });
+
+    this.enhanceBtn.addEventListener("click", () => {
+      if (this.enhanceItemIndex >= 0 && this.enhanceScrollIndex >= 0) {
+        socket.send(PacketType.ENHANCE_ITEM, {
+          itemSlotIndex: this.enhanceItemIndex,
+          scrollSlotIndex: this.enhanceScrollIndex,
+        });
+      }
+    });
+  }
+
+  openEnhancePanel(): void {
+    this.isEnhanceMode = true;
+    this.enhanceItemIndex = -1;
+    this.enhanceScrollIndex = -1;
+    this.enhanceItemSlot.innerHTML = "<span>\uC7A5\uBE44</span>";
+    this.enhanceScrollSlot.innerHTML = "<span>\uC8FC\uBB38\uC11C</span>";
+    this.enhanceResultText.textContent = "";
+    this.enhanceResultText.className = "enhance-result";
+    this.enhancePanel.classList.add("visible");
+
+    // Also show inventory for selection
+    if (!this.inventoryPanel.classList.contains("visible")) {
+      this.inventoryPanel.classList.add("visible");
+      this.renderInventoryGrid();
+    }
+  }
+
+  closeEnhancePanel(): void {
+    this.isEnhanceMode = false;
+    this.enhancePanel.classList.remove("visible");
+  }
+
+  private selectEnhanceItem(slotIndex: number): void {
+    this.enhanceItemIndex = slotIndex;
+    const slot = this.inventory[slotIndex];
+    if (slot) {
+      const def = this.itemDefs.get(slot.itemId);
+      let name = def?.nameKo || slot.itemId;
+      if (slot.enhancement) name = `+${slot.enhancement} ${name}`;
+      this.enhanceItemSlot.innerHTML = "";
+      this.enhanceItemSlot.classList.add("filled");
+      const icon = document.createElement("div");
+      icon.className = "item-icon";
+      icon.style.backgroundColor = def?.color || "#888";
+      this.enhanceItemSlot.appendChild(icon);
+      const label = document.createElement("span");
+      label.textContent = name;
+      label.style.fontSize = "10px";
+      this.enhanceItemSlot.appendChild(label);
+    }
+  }
+
+  private selectEnhanceScroll(slotIndex: number): void {
+    this.enhanceScrollIndex = slotIndex;
+    const slot = this.inventory[slotIndex];
+    if (slot) {
+      const def = this.itemDefs.get(slot.itemId);
+      this.enhanceScrollSlot.innerHTML = "";
+      this.enhanceScrollSlot.classList.add("filled");
+      const icon = document.createElement("div");
+      icon.className = "item-icon";
+      icon.style.backgroundColor = def?.color || "#888";
+      this.enhanceScrollSlot.appendChild(icon);
+      const label = document.createElement("span");
+      label.textContent = def?.nameKo || slot.itemId;
+      label.style.fontSize = "10px";
+      this.enhanceScrollSlot.appendChild(label);
+    }
+  }
+
+  showEnhanceResult(
+    success: boolean,
+    destroyed: boolean,
+    newLevel: number,
+  ): void {
+    if (success) {
+      this.enhanceResultText.textContent = `\uAC15\uD654 \uC131\uACF5! +${newLevel}`;
+      this.enhanceResultText.className = "enhance-result success";
+    } else if (destroyed) {
+      this.enhanceResultText.textContent =
+        "\uAC15\uD654 \uC2E4\uD328! \uC544\uC774\uD15C \uD30C\uAD34!";
+      this.enhanceResultText.className = "enhance-result fail";
+    } else {
+      this.enhanceResultText.textContent = `\uAC15\uD654 \uC2E4\uD328. +${newLevel}\uC73C\uB85C \uD558\uB77D`;
+      this.enhanceResultText.className = "enhance-result fail";
+    }
+
+    // Reset selection
+    this.enhanceItemIndex = -1;
+    this.enhanceScrollIndex = -1;
+    this.enhanceItemSlot.innerHTML = "<span>\uC7A5\uBE44</span>";
+    this.enhanceItemSlot.classList.remove("filled");
+    this.enhanceScrollSlot.innerHTML = "<span>\uC8FC\uBB38\uC11C</span>";
+    this.enhanceScrollSlot.classList.remove("filled");
+  }
+
+  // ================================================
   // Close All Panels
   // ================================================
 
   closeAllPanels(): void {
     this.closeInventory();
     this.closeShop();
+    this.closeEnhancePanel();
+    this.statPanel.classList.remove("visible");
     this.hideQuiz();
   }
 
@@ -1176,8 +1663,269 @@ class UIManager {
     return (
       this.inventoryPanel.classList.contains("visible") ||
       this.shopPanel.classList.contains("visible") ||
-      this.quizPopup.classList.contains("visible")
+      this.quizPopup.classList.contains("visible") ||
+      this.enhancePanel.classList.contains("visible")
     );
+  }
+
+  // ================================================
+  // Character Creation Stats
+  // ================================================
+
+  private setupCreationStats(): void {
+    const btns = document.querySelectorAll(".cs-btn");
+    btns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const stat = (btn as HTMLElement).dataset.cstat || "";
+        const dir = parseInt((btn as HTMLElement).dataset.dir || "0");
+        this.adjustCreationStat(stat, dir);
+      });
+    });
+  }
+
+  private adjustCreationStat(stat: string, dir: number): void {
+    const current = this.creationStats[stat] || 0;
+    const used = Object.values(this.creationStats).reduce((a, b) => a + b, 0);
+
+    if (dir > 0) {
+      if (used >= this.creationPointsTotal) return;
+      if (current >= 7) return; // max per stat
+      this.creationStats[stat] = current + 1;
+    } else {
+      if (current <= 0) return;
+      this.creationStats[stat] = current - 1;
+    }
+
+    // Update display
+    const el = document.getElementById(`cs-${stat}`);
+    if (el) el.textContent = String(this.creationStats[stat]);
+    const pointsEl = document.getElementById("creation-points");
+    const newUsed = Object.values(this.creationStats).reduce(
+      (a, b) => a + b,
+      0,
+    );
+    if (pointsEl)
+      pointsEl.textContent = String(this.creationPointsTotal - newUsed);
+  }
+
+  // ================================================
+  // Auto-Attack
+  // ================================================
+
+  private setupAutoAttack(): void {
+    this.autoAttackBtn.addEventListener("click", () => {
+      this.toggleAutoAttack();
+    });
+  }
+
+  toggleAutoAttack(): void {
+    this.autoAttackEnabled = !this.autoAttackEnabled;
+    this.autoAttackBtn.textContent = `자동공격(A): ${this.autoAttackEnabled ? "ON" : "OFF"}`;
+    this.autoAttackBtn.classList.toggle("active", this.autoAttackEnabled);
+  }
+
+  isAutoAttack(): boolean {
+    return this.autoAttackEnabled;
+  }
+
+  // ================================================
+  // Death Screen
+  // ================================================
+
+  private setupDeathScreen(): void {
+    this.deathRespawnBtn.addEventListener("click", () => {
+      this.hideDeathScreen();
+      socket.send(PacketType.RESPAWN, {});
+    });
+  }
+
+  showDeathScreen(expLost?: number): void {
+    this.deathScreen.classList.add("visible");
+    if (expLost && expLost > 0) {
+      this.deathPenalty.textContent = `경험치 ${expLost} 손실`;
+    } else {
+      this.deathPenalty.textContent = "경험치 5% 손실";
+    }
+
+    // 3 second delay before respawn
+    let countdown = 3;
+    this.deathTimer.textContent = `${countdown}초 후 부활 가능`;
+    this.deathRespawnBtn.style.display = "none";
+    const timer = setInterval(() => {
+      countdown--;
+      if (countdown <= 0) {
+        clearInterval(timer);
+        this.deathTimer.textContent = "";
+        this.deathRespawnBtn.style.display = "block";
+      } else {
+        this.deathTimer.textContent = `${countdown}초 후 부활 가능`;
+      }
+    }, 1000);
+  }
+
+  hideDeathScreen(): void {
+    this.deathScreen.classList.remove("visible");
+  }
+
+  // ================================================
+  // Kill Combo
+  // ================================================
+
+  addCombo(): void {
+    this.comboCount++;
+    this.comboCountEl.textContent = String(this.comboCount);
+    const bonusPct = Math.min(this.comboCount * 5, 100);
+    this.comboBonusEl.textContent = `+${bonusPct}% EXP`;
+    this.comboDisplay.classList.add("visible");
+
+    // Reset animation
+    this.comboCountEl.style.animation = "none";
+    void this.comboCountEl.offsetHeight; // reflow
+    this.comboCountEl.style.animation = "comboPulse 0.3s ease";
+
+    // Reset timer
+    if (this.comboTimer) clearTimeout(this.comboTimer);
+    this.comboTimer = window.setTimeout(() => {
+      this.comboCount = 0;
+      this.comboDisplay.classList.remove("visible");
+    }, 5000);
+  }
+
+  getComboBonus(): number {
+    return Math.min(this.comboCount * 5, 100) / 100;
+  }
+
+  // ================================================
+  // Zone Name Display
+  // ================================================
+
+  setMapZones(
+    zones: Array<{
+      id: string;
+      nameKo: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      levelRange: [number, number];
+    }>,
+  ): void {
+    this.mapZones = zones;
+  }
+
+  updatePlayerPosition(x: number, y: number): void {
+    this.playerX = x;
+    this.playerY = y;
+    this.checkZoneChange();
+    this.updatePotionCounts();
+  }
+
+  private checkZoneChange(): void {
+    for (const zone of this.mapZones) {
+      if (
+        this.playerX >= zone.x &&
+        this.playerX < zone.x + zone.width &&
+        this.playerY >= zone.y &&
+        this.playerY < zone.y + zone.height
+      ) {
+        if (zone.id !== this.currentZone) {
+          this.currentZone = zone.id;
+          this.showZoneName(
+            zone.nameKo,
+            zone.levelRange[0] > 0
+              ? `Lv.${zone.levelRange[0]} ~ ${zone.levelRange[1]}`
+              : "안전 지역",
+          );
+        }
+        return;
+      }
+    }
+  }
+
+  private showZoneName(name: string, levelText: string): void {
+    this.zoneNameText.textContent = name;
+    this.zoneLevelText.textContent = levelText;
+    this.zoneNameEl.classList.remove("visible");
+    void this.zoneNameEl.offsetHeight;
+    this.zoneNameEl.classList.add("visible");
+    setTimeout(() => {
+      this.zoneNameEl.classList.remove("visible");
+    }, 3000);
+  }
+
+  // ================================================
+  // Boss Announcement
+  // ================================================
+
+  showBossAnnouncement(bossName: string, zone: string): void {
+    this.bossAnnounceText.textContent = `${bossName} 출현!`;
+    this.bossAnnounceSub.textContent = `${zone}에 보스 몬스터가 나타났습니다!`;
+    this.bossAnnounce.classList.remove("visible");
+    void this.bossAnnounce.offsetHeight;
+    this.bossAnnounce.classList.add("visible");
+    setTimeout(() => {
+      this.bossAnnounce.classList.remove("visible");
+    }, 4000);
+  }
+
+  // ================================================
+  // Potion Quick Slot
+  // ================================================
+
+  private setupPotionQuickslot(): void {
+    document.getElementById("potion-hp")?.addEventListener("click", () => {
+      this.useQuickPotion("health");
+    });
+    document.getElementById("potion-mp")?.addEventListener("click", () => {
+      this.useQuickPotion("mana");
+    });
+  }
+
+  private useQuickPotion(type: "health" | "mana"): void {
+    const potionId =
+      type === "health"
+        ? this.findBestPotion("healAmount")
+        : this.findBestPotion("mpRestore");
+    if (potionId >= 0) {
+      socket.send(PacketType.USE_ITEM, { slotIndex: potionId });
+    }
+  }
+
+  private findBestPotion(statKey: string): number {
+    // Find highest-tier potion in inventory
+    for (let i = this.inventory.length - 1; i >= 0; i--) {
+      const slot = this.inventory[i];
+      if (!slot || !slot.itemId) continue;
+      const def = this.itemDefs.get(slot.itemId);
+      if (def && def[statKey] && def[statKey] > 0) return i;
+    }
+    // Search forward for any
+    for (let i = 0; i < this.inventory.length; i++) {
+      const slot = this.inventory[i];
+      if (!slot || !slot.itemId) continue;
+      const def = this.itemDefs.get(slot.itemId);
+      if (def && def[statKey] && def[statKey] > 0) return i;
+    }
+    return -1;
+  }
+
+  useQuickPotionByKey(type: "health" | "mana"): void {
+    this.useQuickPotion(type);
+  }
+
+  private updatePotionCounts(): void {
+    let hpCount = 0;
+    let mpCount = 0;
+    for (const slot of this.inventory) {
+      if (!slot || !slot.itemId) continue;
+      const def = this.itemDefs.get(slot.itemId);
+      if (!def) continue;
+      if (def.healAmount && def.healAmount > 0) hpCount += slot.count;
+      if (def.mpRestore && def.mpRestore > 0 && !def.healAmount)
+        mpCount += slot.count;
+    }
+    this.potionHpCount.textContent = String(hpCount);
+    this.potionMpCount.textContent = String(mpCount);
   }
 
   // ================================================
@@ -1198,6 +1946,7 @@ class UIManager {
       this.updateEXP(s.exp, s.expToLevel);
       this.updateLevel(s.level);
       if (s.gold != null) this.updateGold(s.gold);
+      this.updateStatPanel(s);
     });
 
     // Quiz
@@ -1266,6 +2015,37 @@ class UIManager {
     // EXP gain
     socket.on(PacketType.EXP_GAIN, (data: { amount: number }) => {
       this.showNotification(`+${data.amount} EXP`, "success");
+    });
+
+    // Enhancement result
+    socket.on(
+      PacketType.ENHANCE_RESULT,
+      (data: { success: boolean; destroyed: boolean; newLevel: number }) => {
+        this.showEnhanceResult(data.success, data.destroyed, data.newLevel);
+      },
+    );
+
+    // Entity death - check for player death (show death screen)
+    socket.on(PacketType.ENTITY_DEATH, (data: any) => {
+      if (data.type === EntityType.PLAYER) {
+        // Could be our player - GameScene will check
+      }
+      if (data.type === EntityType.MOB) {
+        this.addCombo();
+      }
+    });
+
+    // Boss spawn announcement
+    socket.on(PacketType.MOB_SPAWN, (data: any) => {
+      if (data.mob && data.mob.isBoss) {
+        const mobName = data.mob.name || "Boss";
+        this.showBossAnnouncement(mobName, "");
+      }
+    });
+
+    // Respawn
+    socket.on(PacketType.RESPAWN, () => {
+      this.hideDeathScreen();
     });
 
     // Connection events

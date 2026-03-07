@@ -14,6 +14,8 @@ import {
   PlayerClass,
   EquipSlot,
   SkillId,
+  StatType,
+  NpcType,
   MAX_CHAT_LENGTH,
   TICK_RATE,
   TICK_INTERVAL,
@@ -49,7 +51,7 @@ export class Connection {
   ws: WebSocket;
   playerId: string | null;
   player: Player | null;
-  private server: GameServer;
+  server: GameServer;
 
   constructor(ws: WebSocket, server: GameServer) {
     this.id = uuid();
@@ -133,11 +135,20 @@ export class Connection {
       case PacketType.SET_GRADE_LEVEL:
         this.handleSetGradeLevel(data);
         break;
+      case PacketType.ENHANCE_ITEM:
+        this.handleEnhanceItem(data);
+        break;
+      case PacketType.ALLOCATE_STAT:
+        this.handleAllocateStat(data);
+        break;
       case PacketType.PING:
         this.send(PacketType.PONG, { time: Date.now() });
         break;
       case PacketType.NPC_INTERACT:
         this.handleNpcInteract(data);
+        break;
+      case PacketType.RESPAWN:
+        this.handleRespawn();
         break;
       default:
         console.warn(`[Connection ${this.id}] Unknown packet type: ${type}`);
@@ -258,6 +269,27 @@ export class Connection {
     let playerId = uuid();
     let player = new Player(playerId, name, playerClass, this);
     player.giveStarterItems();
+
+    // Apply initial stats from character creation
+    let initialStats = data.initialStats as Record<string, number> | undefined;
+    if (initialStats) {
+      player.stats.statPoints += 10;
+      let totalUsed = 0;
+      for (let key of ["str", "dex", "int", "con", "wis"]) {
+        let val = Number(initialStats[key]) || 0;
+        val = Math.max(0, Math.min(7, val)); // cap per stat
+        totalUsed += val;
+        if (totalUsed > 10) {
+          val -= totalUsed - 10;
+          totalUsed = 10;
+        }
+        if (val > 0) {
+          for (let i = 0; i < val; i++) {
+            player.allocateStat(key as StatType);
+          }
+        }
+      }
+    }
 
     // Set spawn position
     player.x = this.server.world.map.playerSpawn.x;
@@ -481,6 +513,12 @@ export class Connection {
     });
   }
 
+  private handleRespawn(): void {
+    if (!this.player || !this.player.isDead) return;
+    let spawn = this.server.world.map.playerSpawn;
+    this.player.respawn(spawn.x, spawn.y);
+  }
+
   private handleNpcInteract(data: Record<string, unknown>): void {
     if (!this.player) return;
 
@@ -505,7 +543,16 @@ export class Connection {
       }
     }
 
-    if (npcDef.shopId) {
+    // Handle ENHANCE NPC (Blacksmith)
+    if (npcDef.type === NpcType.ENHANCE) {
+      this.send(PacketType.SHOP_OPEN, {
+        shopId: "__enhance__",
+        name: "Blacksmith",
+        nameKo: "대장장이 - 장비 강화",
+        items: [],
+        isEnhance: true,
+      });
+    } else if (npcDef.shopId) {
       // Open shop
       let shop = SHOPS[npcDef.shopId];
       if (shop) {
@@ -530,6 +577,12 @@ export class Connection {
                   description: item.description,
                   descriptionKo: item.descriptionKo,
                   color: item.color,
+                  enhanceable: item.enhanceable,
+                  magicAttack: item.magicAttack,
+                  magicDefense: item.magicDefense,
+                  critRate: item.critRate,
+                  critDamage: item.critDamage,
+                  classReq: item.classReq,
                 }
               : null;
           })
@@ -558,6 +611,54 @@ export class Connection {
         npcName: npcDef.nameKo,
       });
     }
+  }
+
+  private handleEnhanceItem(data: Record<string, unknown>): void {
+    if (!this.player) return;
+
+    let itemSlotIndex = Number(data.itemSlotIndex);
+    let scrollSlotIndex = Number(data.scrollSlotIndex);
+    if (isNaN(itemSlotIndex) || isNaN(scrollSlotIndex)) return;
+
+    let result = this.player.enhanceItem(itemSlotIndex, scrollSlotIndex);
+
+    let itemSlot = this.player.inventory[itemSlotIndex];
+    let itemName = itemSlot
+      ? ITEMS[itemSlot.itemId]?.nameKo || "아이템"
+      : "아이템";
+
+    this.send(PacketType.ENHANCE_RESULT, {
+      success: result.success,
+      destroyed: result.destroyed,
+      newLevel: result.newLevel,
+      itemName,
+    });
+
+    if (result.success) {
+      this.send(PacketType.NOTIFICATION, {
+        message: `Enhancement success! +${result.newLevel}`,
+        messageKo: `강화 성공! +${result.newLevel}`,
+      });
+    } else if (result.destroyed) {
+      this.send(PacketType.NOTIFICATION, {
+        message: `Enhancement failed! Item destroyed!`,
+        messageKo: `강화 실패! 아이템이 파괴되었습니다!`,
+      });
+    } else {
+      this.send(PacketType.NOTIFICATION, {
+        message: `Enhancement failed. Downgraded to +${result.newLevel}`,
+        messageKo: `강화 실패. +${result.newLevel}(으)로 하락했습니다.`,
+      });
+    }
+  }
+
+  private handleAllocateStat(data: Record<string, unknown>): void {
+    if (!this.player) return;
+
+    let statType = String(data.statType || "") as StatType;
+    if (!Object.values(StatType).includes(statType)) return;
+
+    this.player.allocateStat(statType);
   }
 
   private async onDisconnect(): Promise<void> {
