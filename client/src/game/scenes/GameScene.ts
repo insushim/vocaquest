@@ -21,28 +21,42 @@ import { socket } from "../../network";
 import { ui } from "../../ui";
 import { ClientConfig } from "../../config";
 
-// ---- Tile color palette ----
+// ---- Tile color palette (dark medieval fantasy) ----
 const TILE_COLORS: Record<number, number> = {
-  [TileType.GRASS]: 0x4a7c3f,
-  [TileType.DIRT]: 0x8b7355,
-  [TileType.STONE]: 0x808080,
-  [TileType.WATER]: 0x4a90d9,
-  [TileType.SAND]: 0xd4b96a,
-  [TileType.WALL]: 0x5c5c5c,
-  [TileType.TREE]: 0x2d5a1e,
-  [TileType.FLOOR]: 0xa0927b,
-  [TileType.BRIDGE]: 0x8b6914,
-  [TileType.LAVA]: 0xff4500,
-  [TileType.SNOW]: 0xf0f0f0,
-  [TileType.ICE]: 0xb0d4f1,
-  [TileType.SWAMP]: 0x556b2f,
-  [TileType.DARK_GRASS]: 0x2a4a2a,
-  [TileType.DARK_STONE]: 0x3a3a3a,
-  [TileType.PORTAL]: 0x9b59b6,
+  [TileType.GRASS]: 0x2e5a22,
+  [TileType.DIRT]: 0x5c4a32,
+  [TileType.STONE]: 0x555560,
+  [TileType.WATER]: 0x1a4a7a,
+  [TileType.SAND]: 0x8a7a4a,
+  [TileType.WALL]: 0x3a3a42,
+  [TileType.TREE]: 0x1a3a12,
+  [TileType.FLOOR]: 0x6a5e4a,
+  [TileType.BRIDGE]: 0x5a4a1a,
+  [TileType.LAVA]: 0xaa2200,
+  [TileType.SNOW]: 0xc0c5cc,
+  [TileType.ICE]: 0x6a9ab8,
+  [TileType.SWAMP]: 0x2a3a1a,
+  [TileType.DARK_GRASS]: 0x1a2e18,
+  [TileType.DARK_STONE]: 0x222228,
+  [TileType.PORTAL]: 0x5a2a7a,
+};
+
+// Secondary tile colors for detail
+const TILE_DETAIL_COLORS: Record<number, number> = {
+  [TileType.GRASS]: 0x3a6a2e,
+  [TileType.DIRT]: 0x4a3a28,
+  [TileType.STONE]: 0x44444e,
+  [TileType.WATER]: 0x2a5a8a,
+  [TileType.SAND]: 0x7a6a3a,
+  [TileType.TREE]: 0x0e2a08,
+  [TileType.FLOOR]: 0x5a4e3a,
+  [TileType.SWAMP]: 0x1e2e12,
+  [TileType.DARK_GRASS]: 0x122210,
+  [TileType.SNOW]: 0xd0d5dc,
 };
 
 // Tree trunk color
-const TREE_TRUNK_COLOR = 0x6b4423;
+const TREE_TRUNK_COLOR = 0x3a2812;
 
 // ---- Class colors ----
 const CLASS_COLORS: Record<string, number> = {
@@ -144,6 +158,19 @@ export class GameScene extends Phaser.Scene {
   private lastCamX: number = 0;
   private lastCamY: number = 0;
 
+  // ---- Atmosphere ----
+  private vignetteOverlay: Phaser.GameObjects.Graphics | null = null;
+  private ambientParticles: {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    alpha: number;
+    size: number;
+  }[] = [];
+  private ambientLayer: Phaser.GameObjects.Graphics | null = null;
+  private walkAnimPhase: number = 0;
+
   // ---- Player class (for skills) ----
   private playerClass: PlayerClass = PlayerClass.WARRIOR;
 
@@ -164,6 +191,28 @@ export class GameScene extends Phaser.Scene {
     this.targetIndicator = this.add.graphics();
     this.targetIndicator.setDepth(5);
     this.targetIndicator.setVisible(false);
+
+    // Ambient particle layer
+    this.ambientLayer = this.add.graphics();
+    this.ambientLayer.setDepth(15);
+
+    // Vignette overlay (dark edges for atmosphere)
+    this.vignetteOverlay = this.add.graphics();
+    this.vignetteOverlay.setDepth(100);
+    this.vignetteOverlay.setScrollFactor(0);
+    this.drawVignette();
+
+    // Initialize ambient particles
+    for (let i = 0; i < 30; i++) {
+      this.ambientParticles.push({
+        x: Math.random() * 800 - 400,
+        y: Math.random() * 600 - 300,
+        vx: (Math.random() - 0.5) * 8,
+        vy: -Math.random() * 6 - 2,
+        alpha: Math.random() * 0.3 + 0.1,
+        size: Math.random() * 1.5 + 0.5,
+      });
+    }
 
     // Setup input
     this.setupInput();
@@ -203,6 +252,7 @@ export class GameScene extends Phaser.Scene {
         this.playerX = this.targetX;
         this.playerY = this.targetY;
         this.isMoving = false;
+        this.playerSprite.setScale(1, 1); // Reset bob
       } else {
         const speed = Math.min(
           dist,
@@ -210,6 +260,9 @@ export class GameScene extends Phaser.Scene {
         );
         this.playerSprite.x += (dx / dist) * speed;
         this.playerSprite.y += (dy / dist) * speed;
+        // Walking bob effect
+        const bob = Math.sin(this.walkAnimPhase * Math.PI) * 1.5;
+        this.playerSprite.y += bob;
       }
     }
 
@@ -256,11 +309,18 @@ export class GameScene extends Phaser.Scene {
     // ---- Update target indicator ----
     this.updateTargetIndicator(time);
 
+    // ---- Walk animation phase ----
+    if (this.isMoving) {
+      this.walkAnimPhase += delta * 0.008;
+    }
+
+    // ---- Animate ambient particles ----
+    this.updateAmbientParticles(delta);
+
     // ---- Animate special tiles ----
     this.animTimer += delta;
     if (this.animTimer > 500) {
       this.animTimer = 0;
-      // Water/lava/portal shimmer handled via tile re-render
     }
 
     // ---- Update minimap periodically ----
@@ -594,13 +654,33 @@ export class GameScene extends Phaser.Scene {
     this.targetIndicator.setVisible(true);
     this.targetIndicator.clear();
 
-    // Pulsing circle around target
-    const pulse = Math.sin(time / 300) * 0.3 + 0.7;
-    this.targetIndicator.lineStyle(2, 0xff0000, pulse);
-    this.targetIndicator.strokeCircle(
+    const ts = ClientConfig.TILE_SIZE;
+    const pulse = Math.sin(time / 250) * 0.3 + 0.7;
+    const rot = (time / 2000) % (Math.PI * 2);
+
+    // Outer ring (red, pulsing)
+    this.targetIndicator.lineStyle(2, 0xcc2222, pulse * 0.8);
+    this.targetIndicator.strokeCircle(target.x, target.y, ts * 0.65);
+
+    // Inner rotating markers (4 corners)
+    this.targetIndicator.lineStyle(2, 0xff4444, pulse);
+    for (let i = 0; i < 4; i++) {
+      const a = rot + (i * Math.PI) / 2;
+      const r = ts * 0.55;
+      const x1 = target.x + Math.cos(a) * r;
+      const y1 = target.y + Math.sin(a) * r;
+      const x2 = target.x + Math.cos(a) * (r + 6);
+      const y2 = target.y + Math.sin(a) * (r + 6);
+      this.targetIndicator.lineBetween(x1, y1, x2, y2);
+    }
+
+    // Ground ellipse (perspective selection ring like Lineage)
+    this.targetIndicator.lineStyle(1.5, 0xff3333, pulse * 0.6);
+    this.targetIndicator.strokeEllipse(
       target.x,
-      target.y,
-      ClientConfig.TILE_SIZE * 0.6,
+      target.y + ts * 0.3,
+      ts * 0.9,
+      ts * 0.3,
     );
   }
 
@@ -978,22 +1058,26 @@ export class GameScene extends Phaser.Scene {
             const px = tx * ts;
             const py = ty * ts;
 
-            // Deterministic hash for color variation
+            // Deterministic hash for variation
             const hash = ((tx * 2654435761) ^ (ty * 2246822519)) >>> 0;
-            const v = (hash % 100) / 100; // 0..1
+            const v = (hash % 100) / 100;
+            const h2 = ((tx * 1597334677) ^ (ty * 3812015801)) >>> 0;
+            const v2 = (h2 % 100) / 100;
 
-            // Get base color with subtle variation for natural tiles
-            let color = TILE_COLORS[tileType] ?? 0x1a1a2e;
-            if (
+            // Base color with variation
+            let color = TILE_COLORS[tileType] ?? 0x0a0a18;
+            const isNatural =
               tileType === TileType.GRASS ||
               tileType === TileType.DARK_GRASS ||
               tileType === TileType.DIRT ||
-              tileType === TileType.SAND
-            ) {
+              tileType === TileType.SAND ||
+              tileType === TileType.SWAMP ||
+              tileType === TileType.SNOW;
+            if (isNatural) {
               const r = (color >> 16) & 0xff;
               const g = (color >> 8) & 0xff;
               const b = color & 0xff;
-              const m = 1.0 + (v - 0.5) * 0.12;
+              const m = 1.0 + (v - 0.5) * 0.18;
               color =
                 (Math.min(255, (r * m) | 0) << 16) |
                 (Math.min(255, (g * m) | 0) << 8) |
@@ -1003,51 +1087,230 @@ export class GameScene extends Phaser.Scene {
             this.tileLayer.fillStyle(color, 1);
             this.tileLayer.fillRect(px, py, ts, ts);
 
-            // Tree: darker canopy + trunk
+            // ---- Detailed tile decorations ----
+            const detailColor = TILE_DETAIL_COLORS[tileType];
+
+            if (
+              tileType === TileType.GRASS ||
+              tileType === TileType.DARK_GRASS
+            ) {
+              // Grass tufts - small vertical lines
+              if (v > 0.3) {
+                const gc = detailColor || 0x3a6a2e;
+                this.tileLayer.fillStyle(gc, 0.6);
+                const cx1 = px + v * ts * 0.7 + 2;
+                const cy1 = py + v2 * ts * 0.6 + 4;
+                this.tileLayer.fillRect(cx1, cy1, 1, 4);
+                this.tileLayer.fillRect(cx1 + 2, cy1 + 1, 1, 3);
+              }
+              if (v2 > 0.5) {
+                this.tileLayer.fillStyle(0x4a8a3a, 0.4);
+                const cx2 = px + v2 * ts * 0.5 + 8;
+                const cy2 = py + v * ts * 0.5 + 8;
+                this.tileLayer.fillRect(cx2, cy2, 1, 3);
+              }
+              // Occasional flower/mushroom
+              if (v > 0.88) {
+                const fc = v2 > 0.5 ? 0xcc8844 : 0x886644;
+                this.tileLayer.fillStyle(fc, 0.5);
+                this.tileLayer.fillCircle(
+                  px + v2 * 20 + 6,
+                  py + v * 18 + 6,
+                  1.5,
+                );
+              }
+            }
+
+            if (tileType === TileType.DIRT) {
+              // Small pebbles
+              if (v > 0.4) {
+                this.tileLayer.fillStyle(0x4a3a22, 0.4);
+                this.tileLayer.fillCircle(
+                  px + v * 24 + 4,
+                  py + v2 * 20 + 6,
+                  1.5,
+                );
+              }
+              if (v2 > 0.6) {
+                this.tileLayer.fillStyle(0x6a5a42, 0.3);
+                this.tileLayer.fillCircle(px + v2 * 18 + 8, py + v * 22 + 4, 1);
+              }
+            }
+
+            if (tileType === TileType.SAND) {
+              // Sand ripple lines
+              this.tileLayer.fillStyle(0x9a8a5a, 0.2);
+              const ry = py + ((v * 8) | 0) + 6;
+              this.tileLayer.fillRect(px + 3, ry, ts - 6, 1);
+              if (v2 > 0.5) {
+                this.tileLayer.fillRect(px + 6, ry + 8, ts - 12, 1);
+              }
+            }
+
             if (tileType === TileType.TREE) {
+              // Root area - darker ground
+              this.tileLayer.fillStyle(0x1a2a12, 1);
+              this.tileLayer.fillRect(px + 2, py + ts * 0.7, ts - 4, ts * 0.3);
+              // Trunk with bark texture
               this.tileLayer.fillStyle(TREE_TRUNK_COLOR, 1);
               this.tileLayer.fillRect(
+                px + ts * 0.35,
+                py + ts * 0.35,
+                ts * 0.3,
+                ts * 0.55,
+              );
+              // Bark detail
+              this.tileLayer.fillStyle(0x2a1a08, 0.4);
+              this.tileLayer.fillRect(px + ts * 0.38, py + ts * 0.42, 2, 6);
+              this.tileLayer.fillRect(px + ts * 0.52, py + ts * 0.5, 2, 5);
+              // Canopy - multiple overlapping circles for fullness
+              this.tileLayer.fillStyle(0x1a4a0e, 1);
+              this.tileLayer.fillCircle(
                 px + ts * 0.38,
-                py + ts * 0.55,
-                ts * 0.24,
-                ts * 0.45,
+                py + ts * 0.3,
+                ts * 0.28,
               );
-              this.tileLayer.fillStyle(0x1e4a12, 1);
-              this.tileLayer.fillCircle(px + ts / 2, py + ts * 0.4, ts * 0.35);
+              this.tileLayer.fillCircle(
+                px + ts * 0.62,
+                py + ts * 0.32,
+                ts * 0.26,
+              );
+              this.tileLayer.fillCircle(
+                px + ts * 0.5,
+                py + ts * 0.22,
+                ts * 0.3,
+              );
+              // Lighter leaf highlights
+              this.tileLayer.fillStyle(0x2a5a1e, 0.6);
+              this.tileLayer.fillCircle(
+                px + ts * 0.45,
+                py + ts * 0.18,
+                ts * 0.14,
+              );
             }
 
-            // Water: lighter highlight strip
             if (tileType === TileType.WATER) {
-              this.tileLayer.fillStyle(0x5aa0e0, 0.3);
-              this.tileLayer.fillRect(
-                px + 2,
-                py + ts * 0.3 + ((v * 4) | 0),
-                ts - 4,
-                2,
+              // Dark water depth
+              this.tileLayer.fillStyle(0x0e3a5e, 0.4);
+              this.tileLayer.fillRect(px + 1, py + 1, ts - 2, ts - 2);
+              // Wave highlights
+              this.tileLayer.fillStyle(0x3a7aaa, 0.25);
+              const wy1 = py + ts * 0.25 + ((v * 6) | 0);
+              this.tileLayer.fillRect(px + 3, wy1, ts * 0.6, 1);
+              this.tileLayer.fillStyle(0x4a8aba, 0.2);
+              const wy2 = py + ts * 0.6 + ((v2 * 5) | 0);
+              this.tileLayer.fillRect(px + 8, wy2, ts * 0.4, 1);
+              // Edge foam (check adjacent tiles)
+              const aboveTile = this.mapData.tiles[ty - 1]?.[tx];
+              if (aboveTile !== undefined && aboveTile !== TileType.WATER) {
+                this.tileLayer.fillStyle(0x6aaacc, 0.3);
+                this.tileLayer.fillRect(px, py, ts, 3);
+              }
+            }
+
+            if (tileType === TileType.LAVA) {
+              // Bright core
+              this.tileLayer.fillStyle(0xcc4400, 0.5);
+              this.tileLayer.fillCircle(
+                px + ts * 0.4 + v * 8,
+                py + ts * 0.5,
+                ts * 0.2,
               );
-              this.tileLayer.fillRect(
-                px + 6,
-                py + ts * 0.6 + ((v * 3) | 0),
-                ts - 12,
-                2,
+              this.tileLayer.fillStyle(0xff8800, 0.3);
+              this.tileLayer.fillCircle(
+                px + ts * 0.6,
+                py + ts * 0.3 + v2 * 6,
+                ts * 0.12,
               );
             }
 
-            // Wall/stone: border
             if (
               tileType === TileType.WALL ||
               tileType === TileType.STONE ||
               tileType === TileType.DARK_STONE
             ) {
-              this.tileLayer.fillStyle(0x000000, 0.15);
+              // Brick/stone pattern
+              this.tileLayer.fillStyle(0x000000, 0.2);
               this.tileLayer.fillRect(px, py, ts, 1);
               this.tileLayer.fillRect(px, py, 1, ts);
+              // Mortar line in middle
+              this.tileLayer.fillRect(px, py + ts / 2, ts, 1);
+              // Vertical mortar (offset per row)
+              const offset = ty % 2 === 0 ? ts * 0.4 : ts * 0.8;
+              this.tileLayer.fillRect(px + offset, py, 1, ts / 2);
+              this.tileLayer.fillRect(
+                px + ((offset + ts * 0.5) % ts),
+                py + ts / 2,
+                1,
+                ts / 2,
+              );
+              // Stone highlight
+              this.tileLayer.fillStyle(0xffffff, 0.05);
+              this.tileLayer.fillRect(px + 2, py + 2, ts * 0.3, 1);
             }
 
-            // Portal glow
+            if (tileType === TileType.FLOOR) {
+              // Flagstone pattern
+              this.tileLayer.fillStyle(0x000000, 0.12);
+              this.tileLayer.fillRect(px, py, ts, 1);
+              this.tileLayer.fillRect(px, py, 1, ts);
+              // Subtle wear marks
+              if (v > 0.7) {
+                this.tileLayer.fillStyle(0x5a4e3a, 0.3);
+                this.tileLayer.fillCircle(px + v2 * 20 + 6, py + v * 18 + 6, 2);
+              }
+            }
+
+            if (tileType === TileType.BRIDGE) {
+              // Plank lines
+              this.tileLayer.fillStyle(0x3a2a0a, 0.3);
+              for (let p = 0; p < 4; p++) {
+                this.tileLayer.fillRect(px, py + p * 8 + 1, ts, 1);
+              }
+              // Railing dots at edges
+              this.tileLayer.fillStyle(0x4a3a1a, 0.5);
+              this.tileLayer.fillRect(px, py, 2, ts);
+              this.tileLayer.fillRect(px + ts - 2, py, 2, ts);
+            }
+
+            if (tileType === TileType.SWAMP) {
+              // Murky bubbles
+              if (v > 0.6) {
+                this.tileLayer.fillStyle(0x3a4a2a, 0.4);
+                this.tileLayer.fillCircle(px + v * 22 + 5, py + v2 * 20 + 6, 2);
+              }
+              // Dark patches
+              this.tileLayer.fillStyle(0x1a2a0e, 0.3);
+              this.tileLayer.fillCircle(px + v2 * 18 + 8, py + v * 16 + 8, 4);
+            }
+
             if (tileType === TileType.PORTAL) {
-              this.tileLayer.fillStyle(0xc77dff, 0.3);
-              this.tileLayer.fillCircle(px + ts / 2, py + ts / 2, ts * 0.3);
+              // Outer glow ring
+              this.tileLayer.fillStyle(0x8a4aaa, 0.25);
+              this.tileLayer.fillCircle(px + ts / 2, py + ts / 2, ts * 0.45);
+              // Inner bright core
+              this.tileLayer.fillStyle(0xaa6acc, 0.4);
+              this.tileLayer.fillCircle(px + ts / 2, py + ts / 2, ts * 0.25);
+              // Center spark
+              this.tileLayer.fillStyle(0xddaaff, 0.5);
+              this.tileLayer.fillCircle(px + ts / 2, py + ts / 2, ts * 0.1);
+            }
+
+            if (tileType === TileType.SNOW) {
+              // Snow sparkle
+              if (v > 0.7) {
+                this.tileLayer.fillStyle(0xffffff, 0.3);
+                this.tileLayer.fillCircle(px + v * 24 + 4, py + v2 * 22 + 5, 1);
+              }
+            }
+
+            if (tileType === TileType.ICE) {
+              // Crack lines
+              this.tileLayer.fillStyle(0x8abace, 0.3);
+              this.tileLayer.fillRect(px + v * 20 + 2, py + 4, 1, ts * 0.4);
+              if (v2 > 0.5) {
+                this.tileLayer.fillRect(px + v2 * 16 + 8, py + 12, ts * 0.3, 1);
+              }
             }
           }
         }
@@ -1096,7 +1359,7 @@ export class GameScene extends Phaser.Scene {
       [PlayerClass.ARCHER]: 0x228b22,
     };
     const hairColor = hairColors[classType] || 0x8b4513;
-    const s = ts * 0.6; // scale factor
+    const s = ts * 0.7; // scale factor (larger for visibility)
 
     // Shadow
     g.fillStyle(0x000000, 0.25);
@@ -1241,8 +1504,8 @@ export class GameScene extends Phaser.Scene {
     this.drawHumanoid(body, ts, data.class, true);
     container.add(body);
 
-    // Name text
-    const nameText = this.add.text(0, -ts * 0.55, data.name, {
+    // Name text (higher for bigger sprite)
+    const nameText = this.add.text(0, -ts * 0.7, data.name, {
       fontSize: "12px",
       color: "#ffd700",
       fontStyle: "bold",
@@ -1268,7 +1531,7 @@ export class GameScene extends Phaser.Scene {
     this.drawHumanoid(body, ts, data.class, false);
     container.add(body);
 
-    const nameText = this.add.text(0, -ts * 0.55, data.name, {
+    const nameText = this.add.text(0, -ts * 0.7, data.name, {
       fontSize: "11px",
       color: "#e8d5b0",
       fontStyle: "bold",
@@ -1302,8 +1565,8 @@ export class GameScene extends Phaser.Scene {
     isBoss: boolean,
     behavior: string,
   ): void {
-    const scale = isBoss ? 1.3 : 0.85 + Math.min(level, 50) * 0.005;
-    const s = ts * 0.6 * scale;
+    const scale = isBoss ? 1.4 : 0.9 + Math.min(level, 50) * 0.006;
+    const s = ts * 0.65 * scale;
 
     // Shadow
     g.fillStyle(0x000000, 0.2);
@@ -1817,15 +2080,16 @@ export class GameScene extends Phaser.Scene {
     );
     container.add(body);
 
-    // Name + level text
-    const displayName = data.name || "Mob";
+    // Name + level text (prefer Korean name)
+    const displayName = (data as any).nameKo || data.name || "\uBAB9";
     const nameText = this.add.text(
       0,
-      -halfSize - 14,
+      -halfSize - 16,
       `Lv.${data.level} ${displayName}`,
       {
-        fontSize: data.isBoss ? "11px" : "10px",
+        fontSize: data.isBoss ? "12px" : "10px",
         color: data.isBoss ? "#ffcc00" : "#ff9999",
+        fontStyle: data.isBoss ? "bold" : "normal",
         stroke: "#000000",
         strokeThickness: 2,
       },
@@ -1861,7 +2125,7 @@ export class GameScene extends Phaser.Scene {
     ts: number,
     npcName: string,
   ): void {
-    const s = ts * 0.6;
+    const s = ts * 0.7;
     const skinColor = 0xffd5b4;
     const name = (npcName || "").toLowerCase();
 
@@ -2034,20 +2298,30 @@ export class GameScene extends Phaser.Scene {
     halfSize: number,
   ): void {
     g.clear();
-    const barWidth = halfSize * 2;
-    const barHeight = 4;
-    const barY = halfSize + 4;
+    const barWidth = halfSize * 2.2;
+    const barHeight = 5;
+    const barY = halfSize + 5;
+
+    // Dark border
+    g.fillStyle(0x000000, 0.9);
+    g.fillRect(-barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
 
     // Background
-    g.fillStyle(0x333333, 0.8);
+    g.fillStyle(0x1a1a1a, 0.9);
     g.fillRect(-barWidth / 2, barY, barWidth, barHeight);
 
-    // Fill
+    // Fill with gradient-like effect
     const ratio = Math.max(0, Math.min(1, hp / maxHp));
     const fillColor =
-      ratio > 0.5 ? 0x4caf50 : ratio > 0.25 ? 0xff9800 : 0xf44336;
+      ratio > 0.5 ? 0x3a8a3a : ratio > 0.25 ? 0xcc7a00 : 0xaa2222;
     g.fillStyle(fillColor, 1);
     g.fillRect(-barWidth / 2, barY, barWidth * ratio, barHeight);
+
+    // Highlight on top of fill
+    const brightColor =
+      ratio > 0.5 ? 0x5aaa5a : ratio > 0.25 ? 0xeeaa33 : 0xcc4444;
+    g.fillStyle(brightColor, 0.4);
+    g.fillRect(-barWidth / 2, barY, barWidth * ratio, 2);
   }
 
   private updateEntityHealthBar(
@@ -2152,12 +2426,13 @@ export class GameScene extends Phaser.Scene {
     damage: number,
     isCrit: boolean = false,
   ): void {
-    const text = this.add.text(x, y - 10, `-${damage}`, {
-      fontSize: isCrit ? "18px" : "14px",
-      color: isCrit ? "#ff0000" : "#ffcc00",
+    const dmgText = isCrit ? `\u2620 ${damage}` : `-${damage}`;
+    const text = this.add.text(x, y - 10, dmgText, {
+      fontSize: isCrit ? "20px" : "14px",
+      color: isCrit ? "#ff2200" : "#ffcc00",
       fontStyle: "bold",
       stroke: "#000000",
-      strokeThickness: 3,
+      strokeThickness: isCrit ? 4 : 3,
     });
     text.setOrigin(0.5, 1);
     text.setDepth(50);
@@ -2316,8 +2591,8 @@ export class GameScene extends Phaser.Scene {
       },
     });
 
-    // "LEVEL UP!" text
-    this.showFloatingText(x, y - 20, "LEVEL UP!", "#ffd700", 2000);
+    // "레벨 업!" text
+    this.showFloatingText(x, y - 20, "\uB808\uBCA8 \uC5C5!", "#ffd700", 2000);
   }
 
   /** Show skill visual effect at position */
@@ -2389,5 +2664,68 @@ export class GameScene extends Phaser.Scene {
       { x: this.playerX, y: this.playerY },
       entities,
     );
+  }
+
+  // ================================================
+  // Atmosphere & Ambient Effects
+  // ================================================
+
+  /** Draw dark vignette overlay for atmospheric lighting */
+  private drawVignette(): void {
+    if (!this.vignetteOverlay) return;
+    const w = this.cameras.main.width;
+    const h = this.cameras.main.height;
+
+    this.vignetteOverlay.clear();
+
+    // Dark edges - gradient-like vignette using concentric rects
+    const steps = 8;
+    for (let i = steps; i >= 0; i--) {
+      const t = i / steps;
+      const alpha = t * t * 0.45; // Quadratic falloff, max 0.45
+      const inset = (1 - t) * Math.min(w, h) * 0.35;
+      this.vignetteOverlay.fillStyle(0x000000, alpha);
+      // Top edge
+      this.vignetteOverlay.fillRect(0, 0, w, inset);
+      // Bottom edge
+      this.vignetteOverlay.fillRect(0, h - inset, w, inset);
+      // Left edge
+      this.vignetteOverlay.fillRect(0, inset, inset, h - inset * 2);
+      // Right edge
+      this.vignetteOverlay.fillRect(w - inset, inset, inset, h - inset * 2);
+    }
+
+    // Subtle overall darkness
+    this.vignetteOverlay.fillStyle(0x0a0a18, 0.15);
+    this.vignetteOverlay.fillRect(0, 0, w, h);
+  }
+
+  /** Update floating ambient particles (dust motes, fireflies) */
+  private updateAmbientParticles(delta: number): void {
+    if (!this.ambientLayer || !this.playerSprite) return;
+
+    this.ambientLayer.clear();
+    const cam = this.cameras.main;
+    const cx = cam.scrollX + cam.width / 2;
+    const cy = cam.scrollY + cam.height / 2;
+
+    for (const p of this.ambientParticles) {
+      p.x += p.vx * (delta / 1000);
+      p.y += p.vy * (delta / 1000);
+      p.alpha += (Math.random() - 0.5) * 0.02;
+      p.alpha = Math.max(0.05, Math.min(0.35, p.alpha));
+
+      // Wrap around camera view
+      if (p.x < -420) p.x = 420;
+      if (p.x > 420) p.x = -420;
+      if (p.y < -320) p.y = 320;
+      if (p.y > 320) p.y = -320;
+
+      const wx = cx + p.x;
+      const wy = cy + p.y;
+
+      this.ambientLayer.fillStyle(0xccbb88, p.alpha);
+      this.ambientLayer.fillCircle(wx, wy, p.size);
+    }
   }
 }
