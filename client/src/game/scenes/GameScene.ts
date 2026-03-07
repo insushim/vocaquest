@@ -1035,6 +1035,154 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Draw a humanoid character on a Graphics object */
+  private drawHumanoid(
+    g: Phaser.GameObjects.Graphics,
+    ts: number,
+    classType: string,
+    isLocal: boolean,
+  ): void {
+    const color = CLASS_COLORS[classType] || 0x42a5f5;
+    const skinColor = 0xffd5b4;
+    const hairColors: Record<string, number> = {
+      [PlayerClass.WARRIOR]: 0x8b4513,
+      [PlayerClass.KNIGHT]: 0x2f2f2f,
+      [PlayerClass.MAGE]: 0xc0c0c0,
+      [PlayerClass.ARCHER]: 0x228b22,
+    };
+    const hairColor = hairColors[classType] || 0x8b4513;
+    const s = ts * 0.6; // scale factor
+
+    // Shadow
+    g.fillStyle(0x000000, 0.25);
+    g.fillEllipse(0, s * 0.48, s * 0.7, s * 0.18);
+
+    // Legs
+    g.fillStyle(0x4a3728, 1);
+    g.fillRect(-s * 0.2, s * 0.18, s * 0.14, s * 0.28);
+    g.fillRect(s * 0.06, s * 0.18, s * 0.14, s * 0.28);
+
+    // Boots
+    g.fillStyle(0x5c3a1e, 1);
+    g.fillRoundedRect(-s * 0.22, s * 0.38, s * 0.18, s * 0.1, 2);
+    g.fillRoundedRect(s * 0.04, s * 0.38, s * 0.18, s * 0.1, 2);
+
+    // Body / Armor
+    g.fillStyle(color, 1);
+    g.fillRoundedRect(-s * 0.28, -s * 0.15, s * 0.56, s * 0.38, 3);
+
+    // Belt
+    g.fillStyle(0x6b4423, 1);
+    g.fillRect(-s * 0.28, s * 0.12, s * 0.56, s * 0.06);
+    g.fillStyle(0xffd700, 1);
+    g.fillRect(-s * 0.04, s * 0.12, s * 0.08, s * 0.06);
+
+    // Arms
+    g.fillStyle(color, 1);
+    g.fillRect(-s * 0.4, -s * 0.1, s * 0.14, s * 0.28);
+    g.fillRect(s * 0.26, -s * 0.1, s * 0.14, s * 0.28);
+
+    // Hands (skin)
+    g.fillStyle(skinColor, 1);
+    g.fillCircle(-s * 0.33, s * 0.2, s * 0.06);
+    g.fillCircle(s * 0.33, s * 0.2, s * 0.06);
+
+    // Head (skin)
+    g.fillStyle(skinColor, 1);
+    g.fillCircle(0, -s * 0.32, s * 0.2);
+
+    // Hair
+    g.fillStyle(hairColor, 1);
+    g.fillRoundedRect(-s * 0.22, -s * 0.54, s * 0.44, s * 0.2, 3);
+    // Side hair
+    g.fillRect(-s * 0.22, -s * 0.44, s * 0.06, s * 0.16);
+    g.fillRect(s * 0.16, -s * 0.44, s * 0.06, s * 0.16);
+
+    // Eyes
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(-s * 0.08, -s * 0.34, s * 0.035);
+    g.fillCircle(s * 0.08, -s * 0.34, s * 0.035);
+    // Eye whites
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(-s * 0.07, -s * 0.345, s * 0.015);
+    g.fillCircle(s * 0.09, -s * 0.345, s * 0.015);
+
+    // Mouth
+    g.fillStyle(0xc47a6a, 1);
+    g.fillRect(-s * 0.05, -s * 0.24, s * 0.1, s * 0.02);
+
+    // Class-specific weapon/accessory
+    if (classType === PlayerClass.WARRIOR) {
+      // Sword on right hand
+      g.fillStyle(0xc0c0c0, 1);
+      g.fillRect(s * 0.3, -s * 0.15, s * 0.06, s * 0.4);
+      g.fillStyle(0xffd700, 1);
+      g.fillRect(s * 0.24, s * 0.02, s * 0.18, s * 0.06);
+      g.fillStyle(0x8b0000, 1);
+      g.fillRect(s * 0.3, s * 0.08, s * 0.06, s * 0.1);
+    } else if (classType === PlayerClass.KNIGHT) {
+      // Shield on left hand
+      g.fillStyle(0x4169e1, 1);
+      g.fillRoundedRect(-s * 0.52, -s * 0.08, s * 0.2, s * 0.28, 3);
+      g.lineStyle(1.5, 0xffd700, 1);
+      g.strokeRoundedRect(-s * 0.52, -s * 0.08, s * 0.2, s * 0.28, 3);
+      g.fillStyle(0xffd700, 1);
+      g.fillCircle(-s * 0.42, s * 0.06, s * 0.04);
+      // Lance on right
+      g.fillStyle(0x808080, 1);
+      g.fillRect(s * 0.32, -s * 0.5, s * 0.04, s * 0.7);
+      g.fillStyle(0xc0c0c0, 1);
+      g.fillTriangle(
+        s * 0.34,
+        -s * 0.5,
+        s * 0.28,
+        -s * 0.38,
+        s * 0.4,
+        -s * 0.38,
+      );
+    } else if (classType === PlayerClass.MAGE) {
+      // Staff
+      g.fillStyle(0x8b4513, 1);
+      g.fillRect(s * 0.3, -s * 0.5, s * 0.05, s * 0.7);
+      // Crystal on top
+      g.fillStyle(0x9b59b6, 1);
+      g.fillCircle(s * 0.325, -s * 0.55, s * 0.08);
+      g.fillStyle(0xc77dff, 0.6);
+      g.fillCircle(s * 0.325, -s * 0.55, s * 0.05);
+      // Hat
+      g.fillStyle(0x4a148c, 1);
+      g.fillTriangle(0, -s * 0.75, -s * 0.25, -s * 0.42, s * 0.25, -s * 0.42);
+      g.fillStyle(0xffd700, 1);
+      g.fillCircle(0, -s * 0.75, s * 0.03);
+    } else if (classType === PlayerClass.ARCHER) {
+      // Bow on left
+      g.lineStyle(2.5, 0x8b4513, 1);
+      g.beginPath();
+      g.arc(-s * 0.45, 0, s * 0.3, -1.2, 1.2, false);
+      g.strokePath();
+      g.lineStyle(1, 0xddd, 1);
+      g.lineBetween(
+        -s * 0.45 + s * 0.3 * Math.cos(-1.2),
+        s * 0.3 * Math.sin(-1.2),
+        -s * 0.45 + s * 0.3 * Math.cos(1.2),
+        s * 0.3 * Math.sin(1.2),
+      );
+      // Quiver on back
+      g.fillStyle(0x8b4513, 1);
+      g.fillRect(s * 0.18, -s * 0.4, s * 0.1, s * 0.35);
+      g.fillStyle(0xc0c0c0, 1);
+      g.fillRect(s * 0.19, -s * 0.48, s * 0.02, s * 0.14);
+      g.fillRect(s * 0.23, -s * 0.46, s * 0.02, s * 0.12);
+      g.fillRect(s * 0.27, -s * 0.44, s * 0.02, s * 0.1);
+    }
+
+    // Local player golden glow
+    if (isLocal) {
+      g.lineStyle(2, 0xffd700, 0.7);
+      g.strokeCircle(0, 0, s * 0.6);
+    }
+  }
+
   /** Create the local player sprite */
   private createPlayerSprite(data: PlayerData): void {
     const ts = ClientConfig.TILE_SIZE;
@@ -1044,29 +1192,17 @@ export class GameScene extends Phaser.Scene {
     );
     container.setDepth(10);
 
-    // Body
     const body = this.add.graphics();
-    const color = CLASS_COLORS[data.class] || 0x42a5f5;
-    body.fillStyle(color, 1);
-    body.fillRoundedRect(-ts * 0.35, -ts * 0.35, ts * 0.7, ts * 0.7, 4);
-
-    // Border
-    body.lineStyle(2, 0xffd700, 1);
-    body.strokeRoundedRect(-ts * 0.35, -ts * 0.35, ts * 0.7, ts * 0.7, 4);
-
-    // Direction indicator (small triangle)
-    body.fillStyle(0xffffff, 0.8);
-    body.fillTriangle(0, -ts * 0.4, -4, -ts * 0.3, 4, -ts * 0.3);
-
+    this.drawHumanoid(body, ts, data.class, true);
     container.add(body);
 
     // Name text
-    const nameText = this.add.text(0, -ts * 0.6, data.name, {
+    const nameText = this.add.text(0, -ts * 0.55, data.name, {
       fontSize: "12px",
       color: "#ffd700",
       fontStyle: "bold",
       stroke: "#000000",
-      strokeThickness: 2,
+      strokeThickness: 3,
     });
     nameText.setOrigin(0.5, 1);
     container.add(nameText);
@@ -1084,18 +1220,15 @@ export class GameScene extends Phaser.Scene {
     container.setDepth(8);
 
     const body = this.add.graphics();
-    const color = CLASS_COLORS[data.class] || 0x42a5f5;
-    body.fillStyle(color, 1);
-    body.fillRoundedRect(-ts * 0.3, -ts * 0.3, ts * 0.6, ts * 0.6, 3);
-    body.lineStyle(1, 0xcccccc, 0.6);
-    body.strokeRoundedRect(-ts * 0.3, -ts * 0.3, ts * 0.6, ts * 0.6, 3);
+    this.drawHumanoid(body, ts, data.class, false);
     container.add(body);
 
-    const nameText = this.add.text(0, -ts * 0.5, data.name, {
+    const nameText = this.add.text(0, -ts * 0.55, data.name, {
       fontSize: "11px",
       color: "#e8d5b0",
+      fontStyle: "bold",
       stroke: "#000000",
-      strokeThickness: 2,
+      strokeThickness: 3,
     });
     nameText.setOrigin(0.5, 1);
     container.add(nameText);
@@ -1115,6 +1248,507 @@ export class GameScene extends Phaser.Scene {
     this.otherPlayers.set(data.id, container);
   }
 
+  /** Draw a monster shape based on mob type */
+  private drawMonster(
+    g: Phaser.GameObjects.Graphics,
+    ts: number,
+    mobId: string,
+    level: number,
+    isBoss: boolean,
+    behavior: string,
+  ): void {
+    const scale = isBoss ? 1.3 : 0.85 + Math.min(level, 50) * 0.005;
+    const s = ts * 0.5 * scale;
+
+    // Shadow
+    g.fillStyle(0x000000, 0.2);
+    g.fillEllipse(0, s * 0.55, s * 0.8, s * 0.15);
+
+    // Determine mob visual category from id
+    const id = mobId.toLowerCase();
+    let mainColor = 0xcc4444;
+    if (behavior === MobBehavior.PASSIVE) mainColor = 0x88aa44;
+    if (behavior === MobBehavior.BOSS || isBoss) mainColor = 0xaa22aa;
+
+    if (id.includes("slime") || id.includes("ooze")) {
+      // --- Slime: round blob ---
+      const c = id.includes("fire")
+        ? 0xff6633
+        : id.includes("ice")
+          ? 0x66ccff
+          : id.includes("poison")
+            ? 0x66cc44
+            : 0x44cc66;
+      g.fillStyle(c, 0.85);
+      g.fillEllipse(0, s * 0.1, s * 0.8, s * 0.7);
+      g.fillStyle(c, 0.6);
+      g.fillEllipse(0, -s * 0.05, s * 0.6, s * 0.5);
+      // Eyes
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(-s * 0.15, -s * 0.05, s * 0.1);
+      g.fillCircle(s * 0.15, -s * 0.05, s * 0.1);
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(-s * 0.12, -s * 0.03, s * 0.05);
+      g.fillCircle(s * 0.18, -s * 0.03, s * 0.05);
+      // Mouth
+      g.lineStyle(1.5, 0x000000, 0.7);
+      g.beginPath();
+      g.arc(0, s * 0.12, s * 0.12, 0.2, Math.PI - 0.2, false);
+      g.strokePath();
+    } else if (
+      id.includes("wolf") ||
+      id.includes("hound") ||
+      id.includes("fox")
+    ) {
+      // --- Wolf: quadruped ---
+      const c = id.includes("dire")
+        ? 0x555555
+        : id.includes("shadow")
+          ? 0x333355
+          : 0x8b7355;
+      // Body
+      g.fillStyle(c, 1);
+      g.fillEllipse(0, s * 0.1, s * 0.9, s * 0.45);
+      // Legs
+      g.fillRect(-s * 0.35, s * 0.25, s * 0.1, s * 0.25);
+      g.fillRect(-s * 0.15, s * 0.25, s * 0.1, s * 0.25);
+      g.fillRect(s * 0.1, s * 0.25, s * 0.1, s * 0.25);
+      g.fillRect(s * 0.28, s * 0.25, s * 0.1, s * 0.25);
+      // Head
+      g.fillStyle(c, 1);
+      g.fillCircle(-s * 0.4, -s * 0.1, s * 0.22);
+      // Ears
+      g.fillTriangle(
+        -s * 0.52,
+        -s * 0.35,
+        -s * 0.42,
+        -s * 0.15,
+        -s * 0.55,
+        -s * 0.15,
+      );
+      g.fillTriangle(
+        -s * 0.28,
+        -s * 0.35,
+        -s * 0.38,
+        -s * 0.15,
+        -s * 0.25,
+        -s * 0.15,
+      );
+      // Eye
+      g.fillStyle(0xff3333, 1);
+      g.fillCircle(-s * 0.45, -s * 0.12, s * 0.04);
+      // Snout
+      g.fillStyle(0x666666, 1);
+      g.fillCircle(-s * 0.55, -s * 0.05, s * 0.06);
+      // Tail
+      g.lineStyle(3, c, 1);
+      g.beginPath();
+      g.arc(s * 0.45, -s * 0.05, s * 0.2, 1.5, 3.5, false);
+      g.strokePath();
+    } else if (
+      id.includes("goblin") ||
+      id.includes("imp") ||
+      id.includes("orc")
+    ) {
+      // --- Goblin/Orc: small humanoid ---
+      const c = id.includes("orc")
+        ? 0x556b2f
+        : id.includes("imp")
+          ? 0xcc3322
+          : 0x6b8e23;
+      // Body
+      g.fillStyle(c, 1);
+      g.fillRoundedRect(-s * 0.25, -s * 0.05, s * 0.5, s * 0.4, 3);
+      // Head
+      g.fillStyle(c, 1);
+      g.fillCircle(0, -s * 0.2, s * 0.22);
+      // Ears (pointy)
+      g.fillTriangle(
+        -s * 0.35,
+        -s * 0.25,
+        -s * 0.2,
+        -s * 0.2,
+        -s * 0.22,
+        -s * 0.38,
+      );
+      g.fillTriangle(
+        s * 0.35,
+        -s * 0.25,
+        s * 0.2,
+        -s * 0.2,
+        s * 0.22,
+        -s * 0.38,
+      );
+      // Eyes (big, yellow)
+      g.fillStyle(0xffff00, 1);
+      g.fillCircle(-s * 0.1, -s * 0.23, s * 0.06);
+      g.fillCircle(s * 0.1, -s * 0.23, s * 0.06);
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(-s * 0.1, -s * 0.22, s * 0.03);
+      g.fillCircle(s * 0.1, -s * 0.22, s * 0.03);
+      // Legs
+      g.fillStyle(c, 1);
+      g.fillRect(-s * 0.18, s * 0.3, s * 0.12, s * 0.2);
+      g.fillRect(s * 0.06, s * 0.3, s * 0.12, s * 0.2);
+      // Weapon (club)
+      g.fillStyle(0x8b4513, 1);
+      g.fillRect(s * 0.28, -s * 0.15, s * 0.06, s * 0.4);
+      g.fillCircle(s * 0.31, -s * 0.15, s * 0.08);
+    } else if (
+      id.includes("skeleton") ||
+      id.includes("undead") ||
+      id.includes("zombie")
+    ) {
+      // --- Skeleton/Undead ---
+      const c = id.includes("zombie") ? 0x556b2f : 0xe8e8d5;
+      g.fillStyle(c, 1);
+      // Ribcage body
+      g.fillRoundedRect(-s * 0.2, -s * 0.05, s * 0.4, s * 0.35, 2);
+      if (!id.includes("zombie")) {
+        g.fillStyle(0x222222, 1);
+        for (let i = 0; i < 3; i++) {
+          g.fillRect(-s * 0.12, s * 0.02 + i * s * 0.08, s * 0.24, s * 0.03);
+        }
+      }
+      // Skull
+      g.fillStyle(c, 1);
+      g.fillCircle(0, -s * 0.2, s * 0.2);
+      // Eye sockets
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(-s * 0.08, -s * 0.22, s * 0.06);
+      g.fillCircle(s * 0.08, -s * 0.22, s * 0.06);
+      g.fillStyle(0xff0000, 0.8);
+      g.fillCircle(-s * 0.08, -s * 0.22, s * 0.03);
+      g.fillCircle(s * 0.08, -s * 0.22, s * 0.03);
+      // Jaw
+      g.fillStyle(c, 1);
+      g.fillRect(-s * 0.1, -s * 0.06, s * 0.2, s * 0.04);
+      // Arms (bones)
+      g.fillStyle(c, 1);
+      g.fillRect(-s * 0.35, -s * 0.02, s * 0.16, s * 0.05);
+      g.fillRect(s * 0.19, -s * 0.02, s * 0.16, s * 0.05);
+      // Legs
+      g.fillRect(-s * 0.15, s * 0.28, s * 0.08, s * 0.22);
+      g.fillRect(s * 0.07, s * 0.28, s * 0.08, s * 0.22);
+    } else if (id.includes("spider") || id.includes("scorpion")) {
+      // --- Spider ---
+      const c = id.includes("scorpion") ? 0x8b4513 : 0x2f2f2f;
+      g.fillStyle(c, 1);
+      g.fillEllipse(0, s * 0.05, s * 0.5, s * 0.35);
+      g.fillCircle(0, -s * 0.2, s * 0.18);
+      // Eyes (8 red dots)
+      g.fillStyle(0xff0000, 1);
+      for (let i = -2; i <= 1; i++) {
+        g.fillCircle(i * s * 0.06 + s * 0.03, -s * 0.22, s * 0.025);
+        g.fillCircle(i * s * 0.06 + s * 0.03, -s * 0.17, s * 0.02);
+      }
+      // Legs (8)
+      g.lineStyle(2, c, 1);
+      for (let side = -1; side <= 1; side += 2) {
+        for (let i = 0; i < 4; i++) {
+          const angle = -0.8 + i * 0.5;
+          const x1 = side * s * 0.25;
+          const y1 = -s * 0.1 + i * s * 0.08;
+          const x2 = side * s * 0.55;
+          const y2 = y1 + s * 0.15;
+          g.lineBetween(x1, y1, x2, y2);
+        }
+      }
+    } else if (
+      id.includes("dragon") ||
+      id.includes("drake") ||
+      id.includes("wyrm")
+    ) {
+      // --- Dragon ---
+      const c = id.includes("void")
+        ? 0x330066
+        : id.includes("fire")
+          ? 0xcc2200
+          : id.includes("ice")
+            ? 0x4488cc
+            : id.includes("elder")
+              ? 0x886600
+              : 0x882200;
+      // Body
+      g.fillStyle(c, 1);
+      g.fillEllipse(0, s * 0.1, s * 0.9, s * 0.5);
+      // Belly
+      g.fillStyle(Phaser.Display.Color.IntegerToColor(c).brighten(30).color, 1);
+      g.fillEllipse(0, s * 0.15, s * 0.5, s * 0.3);
+      // Head
+      g.fillStyle(c, 1);
+      g.fillEllipse(0, -s * 0.3, s * 0.4, s * 0.3);
+      // Horns
+      g.fillStyle(0xccaa44, 1);
+      g.fillTriangle(
+        -s * 0.18,
+        -s * 0.4,
+        -s * 0.12,
+        -s * 0.3,
+        -s * 0.25,
+        -s * 0.55,
+      );
+      g.fillTriangle(
+        s * 0.18,
+        -s * 0.4,
+        s * 0.12,
+        -s * 0.3,
+        s * 0.25,
+        -s * 0.55,
+      );
+      // Eyes
+      g.fillStyle(0xffcc00, 1);
+      g.fillCircle(-s * 0.1, -s * 0.33, s * 0.06);
+      g.fillCircle(s * 0.1, -s * 0.33, s * 0.06);
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(-s * 0.1, -s * 0.33, s * 0.03);
+      g.fillCircle(s * 0.1, -s * 0.33, s * 0.03);
+      // Wings
+      g.fillStyle(c, 0.7);
+      g.fillTriangle(
+        -s * 0.45,
+        -s * 0.1,
+        -s * 0.9,
+        -s * 0.45,
+        -s * 0.3,
+        s * 0.1,
+      );
+      g.fillTriangle(s * 0.45, -s * 0.1, s * 0.9, -s * 0.45, s * 0.3, s * 0.1);
+      // Claws
+      g.fillStyle(0x222222, 1);
+      g.fillRect(-s * 0.35, s * 0.3, s * 0.1, s * 0.15);
+      g.fillRect(s * 0.25, s * 0.3, s * 0.1, s * 0.15);
+      // Nostrils (fire)
+      g.fillStyle(0xff4400, 0.5);
+      g.fillCircle(-s * 0.06, -s * 0.18, s * 0.025);
+      g.fillCircle(s * 0.06, -s * 0.18, s * 0.025);
+    } else if (
+      id.includes("golem") ||
+      id.includes("guardian") ||
+      id.includes("knight") ||
+      id.includes("warrior")
+    ) {
+      // --- Golem/Armored: big bulky ---
+      const c = id.includes("stone")
+        ? 0x808080
+        : id.includes("magma")
+          ? 0xcc4400
+          : id.includes("celestial")
+            ? 0xeedd88
+            : 0x666688;
+      // Body
+      g.fillStyle(c, 1);
+      g.fillRoundedRect(-s * 0.35, -s * 0.15, s * 0.7, s * 0.5, 5);
+      // Head
+      g.fillCircle(0, -s * 0.28, s * 0.2);
+      // Eyes
+      g.fillStyle(id.includes("magma") ? 0xff6600 : 0x66ccff, 1);
+      g.fillCircle(-s * 0.08, -s * 0.3, s * 0.05);
+      g.fillCircle(s * 0.08, -s * 0.3, s * 0.05);
+      // Arms (thick)
+      g.fillStyle(c, 1);
+      g.fillRoundedRect(-s * 0.55, -s * 0.1, s * 0.22, s * 0.4, 3);
+      g.fillRoundedRect(s * 0.33, -s * 0.1, s * 0.22, s * 0.4, 3);
+      // Legs
+      g.fillRect(-s * 0.25, s * 0.3, s * 0.18, s * 0.2);
+      g.fillRect(s * 0.07, s * 0.3, s * 0.18, s * 0.2);
+      // Cracks/detail
+      g.lineStyle(1, 0x000000, 0.3);
+      g.lineBetween(-s * 0.15, -s * 0.05, s * 0.1, s * 0.15);
+      g.lineBetween(s * 0.05, 0, -s * 0.1, s * 0.2);
+    } else if (
+      id.includes("bat") ||
+      id.includes("phantom") ||
+      id.includes("ghost") ||
+      id.includes("wraith") ||
+      id.includes("nightmare")
+    ) {
+      // --- Ghost/Phantom ---
+      const c = id.includes("bat") ? 0x443344 : 0x8866cc;
+      g.fillStyle(c, 0.7);
+      // Floating body
+      g.fillEllipse(0, -s * 0.05, s * 0.5, s * 0.55);
+      // Wispy bottom
+      for (let i = -2; i <= 2; i++) {
+        g.fillEllipse(i * s * 0.12, s * 0.3, s * 0.12, s * 0.15);
+      }
+      // Eyes
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(-s * 0.1, -s * 0.1, s * 0.08);
+      g.fillCircle(s * 0.1, -s * 0.1, s * 0.08);
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(-s * 0.1, -s * 0.1, s * 0.04);
+      g.fillCircle(s * 0.1, -s * 0.1, s * 0.04);
+      // Mouth
+      g.fillStyle(0x000000, 0.6);
+      g.fillEllipse(0, s * 0.1, s * 0.12, s * 0.08);
+    } else if (
+      id.includes("snake") ||
+      id.includes("serpent") ||
+      id.includes("worm")
+    ) {
+      // --- Serpent ---
+      const c = id.includes("void") ? 0x330066 : 0x448844;
+      g.lineStyle(s * 0.2, c, 1);
+      g.beginPath();
+      g.arc(-s * 0.2, 0, s * 0.25, -1.5, 1.5, false);
+      g.strokePath();
+      g.lineStyle(s * 0.2, c, 1);
+      g.beginPath();
+      g.arc(s * 0.2, 0, s * 0.25, 1.5, -1.5, false);
+      g.strokePath();
+      // Head
+      g.fillStyle(c, 1);
+      g.fillCircle(-s * 0.4, -s * 0.15, s * 0.15);
+      g.fillStyle(0xff0000, 1);
+      g.fillCircle(-s * 0.43, -s * 0.18, s * 0.04);
+      // Tongue
+      g.lineStyle(1.5, 0xff0000, 1);
+      g.lineBetween(-s * 0.55, -s * 0.15, -s * 0.65, -s * 0.2);
+      g.lineBetween(-s * 0.55, -s * 0.15, -s * 0.65, -s * 0.1);
+    } else if (id.includes("bear") || id.includes("boar")) {
+      // --- Bear/Boar ---
+      const c = id.includes("boar") ? 0x8b6914 : 0x6b4423;
+      g.fillStyle(c, 1);
+      g.fillEllipse(0, s * 0.05, s * 0.8, s * 0.5);
+      // Head
+      g.fillCircle(-s * 0.3, -s * 0.2, s * 0.2);
+      // Ears
+      g.fillCircle(-s * 0.4, -s * 0.35, s * 0.08);
+      g.fillCircle(-s * 0.2, -s * 0.35, s * 0.08);
+      // Eyes
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(-s * 0.35, -s * 0.22, s * 0.035);
+      g.fillCircle(-s * 0.25, -s * 0.22, s * 0.035);
+      // Nose
+      g.fillStyle(0x333333, 1);
+      g.fillCircle(-s * 0.38, -s * 0.15, s * 0.04);
+      // Legs
+      g.fillStyle(c, 1);
+      g.fillRect(-s * 0.3, s * 0.22, s * 0.12, s * 0.2);
+      g.fillRect(-s * 0.1, s * 0.22, s * 0.12, s * 0.2);
+      g.fillRect(s * 0.1, s * 0.22, s * 0.12, s * 0.2);
+      g.fillRect(s * 0.28, s * 0.22, s * 0.12, s * 0.2);
+    } else if (
+      id.includes("mage") ||
+      id.includes("witch") ||
+      id.includes("cursed") ||
+      id.includes("rune")
+    ) {
+      // --- Enemy mage ---
+      const c = id.includes("cursed") ? 0x550055 : 0x333366;
+      g.fillStyle(c, 1);
+      g.fillRoundedRect(-s * 0.22, -s * 0.05, s * 0.44, s * 0.4, 3);
+      // Hood/head
+      g.fillTriangle(0, -s * 0.55, -s * 0.25, -s * 0.1, s * 0.25, -s * 0.1);
+      // Eyes in hood
+      g.fillStyle(0xff4400, 1);
+      g.fillCircle(-s * 0.08, -s * 0.2, s * 0.04);
+      g.fillCircle(s * 0.08, -s * 0.2, s * 0.04);
+      // Staff
+      g.fillStyle(0x8b4513, 1);
+      g.fillRect(s * 0.28, -s * 0.45, s * 0.04, s * 0.65);
+      g.fillStyle(0x9b59b6, 1);
+      g.fillCircle(s * 0.3, -s * 0.5, s * 0.07);
+      // Robe bottom
+      g.fillStyle(c, 1);
+      g.fillTriangle(-s * 0.3, s * 0.35, s * 0.3, s * 0.35, 0, s * 0.5);
+    } else if (
+      id.includes("demon") ||
+      id.includes("chaos") ||
+      id.includes("infernal") ||
+      id.includes("abyss") ||
+      id.includes("dark_overlord") ||
+      id.includes("void")
+    ) {
+      // --- Demon ---
+      const c = id.includes("void")
+        ? 0x220044
+        : id.includes("chaos")
+          ? 0x880000
+          : 0xaa2222;
+      g.fillStyle(c, 1);
+      g.fillRoundedRect(-s * 0.3, -s * 0.1, s * 0.6, s * 0.45, 4);
+      // Head
+      g.fillCircle(0, -s * 0.25, s * 0.22);
+      // Horns
+      g.fillStyle(0x333333, 1);
+      g.fillTriangle(
+        -s * 0.2,
+        -s * 0.35,
+        -s * 0.15,
+        -s * 0.2,
+        -s * 0.35,
+        -s * 0.55,
+      );
+      g.fillTriangle(
+        s * 0.2,
+        -s * 0.35,
+        s * 0.15,
+        -s * 0.2,
+        s * 0.35,
+        -s * 0.55,
+      );
+      // Eyes
+      g.fillStyle(0xff0000, 1);
+      g.fillCircle(-s * 0.1, -s * 0.28, s * 0.06);
+      g.fillCircle(s * 0.1, -s * 0.28, s * 0.06);
+      // Wings
+      g.fillStyle(c, 0.6);
+      g.fillTriangle(
+        -s * 0.3,
+        -s * 0.05,
+        -s * 0.8,
+        -s * 0.35,
+        -s * 0.2,
+        s * 0.15,
+      );
+      g.fillTriangle(s * 0.3, -s * 0.05, s * 0.8, -s * 0.35, s * 0.2, s * 0.15);
+      // Arms
+      g.fillStyle(c, 1);
+      g.fillRect(-s * 0.45, -s * 0.05, s * 0.16, s * 0.35);
+      g.fillRect(s * 0.29, -s * 0.05, s * 0.16, s * 0.35);
+      // Claws
+      g.fillStyle(0x222222, 1);
+      g.fillTriangle(
+        -s * 0.45,
+        s * 0.3,
+        -s * 0.5,
+        s * 0.4,
+        -s * 0.38,
+        s * 0.35,
+      );
+      g.fillTriangle(s * 0.45, s * 0.3, s * 0.5, s * 0.4, s * 0.38, s * 0.35);
+      // Legs
+      g.fillStyle(c, 1);
+      g.fillRect(-s * 0.2, s * 0.3, s * 0.14, s * 0.2);
+      g.fillRect(s * 0.06, s * 0.3, s * 0.14, s * 0.2);
+    } else {
+      // --- Default: generic creature ---
+      g.fillStyle(mainColor, 1);
+      g.fillEllipse(0, s * 0.05, s * 0.65, s * 0.5);
+      g.fillCircle(0, -s * 0.2, s * 0.2);
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(-s * 0.08, -s * 0.22, s * 0.06);
+      g.fillCircle(s * 0.08, -s * 0.22, s * 0.06);
+      g.fillStyle(0x000000, 1);
+      g.fillCircle(-s * 0.08, -s * 0.22, s * 0.03);
+      g.fillCircle(s * 0.08, -s * 0.22, s * 0.03);
+      // Legs
+      g.fillStyle(mainColor, 1);
+      g.fillRect(-s * 0.2, s * 0.25, s * 0.1, s * 0.2);
+      g.fillRect(s * 0.1, s * 0.25, s * 0.1, s * 0.2);
+    }
+
+    // Boss golden aura
+    if (isBoss) {
+      g.lineStyle(2.5, 0xffcc00, 0.8);
+      g.strokeCircle(0, 0, s * 0.75);
+      g.lineStyle(1.5, 0xffcc00, 0.4);
+      g.strokeCircle(0, 0, s * 0.85);
+    }
+  }
+
   /** Create a mob sprite */
   private createMobSprite(data: MobData): void {
     const ts = ClientConfig.TILE_SIZE;
@@ -1124,35 +1758,18 @@ export class GameScene extends Phaser.Scene {
     );
     container.setDepth(6);
 
-    // Mob body - size varies by level/boss
     const sizeMultiplier = data.isBoss ? 1.2 : 0.8;
     const halfSize = ts * 0.35 * sizeMultiplier;
 
     const body = this.add.graphics();
-
-    // Color based on behavior
-    let mobColor = 0xcc4444;
-    if (data.behavior === MobBehavior.PASSIVE) {
-      mobColor = 0x88aa44;
-    } else if (data.behavior === MobBehavior.BOSS) {
-      mobColor = 0xaa22aa;
-    }
-
-    body.fillStyle(mobColor, 1);
-    body.fillRoundedRect(-halfSize, -halfSize, halfSize * 2, halfSize * 2, 3);
-
-    // Boss border
-    if (data.isBoss) {
-      body.lineStyle(2, 0xffcc00, 1);
-      body.strokeRoundedRect(
-        -halfSize,
-        -halfSize,
-        halfSize * 2,
-        halfSize * 2,
-        3,
-      );
-    }
-
+    this.drawMonster(
+      body,
+      ts,
+      data.mobId || data.id,
+      data.level || 1,
+      !!data.isBoss,
+      data.behavior || "",
+    );
     container.add(body);
 
     // Name + level text
@@ -1193,6 +1810,85 @@ export class GameScene extends Phaser.Scene {
     this.mobs.set(data.id, container);
   }
 
+  /** Draw an NPC (merchant/shopkeeper) */
+  private drawNpc(
+    g: Phaser.GameObjects.Graphics,
+    ts: number,
+    npcName: string,
+  ): void {
+    const s = ts * 0.6;
+    const skinColor = 0xffd5b4;
+    const name = (npcName || "").toLowerCase();
+
+    let robeColor = 0x6b4423;
+    let hatColor = 0x8b4513;
+    if (name.includes("weapon") || name.includes("blacksmith")) {
+      robeColor = 0x555555;
+      hatColor = 0x333333;
+    } else if (name.includes("armor")) {
+      robeColor = 0x4a6fa5;
+      hatColor = 0x3a5a8a;
+    } else if (name.includes("potion") || name.includes("brewer")) {
+      robeColor = 0x6b2fa0;
+      hatColor = 0x4a148c;
+    } else if (name.includes("jewel")) {
+      robeColor = 0xaa7722;
+      hatColor = 0x886611;
+    } else if (name.includes("scroll")) {
+      robeColor = 0x2e4600;
+      hatColor = 0x1a3000;
+    } else if (name.includes("elite")) {
+      robeColor = 0x8b0000;
+      hatColor = 0x660000;
+    } else if (name.includes("guide")) {
+      robeColor = 0x2196f3;
+      hatColor = 0x1565c0;
+    }
+
+    // Shadow
+    g.fillStyle(0x000000, 0.25);
+    g.fillEllipse(0, s * 0.48, s * 0.7, s * 0.18);
+    // Legs
+    g.fillStyle(0x4a3728, 1);
+    g.fillRect(-s * 0.15, s * 0.2, s * 0.12, s * 0.25);
+    g.fillRect(s * 0.03, s * 0.2, s * 0.12, s * 0.25);
+    // Robe
+    g.fillStyle(robeColor, 1);
+    g.fillRoundedRect(-s * 0.3, -s * 0.15, s * 0.6, s * 0.45, 4);
+    g.fillTriangle(-s * 0.35, s * 0.3, s * 0.35, s * 0.3, 0, s * 0.15);
+    // Sash
+    g.fillStyle(0xffd700, 0.8);
+    g.fillRect(-s * 0.3, s * 0.1, s * 0.6, s * 0.04);
+    // Arms
+    g.fillStyle(robeColor, 1);
+    g.fillRect(-s * 0.42, -s * 0.08, s * 0.14, s * 0.28);
+    g.fillRect(s * 0.28, -s * 0.08, s * 0.14, s * 0.28);
+    // Hands
+    g.fillStyle(skinColor, 1);
+    g.fillCircle(-s * 0.35, s * 0.22, s * 0.06);
+    g.fillCircle(s * 0.35, s * 0.22, s * 0.06);
+    // Head
+    g.fillStyle(skinColor, 1);
+    g.fillCircle(0, -s * 0.3, s * 0.19);
+    // Hat
+    g.fillStyle(hatColor, 1);
+    g.fillRoundedRect(-s * 0.24, -s * 0.5, s * 0.48, s * 0.18, 3);
+    g.fillRect(-s * 0.3, -s * 0.36, s * 0.6, s * 0.06);
+    // Eyes
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(-s * 0.07, -s * 0.32, s * 0.03);
+    g.fillCircle(s * 0.07, -s * 0.32, s * 0.03);
+    // Smile
+    g.lineStyle(1.5, 0xc47a6a, 1);
+    g.beginPath();
+    g.arc(0, -s * 0.24, s * 0.07, 0.3, Math.PI - 0.3, false);
+    g.strokePath();
+    // Quest marker "!"
+    g.fillStyle(0xffd700, 1);
+    g.fillRoundedRect(-s * 0.04, -s * 0.72, s * 0.08, s * 0.14, 2);
+    g.fillCircle(0, -s * 0.55, s * 0.035);
+  }
+
   /** Create an NPC sprite */
   private createNpcSprite(data: EntityData): void {
     const ts = ClientConfig.TILE_SIZE;
@@ -1203,23 +1899,15 @@ export class GameScene extends Phaser.Scene {
     container.setDepth(7);
 
     const body = this.add.graphics();
-    body.fillStyle(0xf5f5dc, 1); // beige/white for NPCs
-    body.fillRoundedRect(-ts * 0.3, -ts * 0.3, ts * 0.6, ts * 0.6, 3);
-    body.lineStyle(1, 0xffd700, 0.8);
-    body.strokeRoundedRect(-ts * 0.3, -ts * 0.3, ts * 0.6, ts * 0.6, 3);
-
-    // Interact indicator (small "!" or "?" above)
-    body.fillStyle(0xffd700, 1);
-    body.fillCircle(0, -ts * 0.5, 5);
-
+    this.drawNpc(body, ts, data.name || "NPC");
     container.add(body);
 
-    const nameText = this.add.text(0, -ts * 0.65, data.name || "NPC", {
+    const nameText = this.add.text(0, -ts * 0.7, data.name || "NPC", {
       fontSize: "11px",
       color: "#ffd700",
       fontStyle: "bold",
       stroke: "#000000",
-      strokeThickness: 2,
+      strokeThickness: 3,
     });
     nameText.setOrigin(0.5, 1);
     container.add(nameText);
