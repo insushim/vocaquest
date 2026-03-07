@@ -54,6 +54,16 @@ async function connectDatabase(): Promise<void> {
     await mongoose.default.connect(Config.MONGODB_URI);
     console.log("[Database] Connected to MongoDB");
 
+    // Clean up corrupted accounts (empty passwordHash from previous bug)
+    let cleaned = await mongoose.default.connection
+      .db!.collection("players")
+      .deleteMany({ $or: [{ passwordHash: "" }, { passwordHash: null }] });
+    if (cleaned.deletedCount > 0) {
+      console.log(
+        `[Database] Cleaned ${cleaned.deletedCount} corrupted accounts`,
+      );
+    }
+
     // Define player schema
     let playerSchema = new mongoose.default.Schema(
       {

@@ -213,6 +213,7 @@ export class Connection {
     let player = Player.fromSaveData(savedData, playerId, this);
     this.playerId = playerId;
     this.player = player;
+    this.passwordHash = savedData.passwordHash;
 
     this.server.world.addPlayer(this, player);
     this.sendWelcome(player);
@@ -310,6 +311,7 @@ export class Connection {
 
     this.playerId = playerId;
     this.player = player;
+    this.passwordHash = passwordHash;
 
     this.server.world.addPlayer(this, player);
     this.sendWelcome(player);
@@ -663,28 +665,29 @@ export class Connection {
     this.player.allocateStat(statType);
   }
 
+  private passwordHash: string = "";
+
   private async onDisconnect(): Promise<void> {
     if (this.player) {
-      // Save player data
-      let savedData = accounts.get(this.player.name.toLowerCase());
-      let passwordHash = savedData?.passwordHash || "";
-
+      // Save player data (use stored passwordHash from login/register)
       let saveData = {
-        ...this.player.toSaveData(passwordHash),
-        passwordHash,
+        ...this.player.toSaveData(this.passwordHash),
+        passwordHash: this.passwordHash,
       };
 
-      if (db) {
-        try {
-          await db.savePlayer(saveData);
-        } catch (err) {
-          console.error(
-            `[Connection] Failed to save player ${this.player.name}:`,
-            err,
-          );
+      if (this.passwordHash) {
+        if (db) {
+          try {
+            await db.savePlayer(saveData);
+          } catch (err) {
+            console.error(
+              `[Connection] Failed to save player ${this.player.name}:`,
+              err,
+            );
+          }
+        } else {
+          accounts.set(this.player.name.toLowerCase(), saveData);
         }
-      } else {
-        accounts.set(this.player.name.toLowerCase(), saveData);
       }
 
       this.server.world.removePlayer(this.player.id);
