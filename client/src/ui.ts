@@ -554,6 +554,10 @@ class UIManager {
   }
 
   private setupLoginHandlers(): void {
+    const registerSection = document.getElementById("register-section");
+    const switchLink = document.getElementById("switch-to-register");
+    const modeSwitchDiv = document.getElementById("login-mode-switch");
+
     this.btnLogin.addEventListener("click", () => {
       this.doLogin();
     });
@@ -562,10 +566,39 @@ class UIManager {
       this.doRegister();
     });
 
+    // Mode switch link
+    if (switchLink) {
+      switchLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!this.isRegisterMode) {
+          // Switch to register mode
+          this.isRegisterMode = true;
+          if (registerSection) registerSection.style.display = "block";
+          this.btnLogin.style.display = "none";
+          this.btnRegister.textContent = "캐릭터 생성";
+          if (switchLink) switchLink.textContent = "로그인으로 돌아가기";
+          if (modeSwitchDiv) {
+            modeSwitchDiv.innerHTML = `<span style="color:var(--text-dim); font-size:13px;">이미 계정이 있으신가요? </span><a href="#" id="switch-to-login" style="color:var(--accent-blue); font-size:13px; text-decoration:underline; cursor:pointer;">로그인</a>`;
+            document
+              .getElementById("switch-to-login")
+              ?.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                this.switchToLoginMode();
+              });
+          }
+          this.loginError.textContent = "";
+        }
+      });
+    }
+
     // Enter key on password field
     this.loginPassword.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        this.doLogin();
+        if (this.isRegisterMode) {
+          this.doRegister();
+        } else {
+          this.doLogin();
+        }
       }
     });
 
@@ -580,6 +613,41 @@ class UIManager {
       this.updateClassPreview();
     });
     this.updateClassPreview();
+  }
+
+  private switchToLoginMode(): void {
+    this.isRegisterMode = false;
+    const registerSection = document.getElementById("register-section");
+    const modeSwitchDiv = document.getElementById("login-mode-switch");
+    if (registerSection) registerSection.style.display = "none";
+    this.btnLogin.style.display = "";
+    this.btnRegister.textContent = "회원가입";
+    this.btnRegister.style.display = "none";
+    this.btnLogin.style.display = "";
+    if (modeSwitchDiv) {
+      modeSwitchDiv.innerHTML = `<span style="color:var(--text-dim); font-size:13px;">계정이 없으신가요? </span><a href="#" id="switch-to-register2" style="color:var(--accent-blue); font-size:13px; text-decoration:underline; cursor:pointer;">회원가입</a>`;
+      document
+        .getElementById("switch-to-register2")
+        ?.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          this.isRegisterMode = true;
+          if (registerSection) registerSection.style.display = "block";
+          this.btnLogin.style.display = "none";
+          this.btnRegister.style.display = "";
+          this.btnRegister.textContent = "캐릭터 생성";
+          if (modeSwitchDiv) {
+            modeSwitchDiv.innerHTML = `<span style="color:var(--text-dim); font-size:13px;">이미 계정이 있으신가요? </span><a href="#" id="switch-to-login2" style="color:var(--accent-blue); font-size:13px; text-decoration:underline; cursor:pointer;">로그인</a>`;
+            document
+              .getElementById("switch-to-login2")
+              ?.addEventListener("click", (e2) => {
+                e2.preventDefault();
+                this.switchToLoginMode();
+              });
+          }
+          this.loginError.textContent = "";
+        });
+    }
+    this.loginError.textContent = "";
   }
 
   private updateClassPreview(): void {
@@ -648,31 +716,15 @@ class UIManager {
     const playerClass = this.loginClass.value as PlayerClass;
 
     if (!username) {
-      this.showLoginError(
-        "\uB2C9\uB124\uC784\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694.",
-      );
+      this.showLoginError("닉네임을 입력해주세요.");
       return;
     }
     if (username.length < 2 || username.length > 16) {
-      this.showLoginError(
-        "\uB2C9\uB124\uC784\uC740 2~16\uAE00\uC790\uC5EC\uC57C \uD569\uB2C8\uB2E4.",
-      );
+      this.showLoginError("닉네임은 2~16글자여야 합니다.");
       return;
     }
     if (!password || password.length < 4) {
-      this.showLoginError(
-        "\uBE44\uBC00\uBC88\uD638\uB294 4\uC790 \uC774\uC0C1\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4.",
-      );
-      return;
-    }
-
-    // If not in register mode yet, show stat allocation panel first
-    if (!this.isRegisterMode) {
-      this.isRegisterMode = true;
-      const creationStatsEl = document.getElementById("creation-stats");
-      if (creationStatsEl) creationStatsEl.style.display = "block";
-      this.btnRegister.textContent = "캐릭터 생성";
-      this.showLoginError("스탯을 배분한 후 '캐릭터 생성'을 다시 누르세요.");
+      this.showLoginError("비밀번호는 4자 이상이어야 합니다.");
       return;
     }
 

@@ -1671,62 +1671,69 @@
       <label for="login-password">비밀번호</label>
       <input type="password" id="login-password" placeholder="비밀번호를 입력하세요" maxlength="32" />
 
-      <label for="login-class">직업 선택</label>
-      <select id="login-class">
-        <option value="warrior">전사 (Warrior)</option>
-        <option value="knight">기사 (Knight)</option>
-        <option value="mage">마법사 (Mage)</option>
-        <option value="archer">궁수 (Archer)</option>
-      </select>
+      <!-- Register-only section (hidden by default) -->
+      <div id="register-section" style="display:none;">
+        <label for="login-class">직업 선택</label>
+        <select id="login-class">
+          <option value="warrior">전사 (Warrior)</option>
+          <option value="knight">기사 (Knight)</option>
+          <option value="mage">마법사 (Mage)</option>
+          <option value="archer">궁수 (Archer)</option>
+        </select>
 
-      <!-- Class preview -->
-      <div id="class-preview" class="class-preview">
-        <div class="class-preview-icon" id="class-preview-icon"></div>
-        <div class="class-preview-desc" id="class-preview-desc">근접 물리 전투 전문가. 높은 HP와 공격력.</div>
+        <!-- Class preview -->
+        <div id="class-preview" class="class-preview">
+          <div class="class-preview-icon" id="class-preview-icon"></div>
+          <div class="class-preview-desc" id="class-preview-desc">근접 물리 전투 전문가. 높은 HP와 공격력.</div>
+        </div>
+
+        <!-- Initial stat allocation -->
+        <div id="creation-stats" class="creation-stats">
+          <div class="creation-stats-header">
+            <span>초기 스탯 배분</span>
+            <span class="creation-points-left">남은 포인트: <span id="creation-points">10</span></span>
+          </div>
+          <div class="creation-stat-row">
+            <span class="cs-label">STR (힘)</span>
+            <button class="cs-btn" data-cstat="str" data-dir="-1">-</button>
+            <span class="cs-value" id="cs-str">0</span>
+            <button class="cs-btn" data-cstat="str" data-dir="1">+</button>
+          </div>
+          <div class="creation-stat-row">
+            <span class="cs-label">DEX (민첩)</span>
+            <button class="cs-btn" data-cstat="dex" data-dir="-1">-</button>
+            <span class="cs-value" id="cs-dex">0</span>
+            <button class="cs-btn" data-cstat="dex" data-dir="1">+</button>
+          </div>
+          <div class="creation-stat-row">
+            <span class="cs-label">INT (지능)</span>
+            <button class="cs-btn" data-cstat="int" data-dir="-1">-</button>
+            <span class="cs-value" id="cs-int">0</span>
+            <button class="cs-btn" data-cstat="int" data-dir="1">+</button>
+          </div>
+          <div class="creation-stat-row">
+            <span class="cs-label">CON (체력)</span>
+            <button class="cs-btn" data-cstat="con" data-dir="-1">-</button>
+            <span class="cs-value" id="cs-con">0</span>
+            <button class="cs-btn" data-cstat="con" data-dir="1">+</button>
+          </div>
+          <div class="creation-stat-row">
+            <span class="cs-label">WIS (지혜)</span>
+            <button class="cs-btn" data-cstat="wis" data-dir="-1">-</button>
+            <span class="cs-value" id="cs-wis">0</span>
+            <button class="cs-btn" data-cstat="wis" data-dir="1">+</button>
+          </div>
+          <div class="creation-recommended" id="creation-recommended">추천: 전사는 STR/CON에 집중</div>
+        </div>
       </div>
 
-      <!-- Initial stat allocation (register only) -->
-      <div id="creation-stats" class="creation-stats" style="display:none;">
-        <div class="creation-stats-header">
-          <span>초기 스탯 배분</span>
-          <span class="creation-points-left">남은 포인트: <span id="creation-points">10</span></span>
-        </div>
-        <div class="creation-stat-row">
-          <span class="cs-label">STR (힘)</span>
-          <button class="cs-btn" data-cstat="str" data-dir="-1">-</button>
-          <span class="cs-value" id="cs-str">0</span>
-          <button class="cs-btn" data-cstat="str" data-dir="1">+</button>
-        </div>
-        <div class="creation-stat-row">
-          <span class="cs-label">DEX (민첩)</span>
-          <button class="cs-btn" data-cstat="dex" data-dir="-1">-</button>
-          <span class="cs-value" id="cs-dex">0</span>
-          <button class="cs-btn" data-cstat="dex" data-dir="1">+</button>
-        </div>
-        <div class="creation-stat-row">
-          <span class="cs-label">INT (지능)</span>
-          <button class="cs-btn" data-cstat="int" data-dir="-1">-</button>
-          <span class="cs-value" id="cs-int">0</span>
-          <button class="cs-btn" data-cstat="int" data-dir="1">+</button>
-        </div>
-        <div class="creation-stat-row">
-          <span class="cs-label">CON (체력)</span>
-          <button class="cs-btn" data-cstat="con" data-dir="-1">-</button>
-          <span class="cs-value" id="cs-con">0</span>
-          <button class="cs-btn" data-cstat="con" data-dir="1">+</button>
-        </div>
-        <div class="creation-stat-row">
-          <span class="cs-label">WIS (지혜)</span>
-          <button class="cs-btn" data-cstat="wis" data-dir="-1">-</button>
-          <span class="cs-value" id="cs-wis">0</span>
-          <button class="cs-btn" data-cstat="wis" data-dir="1">+</button>
-        </div>
-        <div class="creation-recommended" id="creation-recommended">추천: 전사는 STR/CON에 집중</div>
-      </div>
-
-      <div class="login-buttons">
+      <div class="login-buttons" id="login-buttons">
         <button class="btn-login" id="btn-login">로그인</button>
-        <button class="btn-register" id="btn-register">회원가입</button>
+        <button class="btn-register" id="btn-register" style="display:none;">캐릭터 생성</button>
+      </div>
+      <div class="login-mode-switch" id="login-mode-switch" style="text-align:center; margin-top:8px;">
+        <span style="color:var(--text-dim); font-size:13px;">계정이 없으신가요? </span>
+        <a href="#" id="switch-to-register" style="color:var(--accent-blue); font-size:13px; text-decoration:underline; cursor:pointer;">회원가입</a>
       </div>
       <div class="login-error" id="login-error"></div>
     </div>
