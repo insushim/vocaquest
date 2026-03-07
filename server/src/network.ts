@@ -161,14 +161,14 @@ export class Connection {
 
     if (!name || !password) {
       this.send(PacketType.AUTH_ERROR, {
-        message: "Name and password are required.",
+        message: "닉네임과 비밀번호를 입력해주세요.",
       });
       return;
     }
 
     if (name.length < 2 || name.length > 20) {
       this.send(PacketType.AUTH_ERROR, {
-        message: "Name must be 2-20 characters.",
+        message: "닉네임은 2~20글자여야 합니다.",
       });
       return;
     }
@@ -177,7 +177,7 @@ export class Connection {
     for (let [, conn] of this.server.connections) {
       if (conn.player?.name.toLowerCase() === name.toLowerCase()) {
         this.send(PacketType.AUTH_ERROR, {
-          message: "This character is already logged in.",
+          message: "이미 접속 중인 캐릭터입니다.",
         });
         return;
       }
@@ -194,7 +194,7 @@ export class Connection {
 
     if (!savedData) {
       this.send(PacketType.AUTH_ERROR, {
-        message: "Account not found. Please register.",
+        message: "존재하지 않는 계정입니다. 회원가입해주세요.",
       });
       return;
     }
@@ -202,7 +202,9 @@ export class Connection {
     // Verify password
     let passwordValid = await bcrypt.compare(password, savedData.passwordHash);
     if (!passwordValid) {
-      this.send(PacketType.AUTH_ERROR, { message: "Wrong password." });
+      this.send(PacketType.AUTH_ERROR, {
+        message: "비밀번호가 일치하지 않습니다.",
+      });
       return;
     }
 
@@ -225,21 +227,21 @@ export class Connection {
 
     if (!name || !password) {
       this.send(PacketType.AUTH_ERROR, {
-        message: "Name and password are required.",
+        message: "닉네임과 비밀번호를 입력해주세요.",
       });
       return;
     }
 
     if (name.length < 2 || name.length > 20) {
       this.send(PacketType.AUTH_ERROR, {
-        message: "Name must be 2-20 characters.",
+        message: "닉네임은 2~20글자여야 합니다.",
       });
       return;
     }
 
     if (password.length < 3) {
       this.send(PacketType.AUTH_ERROR, {
-        message: "Password must be at least 3 characters.",
+        message: "비밀번호는 3자 이상이어야 합니다.",
       });
       return;
     }
@@ -259,7 +261,7 @@ export class Connection {
 
     if (existing) {
       this.send(PacketType.AUTH_ERROR, {
-        message: "This name is already taken.",
+        message: "이미 사용 중인 닉네임입니다.",
       });
       return;
     }
