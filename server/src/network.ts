@@ -276,8 +276,17 @@ export class Connection {
     }
 
     // Verify password
-    let passwordValid = await bcrypt.compare(password, savedData.passwordHash);
+    console.log(
+      `[Auth] Login attempt: ${name}, hash exists: ${!!savedData.passwordHash}, hash length: ${savedData.passwordHash?.length}`,
+    );
+    let passwordValid = false;
+    try {
+      passwordValid = await bcrypt.compare(password, savedData.passwordHash);
+    } catch (err) {
+      console.error(`[Auth] bcrypt.compare error:`, err);
+    }
     if (!passwordValid) {
+      console.log(`[Auth] Password mismatch for ${name}`);
       this.send(PacketType.AUTH_ERROR, {
         message: "비밀번호가 일치하지 않습니다.",
       });
@@ -350,7 +359,13 @@ export class Connection {
     }
 
     // Create account
+    console.log(
+      `[Auth] Registering: ${name}, password length: ${password.length}`,
+    );
     let passwordHash = await bcrypt.hash(password, 10);
+    console.log(
+      `[Auth] Hash created for ${name}: length=${passwordHash.length}`,
+    );
     let playerId = uuid();
     let player = new Player(playerId, name, playerClass, this);
     player.giveStarterItems();
