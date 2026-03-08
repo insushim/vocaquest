@@ -112,6 +112,7 @@ export const SHOPS: Record<string, ShopDefinition> = {
     items: [
       "enhance_scroll",
       "blessed_enhance_scroll",
+      "cursed_enhance_scroll",
       "return_scroll",
       "buff_scroll_attack",
       "buff_scroll_speed",

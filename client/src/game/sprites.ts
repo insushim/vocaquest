@@ -1191,12 +1191,27 @@ export function getMobTextureKey(mobId: string): string {
     id.includes("infernal") ||
     id.includes("abyss") ||
     id.includes("dark_overlord") ||
-    id.includes("void")
+    id.includes("void") ||
+    id.includes("behemoth")
   )
     return "mob_demon";
 
   if (id.includes("snake") || id.includes("serpent") || id.includes("worm"))
     return "mob_slime";
+
+  if (id.includes("phoenix") || id.includes("hawk") || id.includes("harpy"))
+    return "mob_dragon";
+
+  if (
+    id.includes("titan") ||
+    id.includes("sentinel") ||
+    id.includes("champion") ||
+    id.includes("elemental")
+  )
+    return "mob_golem";
+
+  if (id.includes("queen") || id.includes("king") || id.includes("emperor"))
+    return "mob_demon";
 
   return "mob_goblin";
 }

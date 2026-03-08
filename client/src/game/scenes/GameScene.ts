@@ -238,8 +238,30 @@ export class GameScene extends Phaser.Scene {
   private key5: Phaser.Input.Keyboard.Key | null = null;
   private key6: Phaser.Input.Keyboard.Key | null = null;
   private keyT: Phaser.Input.Keyboard.Key | null = null;
+  private keyK: Phaser.Input.Keyboard.Key | null = null;
   private keyF1: Phaser.Input.Keyboard.Key | null = null;
   private keyF2: Phaser.Input.Keyboard.Key | null = null;
+
+  // ---- Enhancement glow effects ----
+  private enhanceEffects: Map<
+    string,
+    {
+      particles: Array<{
+        x: number;
+        y: number;
+        vx: number;
+        vy: number;
+        alpha: number;
+        life: number;
+        maxLife: number;
+        color: number;
+        size: number;
+      }>;
+      level: number;
+    }
+  > = new Map();
+  private enhanceGlowLayer: Phaser.GameObjects.Graphics | null = null;
+  private playerMaxEnhanceLevel: number = 0;
 
   // ---- Auto attack ----
   private autoAttackTimer: number = 0;
@@ -324,6 +346,10 @@ export class GameScene extends Phaser.Scene {
     // Combat effects layer
     this.effectsLayer = this.add.graphics();
     this.effectsLayer.setDepth(12);
+
+    // Enhancement glow effects layer
+    this.enhanceGlowLayer = this.add.graphics();
+    this.enhanceGlowLayer.setDepth(11);
 
     // Ambient particle layer
     this.ambientLayer = this.add.graphics();
@@ -478,6 +504,9 @@ export class GameScene extends Phaser.Scene {
     // ---- Detect zone change for atmosphere ----
     this.updateZoneAtmosphere();
 
+    // ---- Enhancement glow effects ----
+    this.updateEnhanceGlowEffects(delta);
+
     // ---- Auto-attack ----
     if (ui.isAutoAttack() && this.selectedTarget) {
       this.autoAttackTimer += delta;
@@ -551,6 +580,7 @@ export class GameScene extends Phaser.Scene {
     this.key5 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE);
     this.key6 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SIX);
     this.keyT = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T);
+    this.keyK = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K);
     this.keyF1 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F1);
     this.keyF2 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F2);
 
@@ -589,6 +619,9 @@ export class GameScene extends Phaser.Scene {
     });
     this.keyT.on("down", () => {
       if (!ui.isChatFocused()) ui.toggleStatPanel();
+    });
+    this.keyK.on("down", () => {
+      if (!ui.isChatFocused()) ui.toggleEnhancePanel();
     });
     this.keyF1.on("down", (e: KeyboardEvent) => {
       e.preventDefault();
@@ -919,6 +952,25 @@ export class GameScene extends Phaser.Scene {
     socket.on(PacketType.AUTH_SUCCESS, () => {
       // Will be followed by WELCOME
     });
+
+    // EQUIPMENT_UPDATE: track max enhance level for glow effects
+    socket.on(
+      PacketType.EQUIPMENT_UPDATE,
+      (data: {
+        equipment: Record<string, string | null>;
+        itemDefs?: Record<string, any>;
+        enhanceLevels?: Record<string, number>;
+      }) => {
+        // Find highest enhancement level across all equipped items
+        let maxLevel = 0;
+        if (data.enhanceLevels) {
+          for (const lvl of Object.values(data.enhanceLevels)) {
+            if (lvl > maxLevel) maxLevel = lvl;
+          }
+        }
+        this.playerMaxEnhanceLevel = maxLevel;
+      },
+    );
 
     // ENTITY_LIST: sync all entities
     socket.on(PacketType.ENTITY_LIST, (data: { entities: EntityData[] }) => {
@@ -3266,6 +3318,228 @@ export class GameScene extends Phaser.Scene {
         this.ambientLayer.fillStyle(color, p.alpha);
         this.ambientLayer.fillCircle(wx, wy, p.size);
       }
+    }
+  }
+
+  // ================================================
+  // Enhancement Glow Effects on Player Equipment
+  // ================================================
+
+  /** Set the max enhance level for the local player (called from equipment update) */
+  setPlayerMaxEnhanceLevel(level: number): void {
+    this.playerMaxEnhanceLevel = level;
+  }
+
+  /** Get enhance effect config based on level */
+  private getEnhanceEffectConfig(level: number): {
+    color1: number;
+    color2: number;
+    particleCount: number;
+    speed: number;
+    type: "trail" | "aura" | "flame" | "lightning";
+  } | null {
+    if (level < 4) return null;
+    if (level <= 6) {
+      return {
+        color1: 0x4488ff,
+        color2: 0x88bbff,
+        particleCount: 4,
+        speed: 0.5,
+        type: "trail",
+      };
+    }
+    if (level <= 9) {
+      return {
+        color1: 0xffd700,
+        color2: 0xffaa00,
+        particleCount: 6,
+        speed: 0.8,
+        type: "aura",
+      };
+    }
+    if (level <= 12) {
+      return {
+        color1: 0xff4400,
+        color2: 0xff0000,
+        particleCount: 8,
+        speed: 1.2,
+        type: "flame",
+      };
+    }
+    return {
+      color1: 0xaa44ff,
+      color2: 0xff00ff,
+      particleCount: 10,
+      speed: 1.5,
+      type: "lightning",
+    };
+  }
+
+  /** Update and render enhancement glow effects for the player */
+  private updateEnhanceGlowEffects(delta: number): void {
+    if (!this.enhanceGlowLayer || !this.playerSprite) return;
+
+    this.enhanceGlowLayer.clear();
+
+    const config = this.getEnhanceEffectConfig(this.playerMaxEnhanceLevel);
+    if (!config) return;
+
+    const spriteX = this.playerSprite.x;
+    const spriteY = this.playerSprite.y;
+    const ts = ClientConfig.TILE_SIZE;
+
+    // Ensure we have particle data for player
+    let effectData = this.enhanceEffects.get("player");
+    if (!effectData || effectData.level !== this.playerMaxEnhanceLevel) {
+      // (re)initialize particles
+      const particles: Array<{
+        x: number;
+        y: number;
+        vx: number;
+        vy: number;
+        alpha: number;
+        life: number;
+        maxLife: number;
+        color: number;
+        size: number;
+      }> = [];
+      for (let i = 0; i < config.particleCount; i++) {
+        particles.push(this.createEnhanceParticle(config));
+      }
+      effectData = { particles, level: this.playerMaxEnhanceLevel };
+      this.enhanceEffects.set("player", effectData);
+    }
+
+    // Update and render particles
+    const dt = delta / 1000;
+    for (const p of effectData.particles) {
+      p.life -= dt;
+      if (p.life <= 0) {
+        Object.assign(p, this.createEnhanceParticle(config));
+      }
+
+      // Update position based on effect type
+      switch (config.type) {
+        case "trail": {
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.alpha = (p.life / p.maxLife) * 0.6;
+          break;
+        }
+        case "aura": {
+          const angle = (this.time.now * 0.002 + p.x * 10) % (Math.PI * 2);
+          p.x = Math.cos(angle) * (ts * 0.4);
+          p.y = Math.sin(angle) * (ts * 0.2) - ts * 0.15;
+          p.alpha = 0.3 + Math.sin(this.time.now * 0.005 + p.y) * 0.2;
+          break;
+        }
+        case "flame": {
+          p.y += p.vy * dt;
+          p.x += Math.sin(this.time.now * 0.01 + p.x * 5) * 0.3;
+          p.alpha = (p.life / p.maxLife) * 0.7;
+          if (p.life < p.maxLife * 0.3) {
+            p.size *= 0.98;
+          }
+          break;
+        }
+        case "lightning": {
+          // Random jitter for lightning effect
+          if (Math.random() < 0.1) {
+            p.x = (Math.random() - 0.5) * ts * 0.6;
+            p.y = -ts * 0.1 + (Math.random() - 0.5) * ts * 0.5;
+            p.alpha = 0.8;
+          } else {
+            p.alpha *= 0.92;
+          }
+          break;
+        }
+      }
+
+      // Render particle
+      const wx = spriteX + p.x;
+      const wy = spriteY + p.y;
+      const color = Math.random() > 0.5 ? config.color1 : config.color2;
+      this.enhanceGlowLayer.fillStyle(color, p.alpha);
+
+      if (config.type === "lightning") {
+        // Draw short line segments for lightning
+        this.enhanceGlowLayer.lineStyle(1.5, color, p.alpha);
+        const lx = wx + (Math.random() - 0.5) * 4;
+        const ly = wy + (Math.random() - 0.5) * 4;
+        this.enhanceGlowLayer.beginPath();
+        this.enhanceGlowLayer.moveTo(wx, wy);
+        this.enhanceGlowLayer.lineTo(lx, ly);
+        this.enhanceGlowLayer.strokePath();
+        this.enhanceGlowLayer.fillCircle(wx, wy, p.size * 0.5);
+      } else {
+        this.enhanceGlowLayer.fillCircle(wx, wy, p.size);
+      }
+    }
+  }
+
+  /** Create a single enhance particle */
+  private createEnhanceParticle(config: { speed: number; type: string }): {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    alpha: number;
+    life: number;
+    maxLife: number;
+    color: number;
+    size: number;
+  } {
+    const ts = ClientConfig.TILE_SIZE;
+    const life = 0.5 + Math.random() * 1.5;
+    switch (config.type) {
+      case "trail":
+        return {
+          x: (Math.random() - 0.5) * ts * 0.4,
+          y: (Math.random() - 0.5) * ts * 0.2,
+          vx: (Math.random() - 0.5) * 8,
+          vy: -10 - Math.random() * 10,
+          alpha: 0.5,
+          life,
+          maxLife: life,
+          color: 0,
+          size: 1 + Math.random() * 1.5,
+        };
+      case "flame":
+        return {
+          x: (Math.random() - 0.5) * ts * 0.3,
+          y: 0,
+          vx: (Math.random() - 0.5) * 4,
+          vy: -20 - Math.random() * 20,
+          alpha: 0.7,
+          life,
+          maxLife: life,
+          color: 0,
+          size: 1.5 + Math.random() * 2,
+        };
+      case "lightning":
+        return {
+          x: (Math.random() - 0.5) * ts * 0.5,
+          y: (Math.random() - 0.5) * ts * 0.4 - ts * 0.1,
+          vx: 0,
+          vy: 0,
+          alpha: 0.8,
+          life: 0.1 + Math.random() * 0.3,
+          maxLife: 0.4,
+          color: 0,
+          size: 1 + Math.random(),
+        };
+      default: // aura
+        return {
+          x: (Math.random() - 0.5) * ts * 0.4,
+          y: (Math.random() - 0.5) * ts * 0.3,
+          vx: 0,
+          vy: 0,
+          alpha: 0.4,
+          life,
+          maxLife: life,
+          color: 0,
+          size: 1.5 + Math.random() * 1.5,
+        };
     }
   }
 }

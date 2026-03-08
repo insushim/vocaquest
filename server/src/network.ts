@@ -294,6 +294,9 @@ export class Connection {
     this.server.world.addPlayer(this, player);
     this.sendWelcome(player);
 
+    // Process daily login reward
+    player.processDailyLogin();
+
     // Achievement: early bird check
     AchievementSystem.checkFirstLogin(player, this.server.world.players.size);
 
@@ -849,8 +852,10 @@ export class Connection {
     this.send(PacketType.ENHANCE_RESULT, {
       success: result.success,
       destroyed: result.destroyed,
+      reset: result.reset,
       newLevel: result.newLevel,
       itemName,
+      failResult: result.failResult,
     });
 
     if (result.success) {
@@ -869,11 +874,13 @@ export class Connection {
       // Broadcast announcement for +7 and above
       if (result.newLevel >= 7) {
         let glowLabel =
-          result.newLevel >= 10
-            ? "[RED]"
-            : result.newLevel >= 7
-              ? "[GOLD]"
-              : "";
+          result.newLevel >= 13
+            ? "[PURPLE]"
+            : result.newLevel >= 10
+              ? "[RED]"
+              : result.newLevel >= 7
+                ? "[GOLD]"
+                : "";
         this.server.broadcast(PacketType.CHAT_MESSAGE, {
           sender: "System",
           message: `${this.player.name} has enhanced ${itemName} to +${result.newLevel}! ${glowLabel}`,
@@ -885,6 +892,16 @@ export class Connection {
       this.send(PacketType.NOTIFICATION, {
         message: `Enhancement failed! Item destroyed!`,
         messageKo: `강화 실패! 아이템이 파괴되었습니다!`,
+      });
+    } else if (result.reset) {
+      this.send(PacketType.NOTIFICATION, {
+        message: `Enhancement failed! Item reset to +0!`,
+        messageKo: `강화 실패! 아이템이 +0으로 초기화되었습니다!`,
+      });
+    } else if (result.failResult === "nothing") {
+      this.send(PacketType.NOTIFICATION, {
+        message: `Enhancement failed. Item is safe.`,
+        messageKo: `강화 실패. 아이템은 안전합니다.`,
       });
     } else {
       this.send(PacketType.NOTIFICATION, {

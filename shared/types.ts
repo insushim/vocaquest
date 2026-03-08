@@ -55,6 +55,11 @@ export enum PacketType {
   // Enhancement
   ENHANCE_ITEM = "enhance_item",
   ENHANCE_RESULT = "enhance_result",
+  ENHANCE_ANNOUNCE = "enhance_announce",
+
+  // Daily & Milestone
+  DAILY_REWARD = "daily_reward",
+  MILESTONE_REWARD = "milestone_reward",
 
   // Shop
   SHOP_OPEN = "shop_open",
@@ -560,7 +565,7 @@ export interface ItemDefinition {
 export interface InventorySlot {
   itemId: string;
   count: number;
-  enhancement?: number; // +0 ~ +10
+  enhancement?: number; // +0 ~ +15
 }
 
 export interface EquipmentSlots {
@@ -605,24 +610,88 @@ export interface GroundItemDrop {
   createdAt: number;
 }
 
-// ---- Enhancement System ----
-export const ENHANCE_MAX = 10;
-export const ENHANCE_SUCCESS_RATES: number[] = [
-  1.0, // +0 -> +1: 100%
-  0.9, // +1 -> +2: 90%
-  0.8, // +2 -> +3: 80%
-  0.7, // +3 -> +4: 70%
-  0.6, // +4 -> +5: 60%
-  0.5, // +5 -> +6: 50%
-  0.4, // +6 -> +7: 40%
-  0.33, // +7 -> +8: 33%
-  0.25, // +8 -> +9: 25%
-  0.2, // +9 -> +10: 20%
-];
-// Destruction starts at +4 and above on failure
+// ---- Enhancement System - Lineage-style gambling ----
+export const ENHANCE_MAX = 15; // was 10, now 15
+export const ENHANCE_MAX_LEVEL = 15;
+export const ENHANCE_SAFE_LEVEL = 3; // +1~+3 always safe (no downgrade/destroy)
+
+export const ENHANCE_SUCCESS_RATES: Record<number, number> = {
+  0: 1.0, // +0->+1: 100%
+  1: 0.95, // +1->+2: 95%
+  2: 0.9, // +2->+3: 90%
+  3: 0.75, // +3->+4: 75%
+  4: 0.65, // +4->+5: 65%
+  5: 0.55, // +5->+6: 55%
+  6: 0.45, // +6->+7: 45%
+  7: 0.35, // +7->+8: 35%
+  8: 0.28, // +8->+9: 28%
+  9: 0.22, // +9->+10: 22%
+  10: 0.18, // +10->+11: 18%
+  11: 0.14, // +11->+12: 14%
+  12: 0.1, // +12->+13: 10%
+  13: 0.07, // +13->+14: 7%
+  14: 0.05, // +14->+15: 5%
+};
+
+// Legacy constants kept for backward compat
 export const ENHANCE_DESTROY_THRESHOLD = 4;
-// Downgrade by 1 on failure below threshold
-export const ENHANCE_DOWNGRADE_ON_FAIL = true;
+
+// Enhancement failure results
+export enum EnhanceFailResult {
+  NOTHING = "nothing", // safe zone, no penalty
+  DOWNGRADE = "downgrade", // -1 level
+  RESET = "reset", // back to +0
+  DESTROY = "destroy", // item destroyed
+}
+
+// What happens on failure at each level
+export function getEnhanceFailResult(
+  currentLevel: number,
+  scrollType: "normal" | "blessed" | "cursed",
+): EnhanceFailResult {
+  if (currentLevel < ENHANCE_SAFE_LEVEL) return EnhanceFailResult.NOTHING;
+
+  if (scrollType === "blessed") {
+    // Blessed scroll: downgrade by 1 on failure, never destroys
+    return EnhanceFailResult.DOWNGRADE;
+  }
+
+  if (scrollType === "cursed") {
+    // Cursed scroll: 50% destroy, 50% reset to 0
+    return Math.random() < 0.5
+      ? EnhanceFailResult.DESTROY
+      : EnhanceFailResult.RESET;
+  }
+
+  // Normal scroll
+  if (currentLevel < 5) return EnhanceFailResult.DOWNGRADE;
+  if (currentLevel < 8)
+    return Math.random() < 0.3
+      ? EnhanceFailResult.DESTROY
+      : EnhanceFailResult.DOWNGRADE;
+  return Math.random() < 0.5
+    ? EnhanceFailResult.DESTROY
+    : EnhanceFailResult.DOWNGRADE;
+}
+
+// Cursed scroll has +15% bonus success rate
+export function getEnhanceSuccessRate(
+  currentLevel: number,
+  scrollType: "normal" | "blessed" | "cursed",
+): number {
+  const base = ENHANCE_SUCCESS_RATES[currentLevel] ?? 0.05;
+  if (scrollType === "cursed") return Math.min(1.0, base + 0.15);
+  return base;
+}
+
+// Enhancement stat multiplier (stronger bonuses at high levels)
+export function getEnhanceStatMultiplier(enhanceLevel: number): number {
+  if (enhanceLevel <= 0) return 0;
+  if (enhanceLevel <= 3) return enhanceLevel * 0.08;
+  if (enhanceLevel <= 7) return 0.24 + (enhanceLevel - 3) * 0.12;
+  if (enhanceLevel <= 10) return 0.72 + (enhanceLevel - 7) * 0.16;
+  return 1.2 + (enhanceLevel - 10) * 0.25; // +11~+15 massive bonus
+}
 
 // ---- Map ----
 export enum TileType {
@@ -896,13 +965,19 @@ export const MP_REGEN_RATE = 0.05;
 export const REGEN_INTERVAL = 3000;
 export const KARMA_LOSS_PER_KILL = 50;
 export const KARMA_GAIN_PER_MOB = 1;
-export const EXP_BASE = 100;
-export const EXP_GROWTH = 1.5;
 export const STAT_POINTS_PER_LEVEL = 3;
 export const MAX_LEVEL = 50;
 
+// Lineage-style exponential EXP curve
+// Level 1-10: relatively fast (tutorial/early game)
+// Level 11-30: moderate grind
+// Level 31-50: heavy grind (days/weeks per level)
 export function expForLevel(level: number): number {
-  return Math.floor(EXP_BASE * Math.pow(level, EXP_GROWTH));
+  if (level <= 10) return Math.floor(150 * Math.pow(level, 2));
+  if (level <= 20) return Math.floor(300 * Math.pow(level, 2.2));
+  if (level <= 30) return Math.floor(500 * Math.pow(level, 2.5));
+  if (level <= 40) return Math.floor(800 * Math.pow(level, 2.8));
+  return Math.floor(1200 * Math.pow(level, 3.0));
 }
 
 // Stat point effects
@@ -984,10 +1059,12 @@ export interface PartyData {
 
 // ---- Enhancement Glow Colors ----
 export function getEnhanceColor(level: number): string | null {
-  if (level >= 10) return "#FF4444"; // red
-  if (level >= 7) return "#FFD700"; // yellow/gold
-  if (level >= 4) return "#4488FF"; // blue
-  return null;
+  if (level <= 0) return null;
+  if (level <= 3) return "#FFFFFF"; // white
+  if (level <= 6) return "#4488FF"; // blue
+  if (level <= 9) return "#FFD700"; // gold
+  if (level <= 12) return "#FF4444"; // red
+  return "#FF00FF"; // purple (legendary)
 }
 
 export function getEnhanceDisplayName(
@@ -995,8 +1072,6 @@ export function getEnhanceDisplayName(
   enhancement?: number,
 ): string {
   if (!enhancement || enhancement <= 0) return baseName;
-  let color = getEnhanceColor(enhancement);
-  // Return name with enhancement prefix
   return `+${enhancement} ${baseName}`;
 }
 
@@ -1025,3 +1100,56 @@ export function getInventoryWeight(slotCount: number): {
 
 // ---- Respawn Invulnerability ----
 export const RESPAWN_INVULN_DURATION = 3000; // 3 seconds
+
+// ---- Daily Login Rewards ----
+export interface DailyReward {
+  day: number;
+  type: "gold" | "item" | "exp";
+  amount: number;
+  itemId?: string;
+}
+
+export const DAILY_REWARDS: DailyReward[] = [
+  { day: 1, type: "gold", amount: 500 },
+  { day: 2, type: "exp", amount: 1000 },
+  { day: 3, type: "item", amount: 3, itemId: "health_potion" },
+  { day: 4, type: "gold", amount: 1500 },
+  { day: 5, type: "item", amount: 1, itemId: "enhance_scroll" },
+  { day: 6, type: "exp", amount: 5000 },
+  { day: 7, type: "item", amount: 1, itemId: "blessed_enhance_scroll" },
+];
+
+// ---- Level Milestone Rewards ----
+export const LEVEL_MILESTONES: Record<
+  number,
+  { gold: number; items?: Array<{ id: string; count: number }> }
+> = {
+  5: { gold: 1000, items: [{ id: "enhance_scroll", count: 2 }] },
+  10: {
+    gold: 5000,
+    items: [
+      { id: "enhance_scroll", count: 3 },
+      { id: "health_potion", count: 10 },
+    ],
+  },
+  15: { gold: 10000, items: [{ id: "blessed_enhance_scroll", count: 1 }] },
+  20: {
+    gold: 25000,
+    items: [
+      { id: "enhance_scroll", count: 5 },
+      { id: "blessed_enhance_scroll", count: 2 },
+    ],
+  },
+  25: { gold: 50000, items: [{ id: "cursed_enhance_scroll", count: 2 }] },
+  30: { gold: 100000, items: [{ id: "blessed_enhance_scroll", count: 3 }] },
+  35: { gold: 200000 },
+  40: { gold: 500000, items: [{ id: "blessed_enhance_scroll", count: 5 }] },
+  45: { gold: 1000000 },
+  50: {
+    gold: 5000000,
+    items: [
+      { id: "blessed_enhance_scroll", count: 10 },
+      { id: "cursed_enhance_scroll", count: 5 },
+    ],
+  },
+};

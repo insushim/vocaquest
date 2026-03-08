@@ -2170,6 +2170,396 @@
       color: var(--accent-red);
     }
 
+    /* Enhancement Workshop Upgrades */
+    .enhance-item-display {
+      text-align: center;
+      margin-bottom: 12px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .enhance-current-level {
+      font-family: var(--font-title);
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--border-gold-bright);
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+      letter-spacing: 2px;
+    }
+
+    .enhance-rate-row, .enhance-cost-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 12px;
+      margin-bottom: 6px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .enhance-rate-label, .enhance-cost-label {
+      color: var(--text-dim);
+    }
+
+    .enhance-rate-value {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .enhance-rate-value.rate-high { color: var(--accent-green); }
+    .enhance-rate-value.rate-mid { color: #ffb74d; }
+    .enhance-rate-value.rate-low { color: var(--accent-red); }
+
+    .enhance-cost-value {
+      color: var(--border-gold);
+      font-weight: 600;
+    }
+
+    .enhance-scroll-info {
+      font-size: 11px;
+      color: var(--text-dim);
+      padding: 8px 12px;
+      margin-bottom: 10px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      border-left: 3px solid var(--accent-orange);
+    }
+
+    .enhance-btn-pulse {
+      animation: enhancePulse 2s ease-in-out infinite;
+    }
+
+    @keyframes enhancePulse {
+      0%, 100% { box-shadow: 0 2px 8px rgba(240,150,10,0.3), inset 0 1px 0 rgba(255,255,255,0.2); }
+      50% { box-shadow: 0 4px 24px rgba(240,150,10,0.6), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 40px rgba(255,165,0,0.2); }
+    }
+
+    .enhance-result-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-title);
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      pointer-events: none;
+      border-radius: var(--radius-lg);
+      z-index: 10;
+    }
+
+    .enhance-result-overlay.show-success {
+      display: flex;
+      color: #FFD700;
+      background: radial-gradient(ellipse at center, rgba(255,215,0,0.15) 0%, transparent 70%);
+      text-shadow: 0 0 30px rgba(255,215,0,0.8), 0 0 60px rgba(255,165,0,0.4);
+      animation: enhanceSuccessFlash 1.5s ease-out forwards;
+    }
+
+    .enhance-result-overlay.show-fail {
+      display: flex;
+      color: #FF4444;
+      background: radial-gradient(ellipse at center, rgba(255,0,0,0.1) 0%, transparent 70%);
+      text-shadow: 0 0 20px rgba(255,0,0,0.6);
+      animation: enhanceFailFlash 1s ease-out forwards;
+    }
+
+    .enhance-result-overlay.show-destroy {
+      display: flex;
+      color: #FF0000;
+      background: radial-gradient(ellipse at center, rgba(255,0,0,0.2) 0%, transparent 70%);
+      text-shadow: 0 0 30px rgba(255,0,0,0.8), 0 0 60px rgba(128,0,0,0.4);
+      animation: enhanceDestroyFlash 2s ease-out forwards;
+    }
+
+    @keyframes enhanceSuccessFlash {
+      0% { opacity: 0; transform: scale(0.5); }
+      20% { opacity: 1; transform: scale(1.2); }
+      40% { transform: scale(1); }
+      100% { opacity: 0; transform: scale(1) translateY(-20px); }
+    }
+
+    @keyframes enhanceFailFlash {
+      0% { opacity: 0; }
+      20% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes enhanceDestroyFlash {
+      0% { opacity: 0; transform: scale(0.8); }
+      15% { opacity: 1; transform: scale(1.3); }
+      30% { transform: scale(1) rotate(0deg); }
+      40% { transform: scale(1) rotate(2deg); }
+      50% { transform: scale(1) rotate(-2deg); }
+      60% { transform: scale(1) rotate(1deg); }
+      100% { opacity: 0; transform: scale(0.5); }
+    }
+
+    .enhance-history {
+      margin-top: 12px;
+      border-top: 1px solid var(--border-inner);
+      padding-top: 8px;
+    }
+
+    .enhance-history-title {
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .enhance-history-list {
+      max-height: 80px;
+      overflow-y: auto;
+      font-size: 11px;
+    }
+
+    .enhance-history-entry {
+      padding: 2px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .enhance-history-entry.success { color: var(--accent-green); }
+    .enhance-history-entry.fail { color: var(--accent-red); }
+    .enhance-history-entry.destroy { color: #FF0000; font-weight: 700; }
+
+    /* --- Daily Reward Popup --- */
+    #daily-reward-popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+    }
+
+    #daily-reward-popup.visible {
+      display: flex;
+    }
+
+    .daily-reward-content {
+      background: var(--bg-darker);
+      border: 2px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      padding: 28px 32px;
+      min-width: 380px;
+      max-width: 90vw;
+      text-align: center;
+      box-shadow: 0 0 60px rgba(212,168,67,0.3), 0 20px 60px rgba(0,0,0,0.5);
+      position: relative;
+    }
+
+    .daily-reward-title {
+      font-family: var(--font-title);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--border-gold-bright);
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      text-shadow: 0 0 20px rgba(255,215,0,0.4);
+    }
+
+    .daily-reward-streak {
+      font-size: 13px;
+      color: var(--accent-orange);
+      margin-bottom: 16px;
+    }
+
+    .daily-reward-calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+
+    .daily-day {
+      width: 44px;
+      height: 50px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--text-dim);
+      background: var(--bg-panel);
+      border: 1px solid rgba(200,168,78,0.15);
+      transition: all 0.3s;
+    }
+
+    .daily-day.claimed {
+      border-color: var(--accent-green);
+      background: rgba(92,184,92,0.1);
+      color: var(--accent-green);
+    }
+
+    .daily-day.today {
+      border-color: var(--border-gold-bright);
+      background: rgba(255,215,0,0.1);
+      color: var(--border-gold-bright);
+      box-shadow: 0 0 15px rgba(255,215,0,0.3);
+      animation: dailyGlow 1.5s ease-in-out infinite;
+    }
+
+    .daily-day-num {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .daily-day-reward {
+      font-size: 8px;
+      margin-top: 2px;
+    }
+
+    @keyframes dailyGlow {
+      0%, 100% { box-shadow: 0 0 10px rgba(255,215,0,0.2); }
+      50% { box-shadow: 0 0 25px rgba(255,215,0,0.5); }
+    }
+
+    .daily-reward-today {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 16px;
+    }
+
+    .daily-reward-claim {
+      padding: 12px 48px;
+      background: linear-gradient(180deg, #ffb74d 0%, #ff9800 40%, #e65100 100%);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--font-title);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      box-shadow: 0 4px 20px rgba(240,150,10,0.4);
+      transition: all 0.2s;
+    }
+
+    .daily-reward-claim:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px rgba(240,150,10,0.6);
+    }
+
+    .daily-reward-timer {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 10px;
+    }
+
+    /* --- Milestone Popup --- */
+    #milestone-popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 510;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+    }
+
+    #milestone-popup.visible {
+      display: flex;
+    }
+
+    .milestone-content {
+      background: var(--bg-darker);
+      border: 2px solid var(--border-gold-bright);
+      border-radius: var(--radius-lg);
+      padding: 32px 40px;
+      min-width: 340px;
+      text-align: center;
+      box-shadow: 0 0 80px rgba(255,215,0,0.3), 0 0 120px rgba(255,165,0,0.15);
+      animation: milestoneAppear 0.5s ease-out;
+    }
+
+    @keyframes milestoneAppear {
+      0% { opacity: 0; transform: scale(0.7); }
+      60% { transform: scale(1.05); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .milestone-title {
+      font-family: var(--font-title);
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--border-gold-bright);
+      text-shadow: 0 0 30px rgba(255,215,0,0.6);
+      letter-spacing: 3px;
+      margin-bottom: 20px;
+    }
+
+    .milestone-rewards {
+      margin-bottom: 20px;
+    }
+
+    .milestone-reward-item {
+      font-size: 14px;
+      color: var(--text-warm);
+      padding: 4px 0;
+    }
+
+    .milestone-reward-item .reward-icon {
+      margin-right: 6px;
+    }
+
+    .milestone-close-btn {
+      padding: 10px 40px;
+      background: linear-gradient(180deg, var(--accent-blue) 0%, #1565c0 100%);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--font);
+      letter-spacing: 1px;
+    }
+
+    /* --- Enhancement Announce in Chat --- */
+    .chat-msg.enhance-announce {
+      background: linear-gradient(90deg, rgba(255,215,0,0.08) 0%, transparent 100%);
+      border-left: 3px solid #FFD700;
+      padding: 4px 8px;
+      margin: 2px 0;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .chat-msg.enhance-announce .sender {
+      color: #FFD700 !important;
+      font-weight: 700;
+    }
+
+    .chat-msg.enhance-announce-high {
+      background: linear-gradient(90deg, rgba(255,0,0,0.08) 0%, transparent 100%);
+      border-left: 3px solid #FF4444;
+      text-shadow: 0 0 8px rgba(255,0,0,0.3);
+    }
+
+    .chat-msg.enhance-announce-high .sender {
+      color: #FF4444 !important;
+    }
+
     /* --- Crafting Panel --- */
     #crafting-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 520px; max-width: 95vw; max-height: 80vh; background: var(--bg-darker); border: 2px solid var(--accent-orange); border-radius: var(--radius-lg); box-shadow: var(--shadow), 0 0 30px rgba(240,150,10,0.2); z-index: 460; display: none; flex-direction: column; backdrop-filter: blur(8px); }
     #crafting-panel.visible { display: flex; }
@@ -3311,14 +3701,20 @@
     </div>
   </div>
 
-  <!-- Enhance Panel -->
+  <!-- Enhancement Workshop Panel -->
   <div id="enhance-panel">
     <div class="enhance-header">
-      <h3>장비 강화</h3>
+      <h3>Enhancement Workshop</h3>
       <button class="enhance-close" id="enhance-close">&times;</button>
     </div>
     <div class="enhance-body">
-      <p class="enhance-desc">강화할 장비와 강화 주문서를 선택하세요.</p>
+      <p class="enhance-desc">강화할 장비와 주문서를 선택하세요. [K] 단축키</p>
+
+      <!-- Current item display with glow -->
+      <div class="enhance-item-display" id="enhance-item-display">
+        <div class="enhance-current-level" id="enhance-current-level"></div>
+      </div>
+
       <div class="enhance-slots">
         <div class="enhance-slot" id="enhance-item-slot">
           <span>장비</span>
@@ -3328,8 +3724,54 @@
           <span>주문서</span>
         </div>
       </div>
-      <button class="enhance-btn" id="enhance-btn">강화하기</button>
+
+      <!-- Success rate display -->
+      <div class="enhance-rate-row" id="enhance-rate-row" style="display:none;">
+        <span class="enhance-rate-label">성공 확률:</span>
+        <span class="enhance-rate-value" id="enhance-rate-value">100%</span>
+      </div>
+
+      <!-- Gold cost -->
+      <div class="enhance-cost-row" id="enhance-cost-row" style="display:none;">
+        <span class="enhance-cost-label">비용:</span>
+        <span class="enhance-cost-value" id="enhance-cost-value">0 Gold</span>
+      </div>
+
+      <!-- Scroll type info -->
+      <div class="enhance-scroll-info" id="enhance-scroll-info" style="display:none;"></div>
+
+      <button class="enhance-btn enhance-btn-pulse" id="enhance-btn">ENHANCE</button>
+
+      <!-- Result overlay -->
+      <div class="enhance-result-overlay" id="enhance-result-overlay"></div>
       <div class="enhance-result" id="enhance-result-text"></div>
+
+      <!-- Enhancement history log -->
+      <div class="enhance-history" id="enhance-history">
+        <div class="enhance-history-title">History</div>
+        <div class="enhance-history-list" id="enhance-history-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Reward Popup -->
+  <div id="daily-reward-popup">
+    <div class="daily-reward-content">
+      <div class="daily-reward-title">Daily Login Reward</div>
+      <div class="daily-reward-streak" id="daily-reward-streak"></div>
+      <div class="daily-reward-calendar" id="daily-reward-calendar"></div>
+      <div class="daily-reward-today" id="daily-reward-today"></div>
+      <button class="daily-reward-claim" id="daily-reward-claim">Claim</button>
+      <div class="daily-reward-timer" id="daily-reward-timer"></div>
+    </div>
+  </div>
+
+  <!-- Milestone Reward Popup -->
+  <div id="milestone-popup">
+    <div class="milestone-content">
+      <div class="milestone-title" id="milestone-title"></div>
+      <div class="milestone-rewards" id="milestone-rewards"></div>
+      <button class="milestone-close-btn" id="milestone-close-btn">OK</button>
     </div>
   </div>
 

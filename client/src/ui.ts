@@ -324,6 +324,29 @@ class UIManager {
   private enhanceScrollSlot!: HTMLElement;
   private enhanceBtn!: HTMLElement;
   private enhanceResultText!: HTMLElement;
+  private enhanceResultOverlay!: HTMLElement;
+  private enhanceCurrentLevel!: HTMLElement;
+  private enhanceRateRow!: HTMLElement;
+  private enhanceRateValue!: HTMLElement;
+  private enhanceCostRow!: HTMLElement;
+  private enhanceCostValue!: HTMLElement;
+  private enhanceScrollInfo!: HTMLElement;
+  private enhanceHistoryList!: HTMLElement;
+
+  // Daily reward
+  private dailyRewardPopup!: HTMLElement;
+  private dailyRewardStreak!: HTMLElement;
+  private dailyRewardCalendar!: HTMLElement;
+  private dailyRewardToday!: HTMLElement;
+  private dailyRewardClaim!: HTMLElement;
+  private dailyRewardTimer!: HTMLElement;
+  private dailyRewardAutoClose: number | null = null;
+
+  // Milestone popup
+  private milestonePopup!: HTMLElement;
+  private milestoneTitle!: HTMLElement;
+  private milestoneRewards!: HTMLElement;
+  private milestoneCloseBtn!: HTMLElement;
 
   // ---- State ----
   private currentPlayerName: string = "";
@@ -350,6 +373,7 @@ class UIManager {
   private enhanceItemIndex: number = -1;
   private enhanceScrollIndex: number = -1;
   private isEnhanceMode: boolean = false;
+  private enhanceHistory: Array<{ text: string; type: string }> = [];
 
   // Character creation stats
   private creationStats: Record<string, number> = {
@@ -530,6 +554,8 @@ class UIManager {
     this.setupPartyPanel();
     this.setupCraftingPanel();
     this.setupPkAndAutoPotion();
+    this.setupDailyReward();
+    this.setupMilestonePopup();
     this.setupSocketListeners();
   }
 
@@ -621,6 +647,34 @@ class UIManager {
     this.enhanceScrollSlot = document.getElementById("enhance-scroll-slot")!;
     this.enhanceBtn = document.getElementById("enhance-btn")!;
     this.enhanceResultText = document.getElementById("enhance-result-text")!;
+    this.enhanceResultOverlay = document.getElementById(
+      "enhance-result-overlay",
+    )!;
+    this.enhanceCurrentLevel = document.getElementById(
+      "enhance-current-level",
+    )!;
+    this.enhanceRateRow = document.getElementById("enhance-rate-row")!;
+    this.enhanceRateValue = document.getElementById("enhance-rate-value")!;
+    this.enhanceCostRow = document.getElementById("enhance-cost-row")!;
+    this.enhanceCostValue = document.getElementById("enhance-cost-value")!;
+    this.enhanceScrollInfo = document.getElementById("enhance-scroll-info")!;
+    this.enhanceHistoryList = document.getElementById("enhance-history-list")!;
+
+    // Daily reward elements
+    this.dailyRewardPopup = document.getElementById("daily-reward-popup")!;
+    this.dailyRewardStreak = document.getElementById("daily-reward-streak")!;
+    this.dailyRewardCalendar = document.getElementById(
+      "daily-reward-calendar",
+    )!;
+    this.dailyRewardToday = document.getElementById("daily-reward-today")!;
+    this.dailyRewardClaim = document.getElementById("daily-reward-claim")!;
+    this.dailyRewardTimer = document.getElementById("daily-reward-timer")!;
+
+    // Milestone elements
+    this.milestonePopup = document.getElementById("milestone-popup")!;
+    this.milestoneTitle = document.getElementById("milestone-title")!;
+    this.milestoneRewards = document.getElementById("milestone-rewards")!;
+    this.milestoneCloseBtn = document.getElementById("milestone-close-btn")!;
 
     // New elements
     this.autoAttackBtn = document.getElementById("hud-auto-attack")!;
@@ -1874,6 +1928,14 @@ class UIManager {
     this.enhanceScrollSlot.innerHTML = "<span>\uC8FC\uBB38\uC11C</span>";
     this.enhanceResultText.textContent = "";
     this.enhanceResultText.className = "enhance-result";
+    this.enhanceResultText.style.color = "";
+    this.enhanceResultText.style.textShadow = "";
+    this.enhanceResultOverlay.className = "enhance-result-overlay";
+    this.enhanceResultOverlay.textContent = "";
+    this.enhanceCurrentLevel.textContent = "";
+    this.enhanceRateRow.style.display = "none";
+    this.enhanceCostRow.style.display = "none";
+    this.enhanceScrollInfo.style.display = "none";
     this.enhancePanel.classList.add("visible");
 
     // Also show inventory for selection
@@ -1883,9 +1945,106 @@ class UIManager {
     }
   }
 
+  toggleEnhancePanel(): void {
+    if (this.enhancePanel.classList.contains("visible")) {
+      this.closeEnhancePanel();
+    } else {
+      this.openEnhancePanel();
+    }
+  }
+
   closeEnhancePanel(): void {
     this.isEnhanceMode = false;
     this.enhancePanel.classList.remove("visible");
+  }
+
+  private getEnhanceSuccessRate(currentLevel: number): number {
+    if (currentLevel <= 3) return 100;
+    if (currentLevel <= 6) return 80 - (currentLevel - 3) * 10; // 70, 60, 50
+    if (currentLevel <= 9) return 40 - (currentLevel - 6) * 10; // 30, 20, 10
+    if (currentLevel <= 12) return 8 - (currentLevel - 9) * 2; // 6, 4, 2
+    return 1;
+  }
+
+  private getEnhanceCost(currentLevel: number): number {
+    return 500 + currentLevel * currentLevel * 200;
+  }
+
+  private updateEnhanceInfo(): void {
+    if (this.enhanceItemIndex < 0) {
+      this.enhanceCurrentLevel.textContent = "";
+      this.enhanceRateRow.style.display = "none";
+      this.enhanceCostRow.style.display = "none";
+      return;
+    }
+
+    const slot = this.inventory[this.enhanceItemIndex];
+    if (!slot) return;
+
+    const currentLevel = slot.enhancement || 0;
+    const rate = this.getEnhanceSuccessRate(currentLevel);
+    const cost = this.getEnhanceCost(currentLevel);
+
+    // Current level display with glow
+    const def = this.itemDefs.get(slot.itemId);
+    const itemName = def?.nameKo || slot.itemId;
+    this.enhanceCurrentLevel.textContent =
+      currentLevel > 0 ? `+${currentLevel} ${itemName}` : itemName;
+    const glowColor = getEnhanceColor(currentLevel);
+    if (glowColor && currentLevel >= 4) {
+      this.enhanceCurrentLevel.style.color = glowColor;
+      this.enhanceCurrentLevel.style.textShadow = `0 0 20px ${glowColor}`;
+    } else {
+      this.enhanceCurrentLevel.style.color = "";
+      this.enhanceCurrentLevel.style.textShadow = "";
+    }
+
+    // Success rate
+    this.enhanceRateRow.style.display = "flex";
+    this.enhanceRateValue.textContent = `${rate}%`;
+    this.enhanceRateValue.className = "enhance-rate-value";
+    if (rate >= 70) {
+      this.enhanceRateValue.classList.add("rate-high");
+    } else if (rate >= 30) {
+      this.enhanceRateValue.classList.add("rate-mid");
+    } else {
+      this.enhanceRateValue.classList.add("rate-low");
+    }
+
+    // Gold cost
+    this.enhanceCostRow.style.display = "flex";
+    this.enhanceCostValue.textContent = `${cost.toLocaleString()} Gold`;
+  }
+
+  private updateScrollTypeInfo(): void {
+    if (this.enhanceScrollIndex < 0) {
+      this.enhanceScrollInfo.style.display = "none";
+      return;
+    }
+
+    const slot = this.inventory[this.enhanceScrollIndex];
+    if (!slot) return;
+
+    const def = this.itemDefs.get(slot.itemId);
+    const scrollName = (def?.nameKo || slot.itemId).toLowerCase();
+    let infoText = "";
+
+    if (scrollName.includes("blessed") || scrollName.includes("\uCD95\uBCF5")) {
+      infoText =
+        "Blessed Scroll: On failure, item is protected from destruction.";
+    } else if (
+      scrollName.includes("cursed") ||
+      scrollName.includes("\uC800\uC8FC")
+    ) {
+      infoText =
+        "Cursed Scroll: Higher success rate, but failure resets to +0.";
+    } else {
+      infoText =
+        "Normal Scroll: Standard enhancement. Failure may downgrade or destroy.";
+    }
+
+    this.enhanceScrollInfo.textContent = infoText;
+    this.enhanceScrollInfo.style.display = "block";
   }
 
   private selectEnhanceItem(slotIndex: number): void {
@@ -1914,6 +2073,7 @@ class UIManager {
       }
       this.enhanceItemSlot.appendChild(label);
     }
+    this.updateEnhanceInfo();
   }
 
   private selectEnhanceScroll(slotIndex: number): void {
@@ -1932,17 +2092,90 @@ class UIManager {
       label.style.fontSize = "10px";
       this.enhanceScrollSlot.appendChild(label);
     }
+    this.updateScrollTypeInfo();
+  }
+
+  private showEnhanceResultAnimation(
+    result: "success" | "fail" | "destroy" | "downgrade" | "reset",
+    itemName: string,
+    newLevel: number,
+  ): void {
+    // Clear previous
+    this.enhanceResultOverlay.className = "enhance-result-overlay";
+    // Force reflow
+    void this.enhanceResultOverlay.offsetWidth;
+
+    let overlayText = "";
+    let overlayClass = "";
+    let historyText = "";
+    let historyType = "";
+
+    switch (result) {
+      case "success":
+        overlayText = `SUCCESS! +${newLevel}`;
+        overlayClass = "show-success";
+        historyText = `+${newLevel} ${itemName} SUCCESS`;
+        historyType = "success";
+        break;
+      case "fail":
+      case "downgrade":
+        overlayText = `FAILED... -1`;
+        overlayClass = "show-fail";
+        historyText = `+${newLevel} ${itemName} FAIL`;
+        historyType = "fail";
+        break;
+      case "reset":
+        overlayText = `CURSED! Reset to +0`;
+        overlayClass = "show-fail";
+        historyText = `${itemName} RESET to +0`;
+        historyType = "fail";
+        break;
+      case "destroy":
+        overlayText = `DESTROYED!`;
+        overlayClass = "show-destroy";
+        historyText = `${itemName} DESTROYED`;
+        historyType = "destroy";
+        break;
+    }
+
+    this.enhanceResultOverlay.textContent = overlayText;
+    this.enhanceResultOverlay.classList.add(overlayClass);
+
+    // Add to history
+    this.enhanceHistory.unshift({ text: historyText, type: historyType });
+    if (this.enhanceHistory.length > 5) {
+      this.enhanceHistory.pop();
+    }
+    this.renderEnhanceHistory();
+
+    // Auto-clear overlay
+    setTimeout(() => {
+      this.enhanceResultOverlay.className = "enhance-result-overlay";
+      this.enhanceResultOverlay.textContent = "";
+    }, 2000);
+  }
+
+  private renderEnhanceHistory(): void {
+    this.enhanceHistoryList.innerHTML = "";
+    for (const entry of this.enhanceHistory) {
+      const div = document.createElement("div");
+      div.className = `enhance-history-entry ${entry.type}`;
+      div.textContent = entry.text;
+      this.enhanceHistoryList.appendChild(div);
+    }
   }
 
   showEnhanceResult(
     success: boolean,
     destroyed: boolean,
     newLevel: number,
+    itemName?: string,
   ): void {
+    const name = itemName || "Item";
+
     if (success) {
       this.enhanceResultText.textContent = `\uAC15\uD654 \uC131\uACF5! +${newLevel}`;
       this.enhanceResultText.className = "enhance-result success";
-      // Enhancement glow color on result text
       let glowColor = getEnhanceColor(newLevel);
       if (glowColor) {
         this.enhanceResultText.style.color = glowColor;
@@ -1951,13 +2184,26 @@ class UIManager {
         this.enhanceResultText.style.color = "";
         this.enhanceResultText.style.textShadow = "";
       }
+      this.showEnhanceResultAnimation("success", name, newLevel);
     } else if (destroyed) {
       this.enhanceResultText.textContent =
         "\uAC15\uD654 \uC2E4\uD328! \uC544\uC774\uD15C \uD30C\uAD34!";
       this.enhanceResultText.className = "enhance-result fail";
+      this.enhanceResultText.style.color = "";
+      this.enhanceResultText.style.textShadow = "";
+      this.showEnhanceResultAnimation("destroy", name, newLevel);
+    } else if (newLevel === 0) {
+      this.enhanceResultText.textContent = `\uAC15\uD654 \uC2E4\uD328. +0\uC73C\uB85C \uCD08\uAE30\uD654`;
+      this.enhanceResultText.className = "enhance-result fail";
+      this.enhanceResultText.style.color = "";
+      this.enhanceResultText.style.textShadow = "";
+      this.showEnhanceResultAnimation("reset", name, newLevel);
     } else {
       this.enhanceResultText.textContent = `\uAC15\uD654 \uC2E4\uD328. +${newLevel}\uC73C\uB85C \uD558\uB77D`;
       this.enhanceResultText.className = "enhance-result fail";
+      this.enhanceResultText.style.color = "";
+      this.enhanceResultText.style.textShadow = "";
+      this.showEnhanceResultAnimation("downgrade", name, newLevel);
     }
 
     // Reset selection
@@ -1967,6 +2213,172 @@ class UIManager {
     this.enhanceItemSlot.classList.remove("filled");
     this.enhanceScrollSlot.innerHTML = "<span>\uC8FC\uBB38\uC11C</span>";
     this.enhanceScrollSlot.classList.remove("filled");
+    this.enhanceRateRow.style.display = "none";
+    this.enhanceCostRow.style.display = "none";
+    this.enhanceScrollInfo.style.display = "none";
+    this.enhanceCurrentLevel.textContent = "";
+  }
+
+  // ================================================
+  // Daily Login Reward
+  // ================================================
+
+  private setupDailyReward(): void {
+    this.dailyRewardClaim.addEventListener("click", () => {
+      socket.send(PacketType.DAILY_REWARD, { action: "claim" });
+      this.dailyRewardPopup.classList.remove("visible");
+      if (this.dailyRewardAutoClose) {
+        clearTimeout(this.dailyRewardAutoClose);
+        this.dailyRewardAutoClose = null;
+      }
+    });
+  }
+
+  private showDailyRewardPopup(reward: {
+    day: number;
+    type: string;
+    amount: number;
+    itemId?: string;
+    streak: number;
+  }): void {
+    // Streak display
+    this.dailyRewardStreak.textContent = `${reward.streak} Day Streak!`;
+
+    // Build 7-day calendar
+    const DAILY_REWARDS = [
+      { label: "500G", icon: "G" },
+      { label: "1000G", icon: "G" },
+      { label: "Scroll", icon: "S" },
+      { label: "2000G", icon: "G" },
+      { label: "Potion", icon: "P" },
+      { label: "3000G", icon: "G" },
+      { label: "Rare!", icon: "R" },
+    ];
+
+    this.dailyRewardCalendar.innerHTML = "";
+    for (let i = 0; i < 7; i++) {
+      const dayNum = i + 1;
+      const dayEl = document.createElement("div");
+      dayEl.className = "daily-day";
+
+      if (dayNum < reward.day) {
+        dayEl.classList.add("claimed");
+      } else if (dayNum === reward.day) {
+        dayEl.classList.add("today");
+      }
+
+      const numEl = document.createElement("div");
+      numEl.className = "daily-day-num";
+      numEl.textContent = `D${dayNum}`;
+      dayEl.appendChild(numEl);
+
+      const rewardEl = document.createElement("div");
+      rewardEl.className = "daily-day-reward";
+      rewardEl.textContent = DAILY_REWARDS[i].label;
+      dayEl.appendChild(rewardEl);
+
+      this.dailyRewardCalendar.appendChild(dayEl);
+    }
+
+    // Today's reward text
+    let rewardText = "";
+    if (reward.type === "gold") {
+      rewardText = `${reward.amount.toLocaleString()} Gold`;
+    } else if (reward.type === "item" && reward.itemId) {
+      const def = this.itemDefs.get(reward.itemId);
+      rewardText = `${def?.nameKo || reward.itemId} x${reward.amount}`;
+    } else {
+      rewardText = `${reward.type} x${reward.amount}`;
+    }
+    this.dailyRewardToday.textContent = rewardText;
+
+    // Show popup
+    this.dailyRewardPopup.classList.add("visible");
+
+    // Auto-dismiss timer
+    let remaining = 10;
+    this.dailyRewardTimer.textContent = `Auto-claim in ${remaining}s`;
+    this.dailyRewardAutoClose = window.setInterval(() => {
+      remaining--;
+      if (remaining <= 0) {
+        if (this.dailyRewardAutoClose) {
+          clearInterval(this.dailyRewardAutoClose);
+          this.dailyRewardAutoClose = null;
+        }
+        this.dailyRewardPopup.classList.remove("visible");
+        socket.send(PacketType.DAILY_REWARD, { action: "claim" });
+      } else {
+        this.dailyRewardTimer.textContent = `Auto-claim in ${remaining}s`;
+      }
+    }, 1000);
+  }
+
+  // ================================================
+  // Milestone Reward
+  // ================================================
+
+  private setupMilestonePopup(): void {
+    this.milestoneCloseBtn.addEventListener("click", () => {
+      this.milestonePopup.classList.remove("visible");
+    });
+  }
+
+  private showMilestoneReward(
+    level: number,
+    rewards: {
+      gold: number;
+      items?: Array<{ id: string; count: number; name: string }>;
+    },
+  ): void {
+    this.milestoneTitle.textContent = `LEVEL ${level} MILESTONE!`;
+
+    let rewardHtml = "";
+    if (rewards.gold > 0) {
+      rewardHtml += `<div class="milestone-reward-item"><span class="reward-icon">G</span> ${rewards.gold.toLocaleString()} Gold</div>`;
+    }
+    if (rewards.items) {
+      for (const item of rewards.items) {
+        rewardHtml += `<div class="milestone-reward-item"><span class="reward-icon">*</span> ${item.name} x${item.count}</div>`;
+      }
+    }
+    this.milestoneRewards.innerHTML = rewardHtml;
+
+    this.milestonePopup.classList.add("visible");
+
+    // Auto-dismiss after 8 seconds
+    setTimeout(() => {
+      this.milestonePopup.classList.remove("visible");
+    }, 8000);
+  }
+
+  // ================================================
+  // Enhancement Announcement in Chat
+  // ================================================
+
+  addEnhanceAnnouncement(
+    playerName: string,
+    itemName: string,
+    level: number,
+  ): void {
+    const msgDiv = document.createElement("div");
+    const isHigh = level >= 10;
+    msgDiv.className = isHigh
+      ? "chat-msg enhance-announce enhance-announce-high"
+      : "chat-msg enhance-announce";
+
+    const senderSpan = document.createElement("span");
+    senderSpan.className = "sender";
+    senderSpan.textContent = "[ENHANCE] ";
+    msgDiv.appendChild(senderSpan);
+
+    const text = `${playerName} has enhanced ${itemName} to +${level}!`;
+    msgDiv.appendChild(document.createTextNode(text));
+    this.chatMessages.appendChild(msgDiv);
+
+    while (this.chatMessages.childNodes.length > 50) {
+      this.chatMessages.removeChild(this.chatMessages.firstChild!);
+    }
+    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
   }
 
   // ================================================
@@ -2995,8 +3407,54 @@ class UIManager {
     // Enhancement result
     socket.on(
       PacketType.ENHANCE_RESULT,
-      (data: { success: boolean; destroyed: boolean; newLevel: number }) => {
-        this.showEnhanceResult(data.success, data.destroyed, data.newLevel);
+      (data: {
+        success: boolean;
+        destroyed: boolean;
+        newLevel: number;
+        itemName?: string;
+      }) => {
+        this.showEnhanceResult(
+          data.success,
+          data.destroyed,
+          data.newLevel,
+          data.itemName,
+        );
+      },
+    );
+
+    // Enhancement server-wide announcement (+7 and above)
+    socket.on(
+      PacketType.ENHANCE_ANNOUNCE,
+      (data: { playerName: string; itemName: string; level: number }) => {
+        this.addEnhanceAnnouncement(data.playerName, data.itemName, data.level);
+      },
+    );
+
+    // Daily login reward
+    socket.on(
+      PacketType.DAILY_REWARD,
+      (data: {
+        day: number;
+        type: string;
+        amount: number;
+        itemId?: string;
+        streak: number;
+      }) => {
+        this.showDailyRewardPopup(data);
+      },
+    );
+
+    // Milestone reward
+    socket.on(
+      PacketType.MILESTONE_REWARD,
+      (data: {
+        level: number;
+        rewards: {
+          gold: number;
+          items?: Array<{ id: string; count: number; name: string }>;
+        };
+      }) => {
+        this.showMilestoneReward(data.level, data.rewards);
       },
     );
 

@@ -11,26 +11,30 @@ import type {
 } from "../../../shared/types";
 import { TileType, COLLISION_TILES } from "../../../shared/types";
 
-// ---- Zone Definitions ----
+const MAP_W = 500;
+const MAP_H = 500;
+
+// ---- Zone Definitions (500x500 map) ----
 let zones: MapZone[] = [
   {
     id: "town",
     name: "Town",
     nameKo: "마을",
-    x: 80,
-    y: 80,
+    x: 230,
+    y: 230,
     width: 40,
     height: 40,
     levelRange: [0, 0],
     bgColor: "#A0A0A0",
   },
+  // -- Low Level Zones --
   {
     id: "starter_meadow",
     name: "Starter Meadow",
     nameKo: "시작의 초원",
-    x: 40,
-    y: 40,
-    width: 40,
+    x: 50,
+    y: 50,
+    width: 80,
     height: 80,
     levelRange: [1, 5],
     bgColor: "#7CFC00",
@@ -39,21 +43,22 @@ let zones: MapZone[] = [
     id: "dark_forest",
     name: "Dark Forest",
     nameKo: "어둠의 숲",
-    x: 120,
-    y: 40,
-    width: 40,
-    height: 40,
+    x: 200,
+    y: 30,
+    width: 80,
+    height: 80,
     levelRange: [5, 10],
     bgColor: "#2E4600",
   },
+  // -- Mid Level Zones --
   {
     id: "scorching_desert",
     name: "Scorching Desert",
     nameKo: "타오르는 사막",
-    x: 120,
-    y: 120,
-    width: 40,
-    height: 40,
+    x: 350,
+    y: 50,
+    width: 80,
+    height: 80,
     levelRange: [10, 15],
     bgColor: "#EDC9AF",
   },
@@ -61,32 +66,44 @@ let zones: MapZone[] = [
     id: "frozen_mountains",
     name: "Frozen Mountains",
     nameKo: "얼어붙은 산맥",
-    x: 40,
-    y: 140,
-    width: 40,
-    height: 40,
+    x: 30,
+    y: 200,
+    width: 80,
+    height: 80,
     levelRange: [15, 20],
     bgColor: "#E0E8F0",
   },
   {
+    id: "crystal_caverns",
+    name: "Crystal Caverns",
+    nameKo: "수정 동굴",
+    x: 30,
+    y: 350,
+    width: 80,
+    height: 80,
+    levelRange: [20, 25],
+    bgColor: "#4488AA",
+  },
+  // -- High Level Zones --
+  {
     id: "shadow_realm",
     name: "Shadow Realm",
     nameKo: "그림자 영역",
-    x: 140,
-    y: 80,
-    width: 40,
-    height: 40,
-    levelRange: [20, 30],
+    x: 350,
+    y: 200,
+    width: 80,
+    height: 80,
+    levelRange: [25, 30],
     bgColor: "#1A0A2E",
   },
   {
     id: "volcanic_cavern",
     name: "Volcanic Cavern",
     nameKo: "화산 동굴",
-    x: 5,
-    y: 80,
-    width: 35,
-    height: 40,
+    x: 200,
+    y: 350,
+    width: 80,
+    height: 80,
     levelRange: [30, 35],
     bgColor: "#4A1500",
   },
@@ -94,21 +111,22 @@ let zones: MapZone[] = [
     id: "ancient_ruins",
     name: "Ancient Ruins",
     nameKo: "고대 유적",
-    x: 80,
-    y: 42,
-    width: 40,
-    height: 36,
+    x: 350,
+    y: 350,
+    width: 80,
+    height: 80,
     levelRange: [35, 40],
     bgColor: "#4A3B2A",
   },
+  // -- End Game Zones --
   {
     id: "abyssal_depths",
     name: "Abyssal Depths",
     nameKo: "심연의 깊이",
-    x: 80,
-    y: 160,
-    width: 40,
-    height: 35,
+    x: 180,
+    y: 430,
+    width: 80,
+    height: 60,
     levelRange: [40, 45],
     bgColor: "#0A001A",
   },
@@ -116,10 +134,10 @@ let zones: MapZone[] = [
     id: "dragons_sanctum",
     name: "Dragon's Sanctum",
     nameKo: "드래곤의 성소",
-    x: 160,
-    y: 160,
-    width: 35,
-    height: 35,
+    x: 350,
+    y: 430,
+    width: 80,
+    height: 60,
     levelRange: [45, 50],
     bgColor: "#3A1500",
   },
@@ -146,7 +164,7 @@ function placeTrees(
 ) {
   for (let ty = y; ty < y + height; ty++) {
     for (let tx = x; tx < x + width; tx++) {
-      if (tx >= 0 && tx < 200 && ty >= 0 && ty < 200) {
+      if (tx >= 0 && tx < MAP_W && ty >= 0 && ty < MAP_H) {
         if (rng() < density) {
           tiles[ty][tx] = TileType.TREE;
         }
@@ -166,7 +184,7 @@ function placeWaterFeature(
       let dist = Math.sqrt(dx * dx + dy * dy);
       let tx = cx + dx;
       let ty = cy + dy;
-      if (tx >= 0 && tx < 200 && ty >= 0 && ty < 200 && dist <= radius) {
+      if (tx >= 0 && tx < MAP_W && ty >= 0 && ty < MAP_H && dist <= radius) {
         tiles[ty][tx] = TileType.WATER;
       }
     }
@@ -190,8 +208,46 @@ function placeRiver(
       for (let dx = -width; dx <= width; dx++) {
         let tx = x + dx;
         let ty = y + dy;
-        if (tx >= 0 && tx < 200 && ty >= 0 && ty < 200) {
+        if (tx >= 0 && tx < MAP_W && ty >= 0 && ty < MAP_H) {
           tiles[ty][tx] = TileType.WATER;
+        }
+      }
+    }
+  }
+}
+
+function fillZone(
+  tiles: number[][],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  tileType: number,
+) {
+  for (let ty = y; ty < y + h; ty++) {
+    for (let tx = x; tx < x + w; tx++) {
+      if (tx >= 0 && tx < MAP_W && ty >= 0 && ty < MAP_H) {
+        tiles[ty][tx] = tileType;
+      }
+    }
+  }
+}
+
+function scatterTile(
+  tiles: number[][],
+  rng: () => number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  tileType: number,
+  density: number,
+) {
+  for (let ty = y; ty < y + h; ty++) {
+    for (let tx = x; tx < x + w; tx++) {
+      if (tx >= 0 && tx < MAP_W && ty >= 0 && ty < MAP_H) {
+        if (rng() < density) {
+          tiles[ty][tx] = tileType;
         }
       }
     }
@@ -201,8 +257,8 @@ function placeRiver(
 // ---- Main generation function ----
 export function generateMap(): MapData {
   let rng = createRng(42);
-  let W = 200;
-  let H = 200;
+  let W = MAP_W;
+  let H = MAP_H;
 
   // Initialize all tiles as grass
   let tiles: number[][] = [];
@@ -216,157 +272,107 @@ export function generateMap(): MapData {
   // ---- Apply zone-specific tiles ----
 
   // Town: stone floor with wall border
-  for (let y = 80; y < 120; y++) {
-    for (let x = 80; x < 120; x++) {
-      tiles[y][x] = TileType.FLOOR;
-    }
-  }
+  fillZone(tiles, 230, 230, 40, 40, TileType.FLOOR);
   // Town walls (border)
-  for (let x = 80; x < 120; x++) {
-    tiles[80][x] = TileType.WALL;
-    tiles[119][x] = TileType.WALL;
+  for (let x = 230; x < 270; x++) {
+    tiles[230][x] = TileType.WALL;
+    tiles[269][x] = TileType.WALL;
   }
-  for (let y = 80; y < 120; y++) {
-    tiles[y][80] = TileType.WALL;
-    tiles[y][119] = TileType.WALL;
+  for (let y = 230; y < 270; y++) {
+    tiles[y][230] = TileType.WALL;
+    tiles[y][269] = TileType.WALL;
   }
-  // Town entrances (gaps in walls)
-  // North entrance
-  for (let x = 97; x <= 103; x++) tiles[80][x] = TileType.FLOOR;
-  // South entrance
-  for (let x = 97; x <= 103; x++) tiles[119][x] = TileType.FLOOR;
-  // West entrance
-  for (let y = 97; y <= 103; y++) tiles[y][80] = TileType.FLOOR;
-  // East entrance
-  for (let y = 97; y <= 103; y++) tiles[y][119] = TileType.FLOOR;
-
-  // Starter Meadow: bright grass (already default, add some trees)
-  placeTrees(tiles, rng, 40, 40, 40, 80, 0.03);
-
-  // Dark Forest: dark grass with dense trees
-  for (let y = 40; y < 80; y++) {
-    for (let x = 120; x < 160; x++) {
-      tiles[y][x] = TileType.DARK_GRASS;
-    }
+  // Town entrances (gaps in walls) - 4 directions
+  for (let x = 247; x <= 253; x++) {
+    tiles[230][x] = TileType.FLOOR;
+    tiles[269][x] = TileType.FLOOR;
   }
-  placeTrees(tiles, rng, 120, 40, 40, 40, 0.15);
-
-  // Scorching Desert: sand
-  for (let y = 120; y < 160; y++) {
-    for (let x = 120; x < 160; x++) {
-      tiles[y][x] = TileType.SAND;
-    }
+  for (let y = 247; y <= 253; y++) {
+    tiles[y][230] = TileType.FLOOR;
+    tiles[y][269] = TileType.FLOOR;
   }
 
-  // Frozen Mountains: snow and ice
-  for (let y = 140; y < 180; y++) {
-    for (let x = 40; x < 80; x++) {
-      tiles[y][x] = rng() < 0.3 ? TileType.ICE : TileType.SNOW;
-    }
-  }
-  // Mountain wall clusters
-  for (let y = 140; y < 180; y++) {
-    for (let x = 40; x < 80; x++) {
-      if (rng() < 0.05) {
-        tiles[y][x] = TileType.WALL;
+  // Starter Meadow (50,50, 80x80): bright grass with sparse trees
+  placeTrees(tiles, rng, 50, 50, 80, 80, 0.03);
+
+  // Dark Forest (200,30, 80x80): dark grass + dense trees
+  fillZone(tiles, 200, 30, 80, 80, TileType.DARK_GRASS);
+  placeTrees(tiles, rng, 200, 30, 80, 80, 0.12);
+
+  // Scorching Desert (350,50, 80x80): sand
+  fillZone(tiles, 350, 50, 80, 80, TileType.SAND);
+
+  // Frozen Mountains (30,200, 80x80): snow and ice
+  for (let ty = 200; ty < 280; ty++) {
+    for (let tx = 30; tx < 110; tx++) {
+      if (tx < MAP_W && ty < MAP_H) {
+        tiles[ty][tx] = rng() < 0.3 ? TileType.ICE : TileType.SNOW;
       }
     }
   }
+  scatterTile(tiles, rng, 30, 200, 80, 80, TileType.WALL, 0.04);
 
-  // Shadow Realm: dark stone
-  for (let y = 80; y < 120; y++) {
-    for (let x = 140; x < 180; x++) {
-      tiles[y][x] = TileType.DARK_STONE;
-    }
-  }
-  // Shadow Realm lava pools
-  for (let y = 80; y < 120; y++) {
-    for (let x = 140; x < 180; x++) {
-      if (rng() < 0.04) {
-        tiles[y][x] = TileType.LAVA;
-      }
-    }
-  }
+  // Crystal Caverns (30,350, 80x80): dark stone with ice/crystal feel
+  fillZone(tiles, 30, 350, 80, 80, TileType.DARK_STONE);
+  scatterTile(tiles, rng, 30, 350, 80, 80, TileType.ICE, 0.08);
+  scatterTile(tiles, rng, 30, 350, 80, 80, TileType.WALL, 0.03);
 
-  // Volcanic Cavern: dark stone with lava
-  for (let y = 80; y < 120; y++) {
-    for (let x = 5; x < 40; x++) {
-      tiles[y][x] = TileType.DARK_STONE;
-    }
-  }
-  for (let y = 80; y < 120; y++) {
-    for (let x = 5; x < 40; x++) {
-      if (rng() < 0.08) {
-        tiles[y][x] = TileType.LAVA;
-      }
-    }
-  }
-  // Volcanic Cavern walls (cave walls)
-  for (let y = 80; y < 120; y++) {
-    for (let x = 5; x < 40; x++) {
-      if (rng() < 0.04) {
-        tiles[y][x] = TileType.WALL;
-      }
-    }
-  }
+  // Shadow Realm (350,200, 80x80): dark stone
+  fillZone(tiles, 350, 200, 80, 80, TileType.DARK_STONE);
+  scatterTile(tiles, rng, 350, 200, 80, 80, TileType.LAVA, 0.03);
 
-  // Ancient Ruins: stone floor with walls scattered
-  for (let y = 42; y < 78; y++) {
-    for (let x = 80; x < 120; x++) {
-      tiles[y][x] = TileType.STONE;
-    }
-  }
-  for (let y = 42; y < 78; y++) {
-    for (let x = 80; x < 120; x++) {
-      if (rng() < 0.06) {
-        tiles[y][x] = TileType.WALL;
-      } else if (rng() < 0.03) {
-        tiles[y][x] = TileType.DARK_STONE;
-      }
-    }
-  }
+  // Volcanic Cavern (200,350, 80x80): dark stone + lava
+  fillZone(tiles, 200, 350, 80, 80, TileType.DARK_STONE);
+  scatterTile(tiles, rng, 200, 350, 80, 80, TileType.LAVA, 0.06);
+  scatterTile(tiles, rng, 200, 350, 80, 80, TileType.WALL, 0.03);
 
-  // Abyssal Depths: dark stone and swamp
-  for (let y = 160; y < 195; y++) {
-    for (let x = 80; x < 120; x++) {
-      tiles[y][x] = rng() < 0.3 ? TileType.SWAMP : TileType.DARK_STONE;
-    }
-  }
-  for (let y = 160; y < 195; y++) {
-    for (let x = 80; x < 120; x++) {
-      if (rng() < 0.03) {
-        tiles[y][x] = TileType.LAVA;
-      }
-    }
-  }
+  // Ancient Ruins (350,350, 80x80): stone floor with walls scattered
+  fillZone(tiles, 350, 350, 80, 80, TileType.STONE);
+  scatterTile(tiles, rng, 350, 350, 80, 80, TileType.WALL, 0.05);
+  scatterTile(tiles, rng, 350, 350, 80, 80, TileType.DARK_STONE, 0.03);
 
-  // Dragon's Sanctum: lava and dark stone fortress
-  for (let y = 160; y < 195; y++) {
-    for (let x = 160; x < 195; x++) {
-      tiles[y][x] = TileType.DARK_STONE;
-    }
-  }
-  for (let y = 160; y < 195; y++) {
-    for (let x = 160; x < 195; x++) {
-      if (rng() < 0.1) {
-        tiles[y][x] = TileType.LAVA;
-      } else if (rng() < 0.04) {
-        tiles[y][x] = TileType.WALL;
+  // Abyssal Depths (180,430, 80x60): dark stone and swamp
+  for (let ty = 430; ty < 490; ty++) {
+    for (let tx = 180; tx < 260; tx++) {
+      if (tx < MAP_W && ty < MAP_H) {
+        tiles[ty][tx] = rng() < 0.25 ? TileType.SWAMP : TileType.DARK_STONE;
       }
     }
   }
+  scatterTile(tiles, rng, 180, 430, 80, 60, TileType.LAVA, 0.02);
+
+  // Dragon's Sanctum (350,430, 80x60): lava and dark stone fortress
+  fillZone(tiles, 350, 430, 80, 60, TileType.DARK_STONE);
+  scatterTile(tiles, rng, 350, 430, 80, 60, TileType.LAVA, 0.08);
+  scatterTile(tiles, rng, 350, 430, 80, 60, TileType.WALL, 0.03);
 
   // ---- Water features ----
-  // Lake between town and meadow
-  placeWaterFeature(tiles, 78, 100, 3);
+  // Lake near town west
+  placeWaterFeature(tiles, 225, 250, 4);
+  // Lake near town east
+  placeWaterFeature(tiles, 275, 250, 3);
+  // Pond in starter meadow
+  placeWaterFeature(tiles, 80, 85, 3);
+  placeWaterFeature(tiles, 100, 100, 2);
+  // River from frozen mountains area south
+  placeRiver(tiles, 70, 285, 70, 340, 1);
+  // Oasis in desert
+  placeWaterFeature(tiles, 400, 100, 3);
   // Lake between dark forest and desert
-  placeWaterFeature(tiles, 135, 82, 4);
-  // Small pond in meadow
-  placeWaterFeature(tiles, 55, 70, 2);
-  // River between desert and frozen mountains (south)
-  placeRiver(tiles, 80, 135, 115, 155, 1);
-  // Small pond near town north
-  placeWaterFeature(tiles, 100, 75, 2);
+  placeWaterFeature(tiles, 340, 70, 4);
+  // Pond near abyssal depths
+  placeWaterFeature(tiles, 210, 425, 2);
+
+  // ---- Zone border trees/barriers ----
+  // Starter meadow edges
+  placeTrees(tiles, rng, 45, 45, 5, 90, 0.5);
+  placeTrees(tiles, rng, 45, 45, 90, 5, 0.5);
+  placeTrees(tiles, rng, 130, 45, 5, 90, 0.5);
+  placeTrees(tiles, rng, 45, 130, 90, 5, 0.5);
+  // Dark forest edges
+  placeTrees(tiles, rng, 195, 25, 5, 90, 0.5);
+  placeTrees(tiles, rng, 195, 25, 90, 5, 0.5);
+  placeTrees(tiles, rng, 280, 25, 5, 90, 0.5);
 
   // ---- Outer border walls ----
   for (let x = 0; x < W; x++) {
@@ -378,14 +384,6 @@ export function generateMap(): MapData {
     tiles[y][W - 1] = TileType.WALL;
   }
 
-  // ---- Scatter trees along edges of zones as natural barriers ----
-  // Between meadow and outer areas
-  placeTrees(tiles, rng, 35, 35, 5, 90, 0.4);
-  placeTrees(tiles, rng, 35, 35, 50, 5, 0.4);
-  // Between dark forest and outer areas
-  placeTrees(tiles, rng, 160, 35, 5, 50, 0.4);
-  placeTrees(tiles, rng, 115, 35, 50, 5, 0.4);
-
   // ---- Build collision map ----
   let collisions: boolean[][] = [];
   for (let y = 0; y < H; y++) {
@@ -395,115 +393,223 @@ export function generateMap(): MapData {
     }
   }
 
-  // ---- Spawn points ----
+  // ---- Spawn points (Lineage-style dense hunting grounds) ----
   let spawns: SpawnPoint[] = [
-    // Starter Meadow
-    { mobId: "slime", x: 50, y: 55, count: 5, radius: 8 },
-    { mobId: "slime", x: 65, y: 80, count: 4, radius: 6 },
-    { mobId: "rat", x: 55, y: 65, count: 4, radius: 7 },
-    { mobId: "rat", x: 70, y: 95, count: 3, radius: 6 },
-    { mobId: "bee", x: 60, y: 50, count: 4, radius: 8 },
-    { mobId: "bee", x: 45, y: 75, count: 3, radius: 6 },
-    { mobId: "spider", x: 55, y: 90, count: 3, radius: 7 },
-    { mobId: "spider", x: 70, y: 60, count: 3, radius: 6 },
-    { mobId: "wolf", x: 65, y: 105, count: 3, radius: 8 },
-    { mobId: "wolf", x: 50, y: 100, count: 2, radius: 6 },
-    { mobId: "slime_king", x: 60, y: 75, count: 1, radius: 3 },
+    // ====== Starter Meadow (50,50 80x80) ======
+    // Sub-area 1: Meadow Path (sparse, newbie)
+    { mobId: "slime", x: 65, y: 60, count: 5, radius: 8 },
+    { mobId: "slime", x: 80, y: 65, count: 4, radius: 7 },
+    { mobId: "rat", x: 70, y: 70, count: 4, radius: 8 },
+    { mobId: "rat", x: 85, y: 60, count: 3, radius: 6 },
+    // Sub-area 2: Dense Grasslands (grinding spot)
+    { mobId: "slime", x: 75, y: 90, count: 6, radius: 8 },
+    { mobId: "rat", x: 85, y: 95, count: 6, radius: 8 },
+    { mobId: "bee", x: 95, y: 88, count: 5, radius: 7 },
+    { mobId: "bee", x: 65, y: 95, count: 5, radius: 7 },
+    { mobId: "spider", x: 80, y: 98, count: 5, radius: 8 },
+    { mobId: "spider", x: 100, y: 92, count: 4, radius: 7 },
+    // Sub-area 3: Wolf Den (tougher, fast respawn)
+    { mobId: "wolf", x: 100, y: 110, count: 6, radius: 8 },
+    { mobId: "wolf", x: 115, y: 105, count: 5, radius: 7 },
+    { mobId: "spider", x: 110, y: 115, count: 4, radius: 7 },
+    { mobId: "wolf", x: 90, y: 118, count: 4, radius: 8 },
+    // Mini-boss + Boss
+    { mobId: "giant_slime", x: 85, y: 82, count: 1, radius: 5 },
+    { mobId: "slime_king", x: 75, y: 115, count: 1, radius: 3 },
 
-    // Dark Forest
-    { mobId: "goblin", x: 130, y: 50, count: 4, radius: 7 },
-    { mobId: "goblin", x: 145, y: 65, count: 3, radius: 6 },
-    { mobId: "skeleton", x: 135, y: 55, count: 3, radius: 7 },
-    { mobId: "skeleton", x: 150, y: 50, count: 3, radius: 6 },
-    { mobId: "orc", x: 140, y: 60, count: 3, radius: 7 },
-    { mobId: "orc", x: 130, y: 70, count: 2, radius: 6 },
-    { mobId: "treant", x: 150, y: 70, count: 2, radius: 5 },
-    { mobId: "forest_snake", x: 125, y: 65, count: 3, radius: 8 },
-    { mobId: "forest_snake", x: 155, y: 55, count: 2, radius: 6 },
-    { mobId: "goblin_chief", x: 140, y: 55, count: 1, radius: 3 },
+    // ====== Dark Forest (200,30 80x80) ======
+    // Sub-area 1: Forest Edge (sparse)
+    { mobId: "goblin", x: 215, y: 45, count: 5, radius: 8 },
+    { mobId: "goblin", x: 230, y: 50, count: 4, radius: 7 },
+    { mobId: "skeleton", x: 220, y: 55, count: 4, radius: 8 },
+    { mobId: "forest_snake", x: 210, y: 50, count: 3, radius: 7 },
+    // Sub-area 2: Deep Woods (dense grinding)
+    { mobId: "skeleton", x: 240, y: 65, count: 6, radius: 8 },
+    { mobId: "orc", x: 250, y: 70, count: 6, radius: 8 },
+    { mobId: "goblin", x: 235, y: 75, count: 5, radius: 7 },
+    { mobId: "orc", x: 260, y: 65, count: 5, radius: 7 },
+    { mobId: "skeleton", x: 245, y: 80, count: 5, radius: 8 },
+    { mobId: "forest_snake", x: 255, y: 78, count: 4, radius: 7 },
+    // Sub-area 3: Ancient Grove (treants, boss)
+    { mobId: "treant", x: 225, y: 90, count: 5, radius: 8 },
+    { mobId: "treant", x: 240, y: 95, count: 4, radius: 7 },
+    { mobId: "forest_snake", x: 250, y: 92, count: 4, radius: 7 },
+    { mobId: "orc", x: 235, y: 98, count: 3, radius: 7 },
+    // Mini-boss + Boss
+    { mobId: "orc_warlord", x: 255, y: 85, count: 1, radius: 5 },
+    { mobId: "goblin_chief", x: 230, y: 95, count: 1, radius: 3 },
 
-    // Scorching Desert
-    { mobId: "scorpion", x: 130, y: 130, count: 4, radius: 8 },
-    { mobId: "scorpion", x: 150, y: 145, count: 3, radius: 6 },
-    { mobId: "mummy", x: 140, y: 135, count: 3, radius: 7 },
-    { mobId: "mummy", x: 125, y: 150, count: 2, radius: 6 },
-    { mobId: "bandit", x: 135, y: 145, count: 3, radius: 8 },
-    { mobId: "bandit", x: 150, y: 130, count: 2, radius: 6 },
-    { mobId: "sand_worm", x: 145, y: 140, count: 2, radius: 7 },
-    { mobId: "desert_hawk", x: 130, y: 155, count: 2, radius: 8 },
-    { mobId: "desert_hawk", x: 155, y: 135, count: 2, radius: 6 },
-    { mobId: "desert_emperor", x: 140, y: 140, count: 1, radius: 3 },
+    // ====== Scorching Desert (350,50 80x80) ======
+    // Sub-area 1: Desert Outskirts (sparse)
+    { mobId: "scorpion", x: 365, y: 65, count: 5, radius: 8 },
+    { mobId: "scorpion", x: 380, y: 60, count: 4, radius: 7 },
+    { mobId: "desert_hawk", x: 370, y: 70, count: 3, radius: 8 },
+    { mobId: "bandit", x: 390, y: 65, count: 3, radius: 7 },
+    // Sub-area 2: Sand Dunes (dense grinding)
+    { mobId: "bandit", x: 385, y: 85, count: 6, radius: 8 },
+    { mobId: "mummy", x: 395, y: 90, count: 6, radius: 8 },
+    { mobId: "scorpion", x: 400, y: 80, count: 5, radius: 7 },
+    { mobId: "sand_worm", x: 390, y: 95, count: 5, radius: 7 },
+    { mobId: "mummy", x: 380, y: 92, count: 5, radius: 8 },
+    { mobId: "bandit", x: 405, y: 88, count: 4, radius: 7 },
+    // Sub-area 3: Oasis Ruins (boss)
+    { mobId: "sand_worm", x: 410, y: 110, count: 4, radius: 8 },
+    { mobId: "desert_hawk", x: 400, y: 115, count: 4, radius: 7 },
+    { mobId: "mummy", x: 415, y: 105, count: 3, radius: 7 },
+    // Mini-boss + Boss
+    { mobId: "sand_king", x: 395, y: 100, count: 1, radius: 5 },
+    { mobId: "desert_emperor", x: 410, y: 112, count: 1, radius: 3 },
 
-    // Frozen Mountains
-    { mobId: "ice_golem", x: 50, y: 150, count: 3, radius: 7 },
-    { mobId: "ice_golem", x: 65, y: 165, count: 2, radius: 6 },
-    { mobId: "dark_knight", x: 55, y: 155, count: 3, radius: 7 },
-    { mobId: "dark_knight", x: 70, y: 150, count: 2, radius: 6 },
-    { mobId: "harpy", x: 60, y: 160, count: 2, radius: 8 },
-    { mobId: "harpy", x: 45, y: 170, count: 2, radius: 6 },
-    { mobId: "troll", x: 50, y: 165, count: 2, radius: 7 },
-    { mobId: "troll", x: 70, y: 170, count: 2, radius: 6 },
-    { mobId: "dragon_whelp", x: 60, y: 170, count: 2, radius: 7 },
-    { mobId: "mountain_lord", x: 60, y: 160, count: 1, radius: 3 },
+    // ====== Frozen Mountains (30,200 80x80) ======
+    // Sub-area 1: Frozen Trail (sparse)
+    { mobId: "ice_golem", x: 50, y: 215, count: 4, radius: 8 },
+    { mobId: "ice_golem", x: 65, y: 210, count: 3, radius: 7 },
+    { mobId: "dark_knight", x: 55, y: 220, count: 3, radius: 8 },
+    { mobId: "harpy", x: 70, y: 215, count: 3, radius: 7 },
+    // Sub-area 2: Blizzard Peak (dense grinding)
+    { mobId: "dark_knight", x: 60, y: 240, count: 6, radius: 8 },
+    { mobId: "harpy", x: 75, y: 245, count: 5, radius: 8 },
+    { mobId: "troll", x: 50, y: 250, count: 5, radius: 7 },
+    { mobId: "dark_knight", x: 85, y: 240, count: 5, radius: 7 },
+    { mobId: "ice_golem", x: 70, y: 252, count: 5, radius: 8 },
+    { mobId: "harpy", x: 55, y: 248, count: 4, radius: 7 },
+    // Sub-area 3: Dragon Nest
+    { mobId: "dragon_whelp", x: 65, y: 265, count: 5, radius: 8 },
+    { mobId: "dragon_whelp", x: 80, y: 268, count: 4, radius: 7 },
+    { mobId: "troll", x: 55, y: 270, count: 3, radius: 7 },
+    // Mini-boss + Boss
+    { mobId: "frost_titan", x: 75, y: 255, count: 1, radius: 5 },
+    { mobId: "mountain_lord", x: 70, y: 270, count: 1, radius: 3 },
 
-    // Shadow Realm
-    { mobId: "demon", x: 150, y: 90, count: 3, radius: 7 },
-    { mobId: "demon", x: 165, y: 100, count: 2, radius: 6 },
-    { mobId: "lich", x: 155, y: 95, count: 2, radius: 7 },
-    { mobId: "lich", x: 170, y: 105, count: 2, radius: 6 },
-    { mobId: "shadow_dragon", x: 160, y: 100, count: 2, radius: 8 },
-    { mobId: "death_knight", x: 150, y: 105, count: 2, radius: 7 },
-    { mobId: "death_knight", x: 170, y: 90, count: 2, radius: 6 },
-    { mobId: "dark_overlord", x: 160, y: 100, count: 1, radius: 3 },
+    // ====== Crystal Caverns (30,350 80x80) ======
+    // Sub-area 1: Crystal Entrance (sparse)
+    { mobId: "crystal_spider", x: 50, y: 365, count: 5, radius: 8 },
+    { mobId: "crystal_bat", x: 65, y: 360, count: 4, radius: 7 },
+    { mobId: "crystal_spider", x: 45, y: 370, count: 4, radius: 8 },
+    { mobId: "crystal_bat", x: 70, y: 365, count: 3, radius: 7 },
+    // Sub-area 2: Gem Corridors (dense grinding)
+    { mobId: "gem_golem", x: 60, y: 390, count: 6, radius: 8 },
+    { mobId: "gem_golem", x: 75, y: 395, count: 6, radius: 8 },
+    { mobId: "crystal_spider", x: 50, y: 393, count: 5, radius: 7 },
+    { mobId: "crystal_bat", x: 85, y: 388, count: 5, radius: 7 },
+    { mobId: "crystal_guardian", x: 65, y: 398, count: 4, radius: 8 },
+    { mobId: "gem_golem", x: 90, y: 392, count: 4, radius: 7 },
+    // Sub-area 3: Crystal Heart (boss chamber)
+    { mobId: "crystal_guardian", x: 70, y: 415, count: 5, radius: 8 },
+    { mobId: "crystal_guardian", x: 55, y: 418, count: 4, radius: 7 },
+    { mobId: "crystal_bat", x: 80, y: 412, count: 3, radius: 7 },
+    // Mini-boss + Boss
+    { mobId: "crystal_elemental", x: 75, y: 400, count: 1, radius: 5 },
+    { mobId: "crystal_queen", x: 65, y: 420, count: 1, radius: 3 },
 
-    // Volcanic Cavern
-    { mobId: "flame_imp", x: 15, y: 90, count: 4, radius: 7 },
-    { mobId: "flame_imp", x: 30, y: 100, count: 3, radius: 6 },
-    { mobId: "magma_golem", x: 20, y: 95, count: 3, radius: 7 },
-    { mobId: "magma_golem", x: 35, y: 110, count: 2, radius: 6 },
-    { mobId: "fire_drake", x: 25, y: 100, count: 2, radius: 8 },
-    { mobId: "fire_drake", x: 15, y: 110, count: 2, radius: 6 },
-    { mobId: "obsidian_knight", x: 30, y: 90, count: 2, radius: 7 },
-    { mobId: "obsidian_knight", x: 20, y: 105, count: 2, radius: 6 },
-    { mobId: "infernal_guardian", x: 22, y: 100, count: 1, radius: 3 },
+    // ====== Shadow Realm (350,200 80x80) ======
+    // Sub-area 1: Shadow Gate (sparse)
+    { mobId: "demon", x: 365, y: 215, count: 4, radius: 8 },
+    { mobId: "demon", x: 380, y: 210, count: 3, radius: 7 },
+    { mobId: "lich", x: 370, y: 220, count: 3, radius: 8 },
+    { mobId: "death_knight", x: 385, y: 215, count: 3, radius: 7 },
+    // Sub-area 2: Cursed Battlefield (dense grinding)
+    { mobId: "death_knight", x: 375, y: 240, count: 6, radius: 8 },
+    { mobId: "lich", x: 390, y: 245, count: 5, radius: 8 },
+    { mobId: "demon", x: 380, y: 250, count: 5, radius: 7 },
+    { mobId: "shadow_dragon", x: 400, y: 240, count: 4, radius: 7 },
+    { mobId: "death_knight", x: 395, y: 248, count: 5, radius: 8 },
+    { mobId: "lich", x: 370, y: 252, count: 4, radius: 7 },
+    // Sub-area 3: Dark Throne (boss)
+    { mobId: "shadow_dragon", x: 385, y: 265, count: 4, radius: 8 },
+    { mobId: "death_knight", x: 400, y: 268, count: 4, radius: 7 },
+    { mobId: "shadow_dragon", x: 375, y: 270, count: 3, radius: 7 },
+    // Mini-boss + Boss
+    { mobId: "shadow_champion", x: 390, y: 255, count: 1, radius: 5 },
+    { mobId: "dark_overlord", x: 390, y: 270, count: 1, radius: 3 },
 
-    // Ancient Ruins
-    { mobId: "cursed_mage", x: 90, y: 52, count: 3, radius: 7 },
-    { mobId: "cursed_mage", x: 105, y: 65, count: 2, radius: 6 },
-    { mobId: "stone_guardian", x: 95, y: 55, count: 3, radius: 7 },
-    { mobId: "stone_guardian", x: 110, y: 50, count: 2, radius: 6 },
-    { mobId: "phantom", x: 100, y: 60, count: 2, radius: 8 },
-    { mobId: "phantom", x: 85, y: 70, count: 2, radius: 6 },
-    { mobId: "rune_knight", x: 105, y: 55, count: 2, radius: 7 },
-    { mobId: "rune_knight", x: 90, y: 68, count: 2, radius: 6 },
-    { mobId: "ancient_dragon", x: 100, y: 60, count: 1, radius: 3 },
+    // ====== Volcanic Cavern (200,350 80x80) ======
+    // Sub-area 1: Lava Tunnels (sparse)
+    { mobId: "flame_imp", x: 215, y: 365, count: 5, radius: 8 },
+    { mobId: "flame_imp", x: 230, y: 360, count: 4, radius: 7 },
+    { mobId: "magma_golem", x: 220, y: 370, count: 3, radius: 8 },
+    { mobId: "flame_imp", x: 240, y: 365, count: 3, radius: 7 },
+    // Sub-area 2: Magma Chamber (dense grinding)
+    { mobId: "magma_golem", x: 230, y: 390, count: 6, radius: 8 },
+    { mobId: "fire_drake", x: 245, y: 395, count: 5, radius: 8 },
+    { mobId: "flame_imp", x: 220, y: 393, count: 5, radius: 7 },
+    { mobId: "obsidian_knight", x: 255, y: 388, count: 4, radius: 7 },
+    { mobId: "magma_golem", x: 240, y: 398, count: 5, radius: 8 },
+    { mobId: "fire_drake", x: 225, y: 395, count: 4, radius: 7 },
+    // Sub-area 3: Inferno Core (boss)
+    { mobId: "obsidian_knight", x: 235, y: 415, count: 4, radius: 8 },
+    { mobId: "fire_drake", x: 250, y: 418, count: 4, radius: 7 },
+    { mobId: "obsidian_knight", x: 220, y: 412, count: 3, radius: 7 },
+    // Mini-boss + Boss
+    { mobId: "lava_wyrm", x: 245, y: 400, count: 1, radius: 5 },
+    { mobId: "infernal_guardian", x: 240, y: 420, count: 1, radius: 3 },
 
-    // Abyssal Depths
-    { mobId: "abyss_watcher", x: 90, y: 170, count: 3, radius: 7 },
-    { mobId: "abyss_watcher", x: 105, y: 180, count: 2, radius: 6 },
-    { mobId: "void_serpent", x: 95, y: 175, count: 2, radius: 8 },
-    { mobId: "void_serpent", x: 110, y: 170, count: 2, radius: 6 },
-    { mobId: "chaos_demon", x: 100, y: 180, count: 2, radius: 7 },
-    { mobId: "chaos_demon", x: 85, y: 185, count: 2, radius: 6 },
-    { mobId: "nightmare", x: 95, y: 185, count: 2, radius: 7 },
-    { mobId: "nightmare", x: 110, y: 175, count: 2, radius: 6 },
-    { mobId: "abyss_lord", x: 100, y: 178, count: 1, radius: 3 },
+    // ====== Ancient Ruins (350,350 80x80) ======
+    // Sub-area 1: Ruined Library (sparse)
+    { mobId: "cursed_mage", x: 365, y: 365, count: 5, radius: 8 },
+    { mobId: "cursed_mage", x: 380, y: 360, count: 4, radius: 7 },
+    { mobId: "phantom", x: 370, y: 370, count: 3, radius: 8 },
+    { mobId: "rune_knight", x: 385, y: 365, count: 3, radius: 7 },
+    // Sub-area 2: Collapsed Hall (dense grinding)
+    { mobId: "stone_guardian", x: 375, y: 390, count: 6, radius: 8 },
+    { mobId: "rune_knight", x: 390, y: 395, count: 5, radius: 8 },
+    { mobId: "cursed_mage", x: 380, y: 393, count: 5, radius: 7 },
+    { mobId: "phantom", x: 400, y: 388, count: 4, radius: 7 },
+    { mobId: "stone_guardian", x: 395, y: 398, count: 5, radius: 8 },
+    { mobId: "rune_knight", x: 370, y: 395, count: 4, radius: 7 },
+    // Sub-area 3: Sealed Chamber (boss)
+    { mobId: "phantom", x: 385, y: 415, count: 4, radius: 8 },
+    { mobId: "rune_knight", x: 400, y: 418, count: 4, radius: 7 },
+    { mobId: "stone_guardian", x: 375, y: 420, count: 3, radius: 7 },
+    // Mini-boss + Boss
+    { mobId: "ancient_sentinel", x: 390, y: 405, count: 1, radius: 5 },
+    { mobId: "ancient_dragon", x: 390, y: 420, count: 1, radius: 3 },
 
-    // Dragon's Sanctum
-    { mobId: "elder_wyrm", x: 170, y: 170, count: 3, radius: 7 },
-    { mobId: "elder_wyrm", x: 185, y: 180, count: 2, radius: 6 },
-    { mobId: "celestial_guardian", x: 175, y: 175, count: 2, radius: 7 },
-    { mobId: "celestial_guardian", x: 180, y: 185, count: 2, radius: 6 },
-    { mobId: "void_dragon", x: 180, y: 175, count: 2, radius: 8 },
-    { mobId: "void_dragon", x: 170, y: 185, count: 2, radius: 6 },
-    { mobId: "dragon_emperor", x: 178, y: 178, count: 1, radius: 3 },
+    // ====== Abyssal Depths (180,430 80x60) ======
+    // Sub-area 1: Abyss Entrance
+    { mobId: "abyss_watcher", x: 195, y: 442, count: 4, radius: 8 },
+    { mobId: "abyss_watcher", x: 210, y: 438, count: 4, radius: 7 },
+    { mobId: "void_serpent", x: 200, y: 445, count: 3, radius: 8 },
+    // Sub-area 2: Void Rift (dense)
+    { mobId: "void_serpent", x: 220, y: 458, count: 5, radius: 8 },
+    { mobId: "chaos_demon", x: 235, y: 462, count: 5, radius: 8 },
+    { mobId: "nightmare", x: 225, y: 465, count: 4, radius: 7 },
+    { mobId: "abyss_watcher", x: 240, y: 455, count: 4, radius: 7 },
+    { mobId: "chaos_demon", x: 215, y: 460, count: 4, radius: 8 },
+    { mobId: "void_serpent", x: 245, y: 460, count: 4, radius: 7 },
+    // Sub-area 3: Abyss Throne (boss)
+    { mobId: "nightmare", x: 230, y: 478, count: 4, radius: 8 },
+    { mobId: "chaos_demon", x: 220, y: 475, count: 3, radius: 7 },
+    { mobId: "nightmare", x: 240, y: 480, count: 3, radius: 7 },
+    // Mini-boss + Boss
+    { mobId: "abyssal_behemoth", x: 230, y: 468, count: 1, radius: 5 },
+    { mobId: "abyss_lord", x: 230, y: 482, count: 1, radius: 3 },
+
+    // ====== Dragon's Sanctum (350,430 80x60) ======
+    // Sub-area 1: Wyrm's Path
+    { mobId: "elder_wyrm", x: 365, y: 442, count: 4, radius: 8 },
+    { mobId: "elder_wyrm", x: 380, y: 438, count: 4, radius: 7 },
+    { mobId: "celestial_guardian", x: 375, y: 445, count: 3, radius: 8 },
+    // Sub-area 2: Celestial Garden (dense)
+    { mobId: "celestial_guardian", x: 390, y: 458, count: 5, radius: 8 },
+    { mobId: "void_dragon", x: 405, y: 462, count: 4, radius: 8 },
+    { mobId: "elder_wyrm", x: 395, y: 465, count: 4, radius: 7 },
+    { mobId: "celestial_guardian", x: 410, y: 455, count: 4, radius: 7 },
+    { mobId: "void_dragon", x: 385, y: 460, count: 4, radius: 8 },
+    { mobId: "elder_wyrm", x: 400, y: 460, count: 3, radius: 7 },
+    // Sub-area 3: Dragon Emperor's Lair (boss)
+    { mobId: "void_dragon", x: 400, y: 478, count: 3, radius: 8 },
+    { mobId: "celestial_guardian", x: 390, y: 475, count: 3, radius: 7 },
+    { mobId: "void_dragon", x: 410, y: 480, count: 3, radius: 7 },
+    // Mini-boss + Boss
+    { mobId: "ancient_phoenix", x: 400, y: 468, count: 1, radius: 5 },
+    { mobId: "dragon_emperor", x: 400, y: 482, count: 1, radius: 3 },
   ];
 
   // Ensure spawn points are on walkable tiles
   for (let spawn of spawns) {
     if (spawn.y >= 0 && spawn.y < H && spawn.x >= 0 && spawn.x < W) {
       if (COLLISION_TILES.includes(tiles[spawn.y][spawn.x])) {
-        // Find the zone's base tile type
         let zone = zones.find(
           (z) =>
             spawn.x >= z.x &&
@@ -522,6 +628,7 @@ export function generateMap(): MapData {
             case "frozen_mountains":
               tiles[spawn.y][spawn.x] = TileType.SNOW;
               break;
+            case "crystal_caverns":
             case "shadow_realm":
             case "volcanic_cavern":
             case "abyssal_depths":
@@ -545,16 +652,16 @@ export function generateMap(): MapData {
 
   // ---- NPC placements in town ----
   let npcs: NpcPlacement[] = [
-    { npcId: "guide", x: 100, y: 95 },
-    { npcId: "shop_keeper", x: 90, y: 90 },
-    { npcId: "weapon_master", x: 110, y: 90 },
-    { npcId: "armor_smith", x: 90, y: 110 },
-    { npcId: "potion_brewer", x: 110, y: 110 },
-    { npcId: "jeweler", x: 95, y: 100 },
-    { npcId: "elite_merchant", x: 105, y: 100 },
-    { npcId: "blacksmith", x: 100, y: 105 },
-    { npcId: "scroll_merchant", x: 95, y: 105 },
-    { npcId: "master_crafter", x: 105, y: 105 },
+    { npcId: "guide", x: 250, y: 245 },
+    { npcId: "shop_keeper", x: 240, y: 240 },
+    { npcId: "weapon_master", x: 260, y: 240 },
+    { npcId: "armor_smith", x: 240, y: 260 },
+    { npcId: "potion_brewer", x: 260, y: 260 },
+    { npcId: "jeweler", x: 245, y: 250 },
+    { npcId: "elite_merchant", x: 255, y: 250 },
+    { npcId: "blacksmith", x: 250, y: 255 },
+    { npcId: "scroll_merchant", x: 245, y: 255 },
+    { npcId: "master_crafter", x: 255, y: 255 },
   ];
 
   // Ensure NPC locations are walkable
@@ -565,8 +672,8 @@ export function generateMap(): MapData {
     }
   }
 
-  // Ensure player spawn area is walkable
-  let playerSpawn = { x: 100, y: 100 };
+  // Ensure player spawn area is walkable (center of town)
+  let playerSpawn = { x: 250, y: 250 };
   for (let dy = -2; dy <= 2; dy++) {
     for (let dx = -2; dx <= 2; dx++) {
       let py = playerSpawn.y + dy;

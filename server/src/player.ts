@@ -33,7 +33,14 @@ import {
   ENHANCE_MAX,
   ENHANCE_SUCCESS_RATES,
   ENHANCE_DESTROY_THRESHOLD,
+  ENHANCE_SAFE_LEVEL,
+  EnhanceFailResult,
+  getEnhanceFailResult,
+  getEnhanceSuccessRate,
+  getEnhanceStatMultiplier,
   SET_BONUSES,
+  LEVEL_MILESTONES,
+  DAILY_REWARDS,
   expForLevel,
   getKarmaTitle,
   getInventoryWeight,
@@ -187,6 +194,8 @@ export interface PlayerSaveData {
   achievementProgress?: Record<string, number>;
   title?: string;
   titleKo?: string;
+  lastLoginDate?: string;
+  loginStreak?: number;
 }
 
 function defaultAllocatedStats(): AllocatedStats {
@@ -280,6 +289,10 @@ export class Player {
   // Killed by player tracking (for PK death penalty)
   lastKillerPlayerId: string | null;
 
+  // Daily login
+  lastLoginDate: string;
+  loginStreak: number;
+
   constructor(
     id: string,
     name: string,
@@ -342,6 +355,8 @@ export class Player {
     this.lastAutoPotionTime = 0;
     this.invulnerableUntil = 0;
     this.lastKillerPlayerId = null;
+    this.lastLoginDate = "";
+    this.loginStreak = 0;
 
     this.stats = this.calculateStats();
     this.stats.hp = this.stats.maxHp;
@@ -376,6 +391,8 @@ export class Player {
     player.achievementProgress = data.achievementProgress || {};
     player.title = data.title;
     player.titleKo = data.titleKo;
+    player.lastLoginDate = data.lastLoginDate || "";
+    player.loginStreak = data.loginStreak || 0;
 
     player.stats = player.calculateStats();
     player.stats.hp = player.stats.maxHp;
@@ -461,22 +478,22 @@ export class Player {
       Math.floor(as.int * se.int.magicDefense) +
       Math.floor(as.wis * se.wis.magicDefense);
 
-    // Apply enhancement bonuses
+    // Apply enhancement bonuses (Lineage-style scaling)
     for (let slot of Object.values(EquipSlot)) {
       let itemId = this.equipment[slot];
       let enhance = this.equipEnhancements[slot] || 0;
       if (itemId && enhance > 0) {
         let item = ITEMS[itemId];
         if (item) {
-          // Enhancement bonus: base stat * enhance * 0.1 (10% per level)
-          if (item.attack) attack += Math.floor(item.attack * enhance * 0.1);
-          if (item.defense) defense += Math.floor(item.defense * enhance * 0.1);
-          if (item.hp) maxHp += Math.floor(item.hp * enhance * 0.1);
-          if (item.mp) maxMp += Math.floor(item.mp * enhance * 0.1);
+          let mult = getEnhanceStatMultiplier(enhance);
+          if (item.attack) attack += Math.floor(item.attack * mult);
+          if (item.defense) defense += Math.floor(item.defense * mult);
+          if (item.hp) maxHp += Math.floor(item.hp * mult);
+          if (item.mp) maxMp += Math.floor(item.mp * mult);
           if (item.magicAttack)
-            magicAttack += Math.floor(item.magicAttack * enhance * 0.1);
+            magicAttack += Math.floor(item.magicAttack * mult);
           if (item.magicDefense)
-            magicDefense += Math.floor(item.magicDefense * enhance * 0.1);
+            magicDefense += Math.floor(item.magicDefense * mult);
         }
       }
     }
@@ -883,6 +900,30 @@ export class Player {
       stats: this.stats,
       statPoints,
     });
+
+    // Check level milestone rewards
+    let milestone = LEVEL_MILESTONES[this.level];
+    if (milestone) {
+      this.stats.gold += milestone.gold;
+      let rewardMessages: string[] = [];
+      rewardMessages.push(`${milestone.gold}G`);
+
+      if (milestone.items) {
+        for (let item of milestone.items) {
+          this.addItem(item.id, item.count);
+          let itemDef = ITEMS[item.id];
+          let itemName = itemDef?.nameKo || item.id;
+          rewardMessages.push(`${itemName} x${item.count}`);
+        }
+      }
+
+      this.connection.send(PacketType.NOTIFICATION, {
+        message: `Level ${this.level} Milestone Reward: ${rewardMessages.join(", ")}`,
+        messageKo: `레벨 ${this.level} 달성 보상: ${rewardMessages.join(", ")}`,
+      });
+      this.sendInventoryUpdate();
+      this.connection.send(PacketType.STATS_UPDATE, { stats: this.stats });
+    }
   }
 
   regen(): void {
@@ -1172,13 +1213,15 @@ export class Player {
   ): {
     success: boolean;
     destroyed: boolean;
+    reset: boolean;
     newLevel: number;
+    failResult?: string;
   } {
     if (inventorySlotIndex < 0 || inventorySlotIndex >= this.inventory.length) {
-      return { success: false, destroyed: false, newLevel: 0 };
+      return { success: false, destroyed: false, reset: false, newLevel: 0 };
     }
     if (scrollSlotIndex < 0 || scrollSlotIndex >= this.inventory.length) {
-      return { success: false, destroyed: false, newLevel: 0 };
+      return { success: false, destroyed: false, reset: false, newLevel: 0 };
     }
 
     let itemSlot = this.inventory[inventorySlotIndex];
@@ -1187,16 +1230,16 @@ export class Player {
     let scroll = ITEMS[scrollSlot.itemId];
 
     if (!item || !scroll)
-      return { success: false, destroyed: false, newLevel: 0 };
+      return { success: false, destroyed: false, reset: false, newLevel: 0 };
     if (!item.enhanceable) {
       this.connection.send(PacketType.NOTIFICATION, {
         message: "This item cannot be enhanced.",
         messageKo: "이 아이템은 강화할 수 없습니다.",
       });
-      return { success: false, destroyed: false, newLevel: 0 };
+      return { success: false, destroyed: false, reset: false, newLevel: 0 };
     }
     if (scroll.scrollType !== "enhance") {
-      return { success: false, destroyed: false, newLevel: 0 };
+      return { success: false, destroyed: false, reset: false, newLevel: 0 };
     }
 
     let currentEnhance = itemSlot.enhancement || 0;
@@ -1207,11 +1250,40 @@ export class Player {
         message: "Item is already at max enhancement.",
         messageKo: "이미 최대 강화 수치입니다.",
       });
-      return { success: false, destroyed: false, newLevel: currentEnhance };
+      return {
+        success: false,
+        destroyed: false,
+        reset: false,
+        newLevel: currentEnhance,
+      };
     }
 
-    let successRate = ENHANCE_SUCCESS_RATES[currentEnhance] || 0.2;
-    let isBlessed = scrollSlot.itemId === "blessed_enhance_scroll";
+    // Determine scroll type
+    let scrollType: "normal" | "blessed" | "cursed" = "normal";
+    if (scrollSlot.itemId === "blessed_enhance_scroll") scrollType = "blessed";
+    else if (scrollSlot.itemId === "cursed_enhance_scroll")
+      scrollType = "cursed";
+
+    // Gold cost: 1000 * (currentLevel + 1)^2
+    let goldCost = 1000 * Math.pow(currentEnhance + 1, 2);
+    if (this.stats.gold < goldCost) {
+      this.connection.send(PacketType.NOTIFICATION, {
+        message: `Not enough gold. Enhancement cost: ${goldCost}G`,
+        messageKo: `골드가 부족합니다. 강화 비용: ${goldCost}G`,
+      });
+      return {
+        success: false,
+        destroyed: false,
+        reset: false,
+        newLevel: currentEnhance,
+      };
+    }
+
+    // Deduct gold
+    this.stats.gold -= goldCost;
+
+    // Get success rate
+    let successRate = getEnhanceSuccessRate(currentEnhance, scrollType);
 
     // Consume scroll
     this.removeItem(scrollSlotIndex, 1);
@@ -1227,31 +1299,56 @@ export class Player {
         this.inventory[inventorySlotIndex].enhancement = currentEnhance + 1;
       }
       this.sendInventoryUpdate();
-      return { success: true, destroyed: false, newLevel: currentEnhance + 1 };
+      this.connection.send(PacketType.STATS_UPDATE, { stats: this.stats });
+      return {
+        success: true,
+        destroyed: false,
+        reset: false,
+        newLevel: currentEnhance + 1,
+      };
     } else {
-      // Failure
+      // Failure - determine result
+      let failResult = getEnhanceFailResult(currentEnhance, scrollType);
       let destroyed = false;
-      // Blessed scroll protects up to +7 from destruction
-      let protectedByBlessed = isBlessed && currentEnhance < 7;
-      if (!protectedByBlessed && currentEnhance >= ENHANCE_DESTROY_THRESHOLD) {
-        // Destroy the item
-        if (inventorySlotIndex < this.inventory.length) {
-          this.inventory.splice(inventorySlotIndex, 1);
-        }
-        destroyed = true;
-      } else {
-        // Downgrade by 1 (min 0)
-        if (inventorySlotIndex < this.inventory.length) {
-          let newEnhance = Math.max(0, currentEnhance - 1);
-          this.inventory[inventorySlotIndex].enhancement =
-            newEnhance > 0 ? newEnhance : undefined;
-        }
+      let reset = false;
+      let newLevel = currentEnhance;
+
+      switch (failResult) {
+        case EnhanceFailResult.NOTHING:
+          // Safe zone, no penalty
+          newLevel = currentEnhance;
+          break;
+        case EnhanceFailResult.DOWNGRADE:
+          newLevel = Math.max(0, currentEnhance - 1);
+          if (inventorySlotIndex < this.inventory.length) {
+            this.inventory[inventorySlotIndex].enhancement =
+              newLevel > 0 ? newLevel : undefined;
+          }
+          break;
+        case EnhanceFailResult.RESET:
+          newLevel = 0;
+          reset = true;
+          if (inventorySlotIndex < this.inventory.length) {
+            this.inventory[inventorySlotIndex].enhancement = undefined;
+          }
+          break;
+        case EnhanceFailResult.DESTROY:
+          destroyed = true;
+          newLevel = 0;
+          if (inventorySlotIndex < this.inventory.length) {
+            this.inventory.splice(inventorySlotIndex, 1);
+          }
+          break;
       }
+
       this.sendInventoryUpdate();
+      this.connection.send(PacketType.STATS_UPDATE, { stats: this.stats });
       return {
         success: false,
         destroyed,
-        newLevel: destroyed ? 0 : Math.max(0, currentEnhance - 1),
+        reset,
+        newLevel,
+        failResult,
       };
     }
   }
@@ -1546,6 +1643,54 @@ export class Player {
       achievementProgress: { ...this.achievementProgress },
       title: this.title,
       titleKo: this.titleKo,
+      lastLoginDate: this.lastLoginDate,
+      loginStreak: this.loginStreak,
     };
+  }
+
+  // Process daily login reward
+  processDailyLogin(): void {
+    let today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    if (this.lastLoginDate === today) return; // Already claimed today
+
+    // Check if streak continues (yesterday)
+    let yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    if (this.lastLoginDate === yesterday) {
+      this.loginStreak++;
+    } else {
+      this.loginStreak = 1; // Reset streak
+    }
+    this.lastLoginDate = today;
+
+    // Get reward (cycle through 7 days)
+    let dayIndex = (this.loginStreak - 1) % 7;
+    let reward = DAILY_REWARDS[dayIndex];
+    if (!reward) return;
+
+    let rewardMsg = "";
+    switch (reward.type) {
+      case "gold":
+        this.stats.gold += reward.amount;
+        rewardMsg = `${reward.amount}G`;
+        break;
+      case "exp":
+        this.addExp(reward.amount);
+        rewardMsg = `${reward.amount} EXP`;
+        break;
+      case "item":
+        if (reward.itemId) {
+          this.addItem(reward.itemId, reward.amount);
+          let itemDef = ITEMS[reward.itemId];
+          rewardMsg = `${itemDef?.nameKo || reward.itemId} x${reward.amount}`;
+        }
+        break;
+    }
+
+    this.connection.send(PacketType.NOTIFICATION, {
+      message: `Daily Login Day ${this.loginStreak}: ${rewardMsg}`,
+      messageKo: `출석 ${this.loginStreak}일차 보상: ${rewardMsg}`,
+    });
+    this.sendInventoryUpdate();
+    this.connection.send(PacketType.STATS_UPDATE, { stats: this.stats });
   }
 }
