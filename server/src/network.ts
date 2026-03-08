@@ -31,6 +31,9 @@ import {
   ShopSystem,
   QuestSystem,
   AchievementSystem,
+  CraftingSystem,
+  PartySystem,
+  TradeSystem,
 } from "./systems";
 import { NPCS } from "./data/npcs";
 import { SHOPS } from "./data/shops";
@@ -171,6 +174,48 @@ export class Connection {
         break;
       case PacketType.ACHIEVEMENT_LIST:
         this.handleAchievementList();
+        break;
+      case PacketType.CRAFT_LIST:
+        this.handleCraftList();
+        break;
+      case PacketType.CRAFT_ITEM:
+        this.handleCraftItem(data);
+        break;
+      case PacketType.PARTY_INVITE:
+        this.handlePartyInvite(data);
+        break;
+      case PacketType.PARTY_ACCEPT:
+        this.handlePartyAccept();
+        break;
+      case PacketType.PARTY_DECLINE:
+        this.handlePartyDecline();
+        break;
+      case PacketType.PARTY_LEAVE:
+        this.handlePartyLeave();
+        break;
+      case PacketType.PARTY_KICK:
+        this.handlePartyKick(data);
+        break;
+      case PacketType.PARTY_CHAT:
+        this.handlePartyChat(data);
+        break;
+      case PacketType.TRADE_REQUEST:
+        this.handleTradeRequest(data);
+        break;
+      case PacketType.TRADE_ACCEPT:
+        this.handleTradeAccept(data);
+        break;
+      case PacketType.TRADE_DECLINE:
+        this.handleTradeDecline();
+        break;
+      case PacketType.TRADE_OFFER_UPDATE:
+        this.handleTradeOfferUpdate(data);
+        break;
+      case PacketType.TRADE_CONFIRM:
+        this.handleTradeConfirm();
+        break;
+      case PacketType.TRADE_CANCEL:
+        this.handleTradeCancel();
         break;
       default:
         console.warn(`[Connection ${this.id}] Unknown packet type: ${type}`);
@@ -451,6 +496,60 @@ export class Connection {
     let message = String(data.message || "").trim();
     if (!message || message.length > MAX_CHAT_LENGTH) return;
 
+    // Party chat command: /p message
+    if (message.startsWith("/p ")) {
+      let partyMsg = message.slice(3).trim();
+      if (partyMsg) {
+        let party = PartySystem.getParty(this.player.id);
+        if (party) {
+          party.broadcast(PacketType.PARTY_CHAT, {
+            sender: this.player.name,
+            senderId: this.player.id,
+            message: partyMsg,
+          });
+        } else {
+          this.send(PacketType.NOTIFICATION, {
+            message: "You are not in a party.",
+            messageKo: "파티에 속해 있지 않습니다.",
+          });
+        }
+      }
+      return;
+    }
+
+    // Invite command: /invite playerName
+    if (message.startsWith("/invite ")) {
+      let targetName = message.slice(8).trim();
+      if (targetName) {
+        let targetPlayer: Player | null = null;
+        for (let [, p] of this.server.world.players) {
+          if (p.name.toLowerCase() === targetName.toLowerCase()) {
+            targetPlayer = p;
+            break;
+          }
+        }
+        if (targetPlayer) {
+          PartySystem.invitePlayer(
+            this.player,
+            targetPlayer.id,
+            this.server.world,
+          );
+        } else {
+          this.send(PacketType.NOTIFICATION, {
+            message: `Player "${targetName}" not found.`,
+            messageKo: `"${targetName}" 플레이어를 찾을 수 없습니다.`,
+          });
+        }
+      }
+      return;
+    }
+
+    // Party leave command
+    if (message === "/leave") {
+      PartySystem.leaveParty(this.player);
+      return;
+    }
+
     this.server.broadcast(PacketType.CHAT_MESSAGE, {
       sender: this.player.name,
       senderId: this.player.id,
@@ -643,6 +742,9 @@ export class Connection {
         items: [],
         isEnhance: true,
       });
+    } else if (npcDef.type === NpcType.CRAFT) {
+      // Open crafting panel - send recipe list
+      CraftingSystem.sendRecipeList(this.player!);
     } else if (npcDef.shopId) {
       // Open shop
       let shop = SHOPS[npcDef.shopId];
@@ -800,10 +902,122 @@ export class Connection {
     this.send(PacketType.ACHIEVEMENT_LIST, data);
   }
 
+  // ---- Crafting handlers ----
+
+  private handleCraftList(): void {
+    if (!this.player) return;
+    CraftingSystem.sendRecipeList(this.player);
+  }
+
+  private handleCraftItem(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let recipeId = String(data.recipeId || "");
+    if (!recipeId) return;
+    CraftingSystem.craft(this.player, recipeId);
+  }
+
+  // ---- Party handlers ----
+
+  private handlePartyInvite(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let targetId = String(data.targetId || "");
+    if (!targetId) return;
+    PartySystem.invitePlayer(this.player, targetId, this.server.world);
+  }
+
+  private handlePartyAccept(): void {
+    if (!this.player) return;
+    PartySystem.acceptInvite(this.player, this.server.world);
+  }
+
+  private handlePartyDecline(): void {
+    if (!this.player) return;
+    PartySystem.declineInvite(this.player);
+  }
+
+  private handlePartyLeave(): void {
+    if (!this.player) return;
+    PartySystem.leaveParty(this.player);
+  }
+
+  private handlePartyKick(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let targetId = String(data.targetId || "");
+    if (!targetId) return;
+    PartySystem.kickMember(this.player, targetId);
+  }
+
+  private handlePartyChat(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let message = String(data.message || "").trim();
+    if (!message || message.length > MAX_CHAT_LENGTH) return;
+
+    let party = PartySystem.getParty(this.player.id);
+    if (!party) {
+      this.send(PacketType.NOTIFICATION, {
+        message: "You are not in a party.",
+        messageKo: "파티에 속해 있지 않습니다.",
+      });
+      return;
+    }
+
+    party.broadcast(PacketType.PARTY_CHAT, {
+      sender: this.player.name,
+      senderId: this.player.id,
+      message,
+    });
+  }
+
+  // ---- Trade handlers ----
+  private handleTradeRequest(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let targetId = String(data.targetId || "");
+    if (!targetId) return;
+    TradeSystem.requestTrade(this.player, targetId, this.server.world);
+  }
+
+  private handleTradeAccept(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let requesterId = String(data.requesterId || "");
+    if (!requesterId) return;
+    TradeSystem.acceptTrade(this.player, requesterId, this.server.world);
+  }
+
+  private handleTradeDecline(): void {
+    if (!this.player) return;
+    TradeSystem.declineTrade(this.player, this.server.world);
+  }
+
+  private handleTradeOfferUpdate(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let items =
+      (data.items as Array<{ slotIndex: number; count: number }>) || [];
+    let gold = Number(data.gold) || 0;
+    TradeSystem.updateOffer(this.player, { items, gold }, this.server.world);
+  }
+
+  private handleTradeConfirm(): void {
+    if (!this.player) return;
+    TradeSystem.confirmTrade(this.player, this.server.world);
+  }
+
+  private handleTradeCancel(): void {
+    if (!this.player) return;
+    TradeSystem.cancelTrade(this.player, this.server.world);
+  }
+
   private passwordHash: string = "";
 
   private async onDisconnect(): Promise<void> {
     if (this.player) {
+      // Clean up trade on disconnect
+      if (this.player.tradeState) {
+        TradeSystem.cancelTrade(this.player, this.server.world);
+      }
+
+      // Clean up party before saving
+      PartySystem.onPlayerDisconnect(this.player.id);
+
       // Save player data (use stored passwordHash from login/register)
       let saveData = {
         ...this.player.toSaveData(this.passwordHash),

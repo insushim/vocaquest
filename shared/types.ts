@@ -97,7 +97,194 @@ export enum PacketType {
   // Achievements
   ACHIEVEMENT_UNLOCK = "achievement_unlock",
   ACHIEVEMENT_LIST = "achievement_list",
+
+  // Crafting
+  CRAFT_LIST = "craft_list",
+  CRAFT_ITEM = "craft_item",
+  CRAFT_RESULT = "craft_result",
+
+  // Party
+  PARTY_INVITE = "party_invite",
+  PARTY_ACCEPT = "party_accept",
+  PARTY_DECLINE = "party_decline",
+  PARTY_LEAVE = "party_leave",
+  PARTY_KICK = "party_kick",
+  PARTY_UPDATE = "party_update",
+  PARTY_CHAT = "party_chat",
+
+  // Trading
+  TRADE_REQUEST = "trade_request",
+  TRADE_ACCEPT = "trade_accept",
+  TRADE_DECLINE = "trade_decline",
+  TRADE_OFFER_UPDATE = "trade_offer_update",
+  TRADE_CONFIRM = "trade_confirm",
+  TRADE_CANCEL = "trade_cancel",
+  TRADE_COMPLETE = "trade_complete",
 }
+
+// ---- Trading ----
+export interface TradeOffer {
+  items: Array<{ slotIndex: number; count: number }>;
+  gold: number;
+}
+
+export interface TradeState {
+  partnerId: string;
+  partnerName: string;
+  myOffer: TradeOffer;
+  partnerOffer: TradeOffer;
+  myConfirmed: boolean;
+  partnerConfirmed: boolean;
+}
+
+// ---- Set Equipment Bonuses ----
+export interface SetBonusTier {
+  piecesRequired: number;
+  effects: Record<string, number>;
+  description: string;
+  descriptionKo: string;
+}
+
+export interface SetBonusDefinition {
+  id: string;
+  name: string;
+  nameKo: string;
+  pieces: number;
+  bonuses: SetBonusTier[];
+}
+
+export const SET_BONUSES: Record<string, SetBonusDefinition> = {
+  scholar_set: {
+    id: "scholar_set",
+    name: "Scholar's Set",
+    nameKo: "학자의 세트",
+    pieces: 6,
+    bonuses: [
+      {
+        piecesRequired: 2,
+        effects: { hpFlat: 100 },
+        description: "+100 HP",
+        descriptionKo: "HP +100",
+      },
+      {
+        piecesRequired: 4,
+        effects: { quizRewardPercent: 0.1 },
+        description: "+10% Quiz Rewards",
+        descriptionKo: "퀴즈 보상 +10%",
+      },
+      {
+        piecesRequired: 6,
+        effects: { expPercent: 0.2 },
+        description: "+20% EXP Gain",
+        descriptionKo: "경험치 획득 +20%",
+      },
+    ],
+  },
+  guardian_set: {
+    id: "guardian_set",
+    name: "Guardian's Set",
+    nameKo: "수호자의 세트",
+    pieces: 6,
+    bonuses: [
+      {
+        piecesRequired: 2,
+        effects: { hpFlat: 200 },
+        description: "+200 HP",
+        descriptionKo: "HP +200",
+      },
+      {
+        piecesRequired: 4,
+        effects: { defensePercent: 0.15 },
+        description: "+15% Defense",
+        descriptionKo: "방어력 +15%",
+      },
+      {
+        piecesRequired: 6,
+        effects: { defensePercent: 0.3, hpPercent: 0.1 },
+        description: "+30% Defense, +10% HP",
+        descriptionKo: "방어력 +30%, HP +10%",
+      },
+    ],
+  },
+  shadow_set: {
+    id: "shadow_set",
+    name: "Shadow Set",
+    nameKo: "그림자 세트",
+    pieces: 6,
+    bonuses: [
+      {
+        piecesRequired: 2,
+        effects: { critRateFlat: 10 },
+        description: "+10% Crit Rate",
+        descriptionKo: "치명타율 +10%",
+      },
+      {
+        piecesRequired: 4,
+        effects: { attackSpeedPercent: 0.2 },
+        description: "+20% Attack Speed",
+        descriptionKo: "공격속도 +20%",
+      },
+      {
+        piecesRequired: 6,
+        effects: { critRateFlat: 25, critDamageFlat: 0.15 },
+        description: "+25% Crit Rate, +15% Crit Damage",
+        descriptionKo: "치명타율 +25%, 치명타 피해 +15%",
+      },
+    ],
+  },
+  dragon_set: {
+    id: "dragon_set",
+    name: "Dragon Set",
+    nameKo: "용의 세트",
+    pieces: 6,
+    bonuses: [
+      {
+        piecesRequired: 2,
+        effects: { attackPercent: 0.15 },
+        description: "+15% Attack",
+        descriptionKo: "공격력 +15%",
+      },
+      {
+        piecesRequired: 4,
+        effects: { critRateFlat: 10 },
+        description: "+10% Crit Rate",
+        descriptionKo: "치명타율 +10%",
+      },
+      {
+        piecesRequired: 6,
+        effects: { attackPercent: 0.25, critDamageFlat: 0.2 },
+        description: "+25% Attack, +20% Crit Damage",
+        descriptionKo: "공격력 +25%, 치명타 피해 +20%",
+      },
+    ],
+  },
+  celestial_set: {
+    id: "celestial_set",
+    name: "Celestial Set",
+    nameKo: "천상의 세트",
+    pieces: 6,
+    bonuses: [
+      {
+        piecesRequired: 2,
+        effects: { allStatsPercent: 0.1 },
+        description: "+10% All Stats",
+        descriptionKo: "전체 스탯 +10%",
+      },
+      {
+        piecesRequired: 4,
+        effects: { allStatsPercent: 0.15, hpFlat: 200 },
+        description: "+15% All Stats, +200 HP",
+        descriptionKo: "전체 스탯 +15%, HP +200",
+      },
+      {
+        piecesRequired: 6,
+        effects: { allStatsPercent: 0.2, hpFlat: 500, mpFlat: 200 },
+        description: "+20% All Stats, +500 HP, +200 MP",
+        descriptionKo: "전체 스탯 +20%, HP +500, MP +200",
+      },
+    ],
+  },
+};
 
 // ---- Entities ----
 export enum EntityType {
@@ -468,6 +655,7 @@ export enum NpcType {
   QUEST = "quest",
   INFO = "info",
   ENHANCE = "enhance",
+  CRAFT = "craft",
 }
 
 export interface NpcDefinition {
@@ -721,4 +909,35 @@ export interface AchievementDefinition {
     titleKo?: string;
   };
   hidden?: boolean;
+}
+
+// ---- Crafting System ----
+export interface CraftingRecipe {
+  id: string;
+  name: string;
+  nameKo: string;
+  resultItemId: string;
+  resultCount: number;
+  materials: Array<{ itemId: string; count: number }>;
+  goldCost: number;
+  level: number;
+  category: string; // "weapon", "armor", "consumable", "accessory"
+  quizRequired?: boolean;
+}
+
+// ---- Party System ----
+export interface PartyMember {
+  id: string;
+  name: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  playerClass: PlayerClass;
+}
+
+export interface PartyData {
+  id: string;
+  leaderId: string;
+  members: PartyMember[];
+  maxSize: number;
 }

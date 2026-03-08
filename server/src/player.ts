@@ -13,6 +13,8 @@ import type {
   LootDrop,
   SkillDefinition,
   QuestProgress,
+  TradeOffer,
+  TradeState,
 } from "../../shared/types";
 import {
   EntityType,
@@ -31,6 +33,7 @@ import {
   ENHANCE_MAX,
   ENHANCE_SUCCESS_RATES,
   ENHANCE_DESTROY_THRESHOLD,
+  SET_BONUSES,
   expForLevel,
   getKarmaTitle,
   PacketType,
@@ -254,6 +257,14 @@ export class Player {
   isDead: boolean;
   respawnTimer: number | null;
 
+  // Party system (not persisted)
+  partyId: string | null;
+  partyInviteFrom: string | null;
+
+  // Trade system (not persisted)
+  tradeState: TradeState | null;
+  tradeRequestFrom: string | null;
+
   constructor(
     id: string,
     name: string,
@@ -306,6 +317,10 @@ export class Player {
     this.loginTime = Date.now();
     this.isDead = false;
     this.respawnTimer = null;
+    this.partyId = null;
+    this.partyInviteFrom = null;
+    this.tradeState = null;
+    this.tradeRequestFrom = null;
 
     this.stats = this.calculateStats();
     this.stats.hp = this.stats.maxHp;
@@ -441,6 +456,47 @@ export class Player {
             magicAttack += Math.floor(item.magicAttack * enhance * 0.1);
           if (item.magicDefense)
             magicDefense += Math.floor(item.magicDefense * enhance * 0.1);
+        }
+      }
+    }
+
+    // Apply set bonuses
+    let setCounts: Record<string, number> = {};
+    for (let slot of Object.values(EquipSlot)) {
+      let itemId = this.equipment[slot];
+      if (itemId) {
+        let item = ITEMS[itemId];
+        if (item && item.setId) {
+          setCounts[item.setId] = (setCounts[item.setId] || 0) + 1;
+        }
+      }
+    }
+
+    for (let [setId, count] of Object.entries(setCounts)) {
+      let setDef = SET_BONUSES[setId];
+      if (!setDef) continue;
+
+      for (let tier of setDef.bonuses) {
+        if (count < tier.piecesRequired) continue;
+
+        let fx = tier.effects;
+        if (fx.hpFlat) maxHp += fx.hpFlat;
+        if (fx.mpFlat) maxMp += fx.mpFlat;
+        if (fx.hpPercent) maxHp = Math.floor(maxHp * (1 + fx.hpPercent));
+        if (fx.attackPercent)
+          attack = Math.floor(attack * (1 + fx.attackPercent));
+        if (fx.defensePercent)
+          defense = Math.floor(defense * (1 + fx.defensePercent));
+        if (fx.critRateFlat) critRate += fx.critRateFlat;
+        if (fx.critDamageFlat) critDamage += fx.critDamageFlat;
+        if (fx.attackSpeedPercent) attackSpeed *= 1 + fx.attackSpeedPercent;
+        if (fx.allStatsPercent) {
+          maxHp = Math.floor(maxHp * (1 + fx.allStatsPercent));
+          maxMp = Math.floor(maxMp * (1 + fx.allStatsPercent));
+          attack = Math.floor(attack * (1 + fx.allStatsPercent));
+          defense = Math.floor(defense * (1 + fx.allStatsPercent));
+          magicAttack = Math.floor(magicAttack * (1 + fx.allStatsPercent));
+          magicDefense = Math.floor(magicDefense * (1 + fx.allStatsPercent));
         }
       }
     }

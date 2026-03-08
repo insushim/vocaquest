@@ -554,6 +554,7 @@ export function generateMap(): MapData {
     { npcId: "elite_merchant", x: 105, y: 100 },
     { npcId: "blacksmith", x: 100, y: 105 },
     { npcId: "scroll_merchant", x: 95, y: 105 },
+    { npcId: "master_crafter", x: 105, y: 105 },
   ];
 
   // Ensure NPC locations are walkable

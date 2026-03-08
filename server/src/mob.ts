@@ -344,10 +344,17 @@ export class Mob {
     this.target = null;
     this.respawnTimer = Date.now() + this.definition.respawnTime;
 
-    // Give exp and gold to killer
-    killer.addExp(this.definition.exp);
-    killer.stats.gold += this.definition.gold;
-    killer.connection.send("stats_update", { stats: killer.stats });
+    // Give exp and gold to killer (or distribute to party)
+    let { PartySystem } = require("./systems");
+    let party = PartySystem.getParty(killer.id);
+    if (party && party.members.size > 1) {
+      party.distributeExp(this.definition.exp, killer.x, killer.y);
+      party.distributeGold(this.definition.gold, killer.x, killer.y);
+    } else {
+      killer.addExp(this.definition.exp);
+      killer.stats.gold += this.definition.gold;
+      killer.connection.send("stats_update", { stats: killer.stats });
+    }
 
     // Broadcast death
     world.broadcastEntityDeath(this.id, EntityType.MOB, killer.id);

@@ -22,7 +22,7 @@ import { MONSTERS } from "./data/monsters";
 import { NPCS } from "./data/npcs";
 import { Player } from "./player";
 import { Mob } from "./mob";
-import { QuizSystem, AchievementSystem } from "./systems";
+import { QuizSystem, AchievementSystem, PartySystem } from "./systems";
 import type { Connection } from "./network";
 
 export interface ItemDrop {
@@ -83,6 +83,15 @@ export class World {
     // Update all players
     for (let [, player] of this.players) {
       player.update();
+    }
+
+    // Periodic party HP sync (every ~2 seconds)
+    if (now % 2000 < TICK_INTERVAL) {
+      for (let [, party] of PartySystem.parties) {
+        if (party.members.size > 1) {
+          PartySystem.broadcastPartyUpdate(party);
+        }
+      }
     }
 
     // Periodic achievement checks (every ~60 seconds)

@@ -20,8 +20,14 @@ import {
   EntityType,
   EntityData,
   Position,
+  SET_BONUSES,
 } from "@shared/types";
-import type { QuestDefinition, QuestProgress } from "@shared/types";
+import type {
+  QuestDefinition,
+  QuestProgress,
+  PartyData,
+  PartyMember,
+} from "@shared/types";
 import { socket } from "./network";
 
 // ---- Skill definitions for display ----
@@ -441,6 +447,48 @@ class UIManager {
   private achievementCategory: string = "all";
   private toastTimer: number | null = null;
 
+  // Trade system
+  private tradePanel!: HTMLElement;
+  private tradeRequestPopup!: HTMLElement;
+  private tradeRequestName!: HTMLElement;
+  private tradeMyItems!: HTMLElement;
+  private tradePartnerItems!: HTMLElement;
+  private tradeMyGoldInput!: HTMLInputElement;
+  private tradePartnerGoldEl!: HTMLElement;
+  private tradePartnerNameEl!: HTMLElement;
+  private tradeStatus!: HTMLElement;
+  private tradeConfirmBtn!: HTMLElement;
+  private tradeCancelBtn!: HTMLElement;
+  private tradeCloseBtn!: HTMLElement;
+  private tradeAcceptBtn!: HTMLElement;
+  private tradeDeclineBtn!: HTMLElement;
+  private tradeRequesterId: string = "";
+  private tradeActive: boolean = false;
+  private tradeSelectedSlots: Set<number> = new Set();
+  private tradeMyConfirmed: boolean = false;
+  private tradePartnerConfirmed: boolean = false;
+
+  // Party system
+  private partyFrame!: HTMLElement;
+  private partyMembers!: HTMLElement;
+  private partyLeaveBtn!: HTMLElement;
+  private partyInvitePopup!: HTMLElement;
+  private partyInviteText!: HTMLElement;
+  private partyInviteAccept!: HTMLElement;
+  private partyInviteDecline!: HTMLElement;
+  private currentPartyData: PartyData | null = null;
+  private currentPlayerId: string = "";
+
+  // Crafting system
+  private craftingPanel!: HTMLElement;
+  private craftingClose!: HTMLElement;
+  private craftingTabs!: HTMLElement;
+  private craftingRecipeList!: HTMLElement;
+  private craftingDetail!: HTMLElement;
+  private craftingRecipes: any[] = [];
+  private craftingCategory: string = "all";
+  private craftingSelectedId: string = "";
+
   constructor() {
     // Wait for DOM
     if (document.readyState === "loading") {
@@ -467,6 +515,9 @@ class UIManager {
     this.setupPotionQuickslot();
     this.setupQuestPanel();
     this.setupAchievementPanel();
+    this.setupTradePanel();
+    this.setupPartyPanel();
+    this.setupCraftingPanel();
     this.setupSocketListeners();
   }
 
@@ -611,6 +662,40 @@ class UIManager {
     this.toastDesc = document.getElementById("toast-desc")!;
     this.toastReward = document.getElementById("toast-reward")!;
     this.hudAchBtn = document.getElementById("hud-ach-btn")!;
+
+    // Trade elements
+    this.tradePanel = document.getElementById("trade-panel")!;
+    this.tradeRequestPopup = document.getElementById("trade-request-popup")!;
+    this.tradeRequestName = document.getElementById("trade-request-name")!;
+    this.tradeMyItems = document.getElementById("trade-my-items")!;
+    this.tradePartnerItems = document.getElementById("trade-partner-items")!;
+    this.tradeMyGoldInput = document.getElementById(
+      "trade-my-gold",
+    ) as HTMLInputElement;
+    this.tradePartnerGoldEl = document.getElementById("trade-partner-gold")!;
+    this.tradePartnerNameEl = document.getElementById("trade-partner-name")!;
+    this.tradeStatus = document.getElementById("trade-status")!;
+    this.tradeConfirmBtn = document.getElementById("trade-confirm-btn")!;
+    this.tradeCancelBtn = document.getElementById("trade-cancel-btn")!;
+    this.tradeCloseBtn = document.getElementById("trade-close")!;
+    this.tradeAcceptBtn = document.getElementById("trade-accept-btn")!;
+    this.tradeDeclineBtn = document.getElementById("trade-decline-btn")!;
+
+    // Party
+    this.partyFrame = document.getElementById("party-frame")!;
+    this.partyMembers = document.getElementById("party-members")!;
+    this.partyLeaveBtn = document.getElementById("party-leave-btn")!;
+    this.partyInvitePopup = document.getElementById("party-invite-popup")!;
+    this.partyInviteText = document.getElementById("party-invite-text")!;
+    this.partyInviteAccept = document.getElementById("party-invite-accept")!;
+    this.partyInviteDecline = document.getElementById("party-invite-decline")!;
+
+    // Crafting elements
+    this.craftingPanel = document.getElementById("crafting-panel")!;
+    this.craftingClose = document.getElementById("craft-close")!;
+    this.craftingTabs = document.getElementById("craft-tabs")!;
+    this.craftingRecipeList = document.getElementById("craft-recipe-list")!;
+    this.craftingDetail = document.getElementById("craft-detail")!;
   }
 
   // ================================================
@@ -985,6 +1070,10 @@ class UIManager {
     } else if (type === "me") {
       senderSpan.classList.add("me");
       senderSpan.textContent = sender + ": ";
+    } else if (type === "party") {
+      senderSpan.style.color = "#40c8c8";
+      senderSpan.textContent = sender + ": ";
+      msgDiv.style.color = "#a0e8e8";
     } else {
       senderSpan.textContent = sender + ": ";
     }
@@ -1089,6 +1178,7 @@ class UIManager {
     }
 
     this.renderEquipmentSlots();
+    this.renderSetBonuses();
   }
 
   private renderInventoryGrid(): void {
@@ -1843,6 +1933,7 @@ class UIManager {
     this.closeInventory();
     this.closeShop();
     this.closeEnhancePanel();
+    this.closeCraftingPanel();
     this.statPanel.classList.remove("visible");
     this.hideQuiz();
   }
@@ -1852,8 +1943,170 @@ class UIManager {
       this.inventoryPanel.classList.contains("visible") ||
       this.shopPanel.classList.contains("visible") ||
       this.quizPopup.classList.contains("visible") ||
-      this.enhancePanel.classList.contains("visible")
+      this.enhancePanel.classList.contains("visible") ||
+      this.craftingPanel.classList.contains("visible")
     );
+  }
+
+  // ================================================
+  // Crafting Panel
+  // ================================================
+
+  private setupCraftingPanel(): void {
+    if (this.craftingClose) {
+      this.craftingClose.addEventListener("click", () => {
+        this.closeCraftingPanel();
+      });
+    }
+
+    if (this.craftingTabs) {
+      this.craftingTabs.addEventListener("click", (e) => {
+        let target = e.target as HTMLElement;
+        if (target.classList.contains("craft-tab")) {
+          this.craftingCategory = target.dataset.category || "all";
+          this.craftingTabs
+            .querySelectorAll(".craft-tab")
+            .forEach((t) => t.classList.remove("active"));
+          target.classList.add("active");
+          this.renderCraftingRecipes();
+        }
+      });
+    }
+  }
+
+  openCraftingPanel(): void {
+    this.craftingPanel.classList.add("visible");
+    this.craftingSelectedId = "";
+    this.craftingDetail.innerHTML =
+      '<div class="craft-detail-empty">\uB808\uC2DC\uD53C\uB97C \uC120\uD0DD\uD558\uC138\uC694</div>';
+    socket.send(PacketType.CRAFT_LIST, {});
+  }
+
+  closeCraftingPanel(): void {
+    this.craftingPanel.classList.remove("visible");
+  }
+
+  private handleCraftList(data: any): void {
+    this.craftingRecipes = data.recipes || [];
+    this.renderCraftingRecipes();
+  }
+
+  private renderCraftingRecipes(): void {
+    if (!this.craftingRecipeList) return;
+    this.craftingRecipeList.innerHTML = "";
+
+    let filtered = this.craftingRecipes;
+    if (this.craftingCategory !== "all") {
+      filtered = filtered.filter(
+        (r: any) => r.category === this.craftingCategory,
+      );
+    }
+
+    filtered.sort((a: any, b: any) => {
+      if (a.canCraft && !b.canCraft) return -1;
+      if (!a.canCraft && b.canCraft) return 1;
+      return a.level - b.level;
+    });
+
+    for (let recipe of filtered) {
+      let div = document.createElement("div");
+      div.className = "craft-recipe-item";
+      if (recipe.canCraft) div.classList.add("craftable");
+      if (recipe.id === this.craftingSelectedId) div.classList.add("selected");
+
+      div.innerHTML = `
+        <div class="recipe-icon" style="background-color:${recipe.resultColor}"></div>
+        <div class="recipe-info">
+          <div class="recipe-name">${recipe.nameKo}</div>
+          <div class="recipe-level">Lv.${recipe.level} ${recipe.quizRequired ? "QUIZ" : ""}</div>
+        </div>
+      `;
+
+      div.addEventListener("click", () => {
+        this.craftingSelectedId = recipe.id;
+        this.renderCraftingRecipes();
+        this.renderCraftingDetail(recipe);
+      });
+
+      this.craftingRecipeList.appendChild(div);
+    }
+  }
+
+  private renderCraftingDetail(recipe: any): void {
+    if (!this.craftingDetail) return;
+
+    let statsHtml = "";
+    let s = recipe.resultStats;
+    let statEntries: string[] = [];
+    if (s.attack) statEntries.push(`ATK +${s.attack}`);
+    if (s.defense) statEntries.push(`DEF +${s.defense}`);
+    if (s.hp) statEntries.push(`HP +${s.hp}`);
+    if (s.mp) statEntries.push(`MP +${s.mp}`);
+    if (s.magicAttack) statEntries.push(`MATK +${s.magicAttack}`);
+    if (s.magicDefense) statEntries.push(`MDEF +${s.magicDefense}`);
+    if (s.critRate) statEntries.push(`CRIT +${s.critRate}%`);
+    if (s.critDamage)
+      statEntries.push(`CDMG +${(s.critDamage * 100).toFixed(0)}%`);
+    if (s.dodgeRate) statEntries.push(`DODGE +${s.dodgeRate}%`);
+    if (s.attackSpeed) statEntries.push(`ASPD +${s.attackSpeed}`);
+    if (s.speed) statEntries.push(`SPD +${s.speed}`);
+    if (s.healAmount) statEntries.push(`HEAL ${s.healAmount}`);
+    if (s.mpRestore) statEntries.push(`MP\uD68C\uBCF5 ${s.mpRestore}`);
+
+    if (statEntries.length > 0) {
+      statsHtml = `<div class="craft-stats">${statEntries.map((e) => `<span>${e}</span>`).join("")}</div>`;
+    }
+
+    let matsHtml = recipe.materials
+      .map((m: any) => {
+        let enough = m.have >= m.need;
+        return `<div class="craft-mat-row">
+        <div class="craft-mat-icon" style="background-color:${m.color}"></div>
+        <span class="craft-mat-name">${m.itemName}</span>
+        <span class="craft-mat-count ${enough ? "enough" : "not-enough"}">${m.have}/${m.need}</span>
+      </div>`;
+      })
+      .join("");
+
+    let quizBadge = recipe.quizRequired
+      ? '<div class="craft-quiz-badge">QUIZ REQUIRED</div>'
+      : "";
+
+    this.craftingDetail.innerHTML = `
+      <div class="craft-detail-header">
+        <div class="craft-detail-icon" style="background-color:${recipe.resultColor}"></div>
+        <div>
+          <div class="craft-detail-title">${recipe.nameKo}</div>
+          <div class="craft-detail-desc">${recipe.resultDescription}</div>
+          ${recipe.resultCount > 1 ? `<div class="craft-detail-count">x${recipe.resultCount}</div>` : ""}
+        </div>
+      </div>
+      ${statsHtml}
+      ${quizBadge}
+      <div class="craft-materials">
+        <div class="craft-materials-title">\uD544\uC694 \uC7AC\uB8CC</div>
+        ${matsHtml}
+      </div>
+      <div class="craft-gold-cost">\uBE44\uC6A9: ${recipe.goldCost.toLocaleString()}G</div>
+      <button class="craft-btn" id="craft-do-btn" ${recipe.canCraft ? "" : "disabled"}>\uC81C\uC791\uD558\uAE30</button>
+    `;
+
+    let craftBtn = document.getElementById("craft-do-btn");
+    if (craftBtn) {
+      craftBtn.addEventListener("click", () => {
+        socket.send(PacketType.CRAFT_ITEM, { recipeId: recipe.id });
+      });
+    }
+  }
+
+  private handleCraftResult(data: any): void {
+    if (data.success) {
+      this.showNotification(
+        `${data.itemName} x${data.count} \uC81C\uC791 \uC644\uB8CC!`,
+        "success",
+      );
+      socket.send(PacketType.CRAFT_LIST, {});
+    }
   }
 
   // ================================================
@@ -2544,6 +2797,11 @@ class UIManager {
   }
 
   private setupSocketListeners(): void {
+    // Store player ID from WELCOME
+    socket.on(PacketType.WELCOME, (data: any) => {
+      this.currentPlayerId = data.playerId || data.player?.id || "";
+    });
+
     // Auth
     socket.on(PacketType.AUTH_ERROR, (data: { message: string }) => {
       this.showLoginError(data.message || "\uB85C\uADF8\uC778 \uC2E4\uD328");
@@ -2680,9 +2938,59 @@ class UIManager {
       this.renderAchievements();
     });
 
+    // Crafting
+    socket.on(PacketType.CRAFT_LIST, (data: any) => {
+      this.handleCraftList(data);
+      // Open crafting panel if not already open
+      if (!this.craftingPanel.classList.contains("visible")) {
+        this.craftingPanel.classList.add("visible");
+      }
+    });
+
+    socket.on(PacketType.CRAFT_RESULT, (data: any) => {
+      this.handleCraftResult(data);
+    });
+
     // Respawn
     socket.on(PacketType.RESPAWN, () => {
       this.hideDeathScreen();
+    });
+
+    // Trade
+    socket.on(PacketType.TRADE_REQUEST, (data: any) => {
+      this.tradeRequesterId = data.requesterId;
+      this.tradeRequestName.textContent = `${data.requesterName} wants to trade.`;
+      this.tradeRequestPopup.style.display = "block";
+    });
+    socket.on(PacketType.TRADE_ACCEPT, (data: any) => {
+      this.openTrade(data.partnerName);
+    });
+    socket.on(PacketType.TRADE_DECLINE, (data: any) => {
+      this.showNotification(
+        `${data.playerName || "Player"} declined the trade.`,
+        "info",
+      );
+    });
+    socket.on(PacketType.TRADE_OFFER_UPDATE, (data: any) => {
+      if (data.from === "partner") {
+        this.renderTradePartnerOffer(data.items || [], data.gold || 0);
+        this.tradeMyConfirmed = false;
+        this.tradePartnerConfirmed = false;
+        this.updateTradeStatus();
+      }
+    });
+    socket.on(PacketType.TRADE_CONFIRM, (data: any) => {
+      if (data.who === "self") this.tradeMyConfirmed = true;
+      if (data.who === "partner") this.tradePartnerConfirmed = true;
+      this.updateTradeStatus();
+    });
+    socket.on(PacketType.TRADE_CANCEL, (data: any) => {
+      this.closeTrade();
+      if (data.reason) this.showNotification(data.reason, "info");
+    });
+    socket.on(PacketType.TRADE_COMPLETE, () => {
+      this.closeTrade();
+      this.showNotification("Trade completed!", "success");
     });
 
     // Connection events
@@ -2699,6 +3007,297 @@ class UIManager {
         "error",
       );
     });
+
+    // Party invite
+    socket.on(
+      PacketType.PARTY_INVITE,
+      (data: { fromId: string; fromName: string }) => {
+        this.showPartyInvite(data.fromName);
+      },
+    );
+
+    // Party update (members, HP, etc.)
+    socket.on(PacketType.PARTY_UPDATE, (data: { party: PartyData | null }) => {
+      this.currentPartyData = data.party;
+      this.renderPartyFrame();
+    });
+
+    // Party chat
+    socket.on(
+      PacketType.PARTY_CHAT,
+      (data: { sender: string; message: string }) => {
+        this.addChatMessage(`[P] ${data.sender}`, data.message, "party");
+      },
+    );
+  }
+
+  // ================================================
+  // Party System
+  // ================================================
+
+  private setupPartyPanel(): void {
+    this.partyLeaveBtn.addEventListener("click", () => {
+      socket.send(PacketType.PARTY_LEAVE);
+    });
+
+    this.partyInviteAccept.addEventListener("click", () => {
+      this.partyInvitePopup.classList.remove("visible");
+      socket.send(PacketType.PARTY_ACCEPT);
+    });
+
+    this.partyInviteDecline.addEventListener("click", () => {
+      this.partyInvitePopup.classList.remove("visible");
+      socket.send(PacketType.PARTY_DECLINE);
+    });
+  }
+
+  private showPartyInvite(fromName: string): void {
+    this.partyInviteText.textContent = `${fromName} invites you to a party.`;
+    this.partyInvitePopup.classList.add("visible");
+
+    // Auto-hide after 30 seconds
+    setTimeout(() => {
+      this.partyInvitePopup.classList.remove("visible");
+    }, 30000);
+  }
+
+  private renderPartyFrame(): void {
+    if (!this.currentPartyData || this.currentPartyData.members.length === 0) {
+      this.partyFrame.classList.remove("visible");
+      this.currentPartyData = null;
+      return;
+    }
+
+    this.partyFrame.classList.add("visible");
+    let html = "";
+
+    const classIcons: Record<string, string> = {
+      warrior: "W",
+      knight: "K",
+      mage: "M",
+      archer: "A",
+    };
+
+    for (let member of this.currentPartyData.members) {
+      let isLeader = member.id === this.currentPartyData.leaderId;
+      let isMe = member.id === this.currentPlayerId;
+      let hpPct =
+        member.maxHp > 0
+          ? Math.max(0, Math.min(100, (member.hp / member.maxHp) * 100))
+          : 0;
+      let icon = classIcons[member.playerClass] || "?";
+
+      html += `<div class="party-member" data-member-id="${member.id}">`;
+      html += `<div class="party-member-icon ${member.playerClass}">${icon}</div>`;
+      html += `<div class="party-member-info">`;
+      html += `<div class="party-member-name">`;
+      if (isLeader) html += `<span class="party-leader-crown">&#9813;</span>`;
+      html += `<span>${member.name}${isMe ? " (me)" : ""}</span>`;
+      html += `<span class="party-member-level">Lv.${member.level}</span>`;
+      html += `</div>`;
+      html += `<div class="party-hp-bar"><div class="party-hp-fill" style="width:${hpPct}%"></div></div>`;
+      html += `</div>`;
+      html += `</div>`;
+    }
+
+    this.partyMembers.innerHTML = html;
+
+    // Right-click context menu for kick (leader only)
+    let memberEls = this.partyMembers.querySelectorAll(".party-member");
+    memberEls.forEach((el) => {
+      el.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        let memberId = (el as HTMLElement).dataset.memberId;
+        if (!memberId || memberId === this.currentPlayerId) return;
+        if (
+          !this.currentPartyData ||
+          this.currentPartyData.leaderId !== this.currentPlayerId
+        )
+          return;
+
+        if (confirm("Kick this member from the party?")) {
+          socket.send(PacketType.PARTY_KICK, { targetId: memberId });
+        }
+      });
+    });
+  }
+
+  // Public method for GameScene to call when right-clicking a player
+  inviteToParty(targetId: string): void {
+    socket.send(PacketType.PARTY_INVITE, { targetId });
+  }
+
+  private setupTradePanel(): void {
+    if (!this.tradeAcceptBtn) return;
+    this.tradeAcceptBtn.addEventListener("click", () => {
+      if (this.tradeRequesterId)
+        socket.send(PacketType.TRADE_ACCEPT, {
+          requesterId: this.tradeRequesterId,
+        });
+      this.tradeRequestPopup.style.display = "none";
+      this.tradeRequesterId = "";
+    });
+    this.tradeDeclineBtn.addEventListener("click", () => {
+      socket.send(PacketType.TRADE_DECLINE, {});
+      this.tradeRequestPopup.style.display = "none";
+      this.tradeRequesterId = "";
+    });
+    this.tradeConfirmBtn.addEventListener("click", () => {
+      this.sendTradeOffer();
+      socket.send(PacketType.TRADE_CONFIRM, {});
+    });
+    this.tradeCancelBtn.addEventListener("click", () => {
+      socket.send(PacketType.TRADE_CANCEL, {});
+      this.closeTrade();
+    });
+    this.tradeCloseBtn.addEventListener("click", () => {
+      socket.send(PacketType.TRADE_CANCEL, {});
+      this.closeTrade();
+    });
+    this.tradeMyGoldInput.addEventListener("change", () =>
+      this.sendTradeOffer(),
+    );
+  }
+
+  requestTradeWithPlayer(targetId: string): void {
+    socket.send(PacketType.TRADE_REQUEST, { targetId });
+  }
+
+  private openTrade(pn: string): void {
+    this.tradeActive = true;
+    this.tradeSelectedSlots.clear();
+    this.tradeMyConfirmed = false;
+    this.tradePartnerConfirmed = false;
+    this.tradePartnerNameEl.textContent = `vs ${pn}`;
+    this.tradeMyGoldInput.value = "0";
+    this.tradePartnerGoldEl.textContent = "0";
+    this.tradeMyItems.innerHTML = "";
+    this.tradePartnerItems.innerHTML = "";
+    this.tradeStatus.textContent = "";
+    this.tradePanel.style.display = "block";
+    this.renderTradeMyInventory();
+  }
+
+  private closeTrade(): void {
+    this.tradeActive = false;
+    this.tradeSelectedSlots.clear();
+    this.tradePanel.style.display = "none";
+  }
+
+  private renderTradeMyInventory(): void {
+    this.tradeMyItems.innerHTML = "";
+    for (let i = 0; i < this.inventory.length; i++) {
+      const s = this.inventory[i];
+      if (!s?.itemId) continue;
+      const d = this.itemDefs.get(s.itemId);
+      const dv = document.createElement("div");
+      dv.className =
+        "trade-inv-slot" + (this.tradeSelectedSlots.has(i) ? " selected" : "");
+      const ic = document.createElement("div");
+      ic.className = "trade-item-icon";
+      ic.style.backgroundColor = d?.color || "#888";
+      dv.appendChild(ic);
+      const nm = document.createElement("div");
+      nm.className = "trade-item-name";
+      let lb = d?.nameKo || s.itemId;
+      if (s.enhancement && s.enhancement > 0) lb = `+${s.enhancement} ${lb}`;
+      nm.textContent = lb;
+      dv.appendChild(nm);
+      const idx = i;
+      dv.addEventListener("click", () => {
+        if (this.tradeSelectedSlots.has(idx))
+          this.tradeSelectedSlots.delete(idx);
+        else this.tradeSelectedSlots.add(idx);
+        this.tradeMyConfirmed = false;
+        this.tradePartnerConfirmed = false;
+        this.updateTradeStatus();
+        this.renderTradeMyInventory();
+        this.sendTradeOffer();
+      });
+      this.tradeMyItems.appendChild(dv);
+    }
+  }
+
+  private sendTradeOffer(): void {
+    const items: Array<{ slotIndex: number; count: number }> = [];
+    for (const idx of this.tradeSelectedSlots) {
+      const s = this.inventory[idx];
+      if (s) items.push({ slotIndex: idx, count: s.count });
+    }
+    socket.send(PacketType.TRADE_OFFER_UPDATE, {
+      items,
+      gold: parseInt(this.tradeMyGoldInput.value) || 0,
+    });
+  }
+
+  private renderTradePartnerOffer(items: any[], gold: number): void {
+    this.tradePartnerItems.innerHTML = "";
+    for (const it of items) {
+      const dv = document.createElement("div");
+      dv.className = "trade-inv-slot";
+      const ic = document.createElement("div");
+      ic.className = "trade-item-icon";
+      ic.style.backgroundColor = it.itemColor || "#888";
+      dv.appendChild(ic);
+      const nm = document.createElement("div");
+      nm.className = "trade-item-name";
+      let lb = it.itemName || "";
+      if (it.enhancement > 0) lb = `+${it.enhancement} ${lb}`;
+      if (it.count > 1) lb += ` x${it.count}`;
+      nm.textContent = lb;
+      dv.appendChild(nm);
+      this.tradePartnerItems.appendChild(dv);
+    }
+    this.tradePartnerGoldEl.textContent = String(gold);
+  }
+
+  private updateTradeStatus(): void {
+    const p: string[] = [];
+    if (this.tradeMyConfirmed) p.push("You: Ready");
+    if (this.tradePartnerConfirmed) p.push("Partner: Ready");
+    this.tradeStatus.textContent = p.join(" | ");
+    this.tradeConfirmBtn.style.opacity = this.tradeMyConfirmed ? "0.5" : "1";
+  }
+
+  private renderSetBonuses(): void {
+    const ex = document.getElementById("set-bonus-container");
+    if (ex) ex.remove();
+    const sc: Record<string, number> = {};
+    for (const sl of Object.values(EquipSlot)) {
+      const iid = this.equipment[sl];
+      if (iid) {
+        const df = this.itemDefs.get(iid);
+        if (df?.setId) sc[df.setId] = (sc[df.setId] || 0) + 1;
+      }
+    }
+    if (Object.keys(sc).length === 0) return;
+    const ct = document.createElement("div");
+    ct.id = "set-bonus-container";
+    ct.className = "set-bonus-section";
+    for (const [sid, cnt] of Object.entries(sc)) {
+      const sd = SET_BONUSES[sid];
+      if (!sd) continue;
+      const en = document.createElement("div");
+      en.className = "set-bonus-entry";
+      const tl = document.createElement("div");
+      tl.className = "set-bonus-title";
+      tl.textContent = `${sd.nameKo} (${cnt}/${sd.pieces})`;
+      en.appendChild(tl);
+      for (const tr of sd.bonuses) {
+        const te = document.createElement("div");
+        te.className =
+          "set-bonus-tier " +
+          (cnt >= tr.piecesRequired ? "active" : "inactive");
+        te.textContent = `(${tr.piecesRequired}) ${tr.descriptionKo}`;
+        en.appendChild(te);
+      }
+      ct.appendChild(en);
+    }
+    if (this.equipmentSlots?.parentElement)
+      this.equipmentSlots.parentElement.insertBefore(
+        ct,
+        this.equipmentSlots.nextSibling,
+      );
   }
 }
 

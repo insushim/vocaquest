@@ -789,6 +789,210 @@
       text-shadow: 1px 1px 2px #000;
     }
 
+    /* --- Party Frame --- */
+    #party-frame {
+      position: fixed;
+      top: 180px;
+      left: 12px;
+      width: 200px;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      background: rgba(10, 6, 18, 0.85);
+      border: 1px solid rgba(200, 168, 78, 0.3);
+      border-radius: var(--radius);
+      backdrop-filter: blur(6px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      overflow: hidden;
+    }
+
+    #party-frame.visible {
+      display: flex;
+    }
+
+    .party-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: rgba(200, 168, 78, 0.08);
+      border-bottom: 1px solid rgba(200, 168, 78, 0.15);
+    }
+
+    .party-title {
+      font-family: var(--font-title);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--border-gold);
+      letter-spacing: 1.5px;
+    }
+
+    .party-leave-btn {
+      background: none;
+      border: 1px solid rgba(232, 64, 64, 0.3);
+      color: var(--accent-red);
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: var(--transition-fast);
+    }
+
+    .party-leave-btn:hover {
+      background: rgba(232, 64, 64, 0.15);
+      border-color: var(--accent-red);
+    }
+
+    .party-members {
+      padding: 4px;
+    }
+
+    .party-member {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 6px;
+      border-radius: 4px;
+      transition: var(--transition-fast);
+    }
+
+    .party-member:hover {
+      background: rgba(200, 168, 78, 0.06);
+    }
+
+    .party-member-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .party-member-icon.warrior { background: #c62828; }
+    .party-member-icon.knight { background: #1565c0; }
+    .party-member-icon.mage { background: #6a1b9a; }
+    .party-member-icon.archer { background: #2e7d32; }
+
+    .party-member-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .party-member-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-bright);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .party-leader-crown {
+      color: var(--border-gold);
+      font-size: 10px;
+    }
+
+    .party-member-level {
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+
+    .party-hp-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--hp-red-bg);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+
+    .party-hp-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--hp-red), var(--hp-red-light));
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    /* --- Party Invite Popup --- */
+    #party-invite-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--bg-darker);
+      border: 2px solid var(--accent-blue);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      z-index: 600;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      box-shadow: var(--shadow), 0 0 30px rgba(75, 163, 232, 0.2);
+      backdrop-filter: blur(8px);
+      min-width: 260px;
+    }
+
+    #party-invite-popup.visible {
+      display: flex;
+    }
+
+    .party-invite-text {
+      font-size: 14px;
+      color: var(--text-bright);
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .party-invite-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .party-invite-accept {
+      padding: 8px 24px;
+      background: linear-gradient(180deg, #5cb85c, #449944);
+      border: 1px solid #5cb85c;
+      border-radius: 6px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: var(--transition);
+    }
+
+    .party-invite-accept:hover {
+      background: linear-gradient(180deg, #6dcc6d, #5cb85c);
+      box-shadow: 0 2px 10px rgba(92, 184, 92, 0.4);
+    }
+
+    .party-invite-decline {
+      padding: 8px 24px;
+      background: rgba(232, 64, 64, 0.1);
+      border: 1px solid rgba(232, 64, 64, 0.4);
+      border-radius: 6px;
+      color: var(--accent-red);
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: var(--transition);
+    }
+
+    .party-invite-decline:hover {
+      background: rgba(232, 64, 64, 0.2);
+    }
+
     /* Item tooltip */
     .item-tooltip {
       position: fixed;
@@ -1966,6 +2170,51 @@
       color: var(--accent-red);
     }
 
+    /* --- Crafting Panel --- */
+    #crafting-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 520px; max-width: 95vw; max-height: 80vh; background: var(--bg-darker); border: 2px solid var(--accent-orange); border-radius: var(--radius-lg); box-shadow: var(--shadow), 0 0 30px rgba(240,150,10,0.2); z-index: 460; display: none; flex-direction: column; backdrop-filter: blur(8px); }
+    #crafting-panel.visible { display: flex; }
+    .craft-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid var(--border-inner); }
+    .craft-header h3 { font-family: var(--font-title); font-size: 16px; font-weight: 600; color: var(--accent-orange); margin: 0; letter-spacing: 1px; }
+    .craft-close { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; }
+    .craft-tabs { display: flex; gap: 0; padding: 0 16px; border-bottom: 1px solid var(--border-inner); }
+    .craft-tab { padding: 8px 14px; font-size: 11px; font-weight: 600; color: var(--text-dim); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: var(--transition-fast); text-transform: uppercase; letter-spacing: 0.5px; }
+    .craft-tab:hover { color: var(--text-warm); }
+    .craft-tab.active { color: var(--accent-orange); border-bottom-color: var(--accent-orange); }
+    .craft-body { display: flex; flex: 1; overflow: hidden; min-height: 300px; }
+    .craft-recipe-list { width: 200px; min-width: 200px; border-right: 1px solid var(--border-inner); overflow-y: auto; padding: 8px; }
+    .craft-recipe-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: var(--transition-fast); margin-bottom: 2px; }
+    .craft-recipe-item:hover { background: var(--bg-panel-light); }
+    .craft-recipe-item.selected { background: var(--bg-panel); border: 1px solid var(--border-gold-dim); }
+    .craft-recipe-item.craftable { border-left: 3px solid var(--accent-green); }
+    .craft-recipe-item .recipe-icon { width: 28px; height: 28px; border-radius: 4px; flex-shrink: 0; }
+    .craft-recipe-item .recipe-info { flex: 1; min-width: 0; }
+    .craft-recipe-item .recipe-name { font-size: 11px; font-weight: 600; color: var(--text-warm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .craft-recipe-item .recipe-level { font-size: 9px; color: var(--text-dim); }
+    .craft-detail { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    .craft-detail-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); font-size: 13px; }
+    .craft-detail-header { display: flex; align-items: center; gap: 12px; }
+    .craft-detail-icon { width: 48px; height: 48px; border-radius: 8px; border: 2px solid var(--border-gold-dim); }
+    .craft-detail-title { font-family: var(--font-title); font-size: 15px; font-weight: 600; color: var(--text-bright); }
+    .craft-detail-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .craft-detail-count { font-size: 10px; color: var(--accent-orange); }
+    .craft-stats { font-size: 11px; color: var(--accent-cyan); display: flex; flex-wrap: wrap; gap: 6px; }
+    .craft-stats span { background: rgba(64,200,200,0.1); padding: 2px 6px; border-radius: 4px; }
+    .craft-materials { display: flex; flex-direction: column; gap: 6px; }
+    .craft-materials-title { font-size: 12px; font-weight: 600; color: var(--text-warm); }
+    .craft-mat-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: var(--bg-panel); border-radius: 4px; }
+    .craft-mat-icon { width: 20px; height: 20px; border-radius: 3px; flex-shrink: 0; }
+    .craft-mat-name { flex: 1; font-size: 11px; color: var(--text-warm); }
+    .craft-mat-count { font-size: 11px; font-weight: 600; }
+    .craft-mat-count.enough { color: var(--accent-green); }
+    .craft-mat-count.not-enough { color: var(--accent-red); }
+    .craft-gold-cost { font-size: 12px; color: var(--exp-gold); font-weight: 600; }
+    .craft-gold-cost.not-enough { color: var(--accent-red); }
+    .craft-quiz-badge { font-size: 10px; color: var(--accent-purple); background: rgba(176,96,208,0.15); padding: 2px 8px; border-radius: 4px; display: inline-block; }
+    .craft-btn { width: 100%; padding: 12px; background: linear-gradient(180deg, #ffb74d 0%, #ff9800 40%, #e65100 100%); border: none; border-radius: 8px; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition); text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 2px 8px rgba(240,150,10,0.3), inset 0 1px 0 rgba(255,255,255,0.2); margin-top: auto; }
+    .craft-btn:hover:not(:disabled) { background: linear-gradient(180deg, #ffc97a 0%, #ffb74d 40%, #ff9800 100%); box-shadow: 0 4px 20px rgba(240,150,10,0.5); transform: translateY(-1px); }
+    .craft-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .craft-btn:active:not(:disabled) { transform: translateY(1px); }
+
     /* --- Enhancement indicator on inventory items --- */
     .item-enhance {
       position: absolute;
@@ -3084,6 +3333,27 @@
     </div>
   </div>
 
+  <!-- Crafting Panel -->
+  <div id="crafting-panel">
+    <div class="craft-header">
+      <h3>CRAFTING</h3>
+      <button class="craft-close" id="craft-close">&times;</button>
+    </div>
+    <div class="craft-tabs" id="craft-tabs">
+      <button class="craft-tab active" data-category="all">All</button>
+      <button class="craft-tab" data-category="weapon">Weapon</button>
+      <button class="craft-tab" data-category="armor">Armor</button>
+      <button class="craft-tab" data-category="consumable">Potion</button>
+      <button class="craft-tab" data-category="accessory">Accessory</button>
+    </div>
+    <div class="craft-body">
+      <div class="craft-recipe-list" id="craft-recipe-list"></div>
+      <div class="craft-detail" id="craft-detail">
+        <div class="craft-detail-empty">Select a recipe</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Grade Selector -->
   <div id="grade-selector">
     <label for="grade-select">학년:</label>
@@ -3124,6 +3394,24 @@
     </div>
   </div>
 
+  <!-- Party Frame -->
+  <div id="party-frame">
+    <div class="party-header">
+      <span class="party-title">PARTY</span>
+      <button class="party-leave-btn" id="party-leave-btn">Leave</button>
+    </div>
+    <div class="party-members" id="party-members"></div>
+  </div>
+
+  <!-- Party Invite Popup -->
+  <div id="party-invite-popup">
+    <div class="party-invite-text" id="party-invite-text">Player invites you to a party.</div>
+    <div class="party-invite-buttons">
+      <button class="party-invite-accept" id="party-invite-accept">Accept</button>
+      <button class="party-invite-decline" id="party-invite-decline">Decline</button>
+    </div>
+  </div>
+
   <!-- Item Tooltip (shared) -->
   <div class="item-tooltip" id="item-tooltip">
     <div class="tt-name" id="tt-name"></div>
@@ -3132,6 +3420,61 @@
     <div class="tt-desc" id="tt-desc"></div>
     <div class="tt-price" id="tt-price"></div>
   </div>
+
+  <!-- Trade Request Popup -->
+  <div id="trade-request-popup" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:600; background:var(--bg-darker); border:2px solid var(--border-gold); border-radius:var(--radius-lg); padding:24px 28px; min-width:280px; text-align:center; box-shadow:var(--shadow),var(--shadow-glow-strong); animation:slideDown 0.2s ease;">
+    <div style="font-family:var(--font-title); font-size:16px; color:var(--border-gold); margin-bottom:12px;">TRADE REQUEST</div>
+    <div id="trade-request-name" style="font-size:15px; color:var(--text-bright); margin-bottom:16px;"></div>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button id="trade-accept-btn" style="padding:10px 24px; background:linear-gradient(180deg,#5cb85c,#449d44); border:2px solid #5cb85c; border-radius:6px; color:#fff; font-weight:700; cursor:pointer; font-family:var(--font); font-size:14px;">수락</button>
+      <button id="trade-decline-btn" style="padding:10px 24px; background:rgba(232,64,64,0.15); border:2px solid var(--accent-red); border-radius:6px; color:var(--accent-red); font-weight:700; cursor:pointer; font-family:var(--font); font-size:14px;">거절</button>
+    </div>
+  </div>
+
+  <!-- Trade Panel -->
+  <div id="trade-panel" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:550; background:var(--bg-dark); border:2px solid var(--border-gold); border-radius:var(--radius-lg); min-width:520px; max-width:95vw; box-shadow:var(--shadow),var(--shadow-glow-strong); animation:slideDown 0.2s ease;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border-gold-dim); background:linear-gradient(180deg,rgba(200,168,78,0.08) 0%,transparent 100%); border-radius:var(--radius-lg) var(--radius-lg) 0 0;">
+      <h3 style="font-family:var(--font-title); font-size:16px; color:var(--border-gold); letter-spacing:1px; margin:0;">TRADE</h3>
+      <span id="trade-partner-name" style="font-size:13px; color:var(--text-warm);"></span>
+      <button id="trade-close" style="background:none; border:none; color:var(--text-dim); font-size:18px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <div style="display:flex; gap:0;">
+      <div style="flex:1; padding:12px; border-right:1px solid rgba(200,168,78,0.15);">
+        <div style="font-size:12px; color:var(--text-dim); margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">My Offer</div>
+        <div id="trade-my-items" style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; min-height:120px;"></div>
+        <div style="margin-top:8px; display:flex; align-items:center; gap:6px;">
+          <span style="font-size:12px; color:var(--border-gold);">Gold:</span>
+          <input type="number" id="trade-my-gold" min="0" value="0" style="width:80px; padding:4px 8px; background:rgba(255,255,255,0.06); border:1px solid var(--border-gold-dim); border-radius:4px; color:var(--text-bright); font-size:13px; font-family:var(--font);">
+        </div>
+      </div>
+      <div style="flex:1; padding:12px;">
+        <div style="font-size:12px; color:var(--text-dim); margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">Their Offer</div>
+        <div id="trade-partner-items" style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; min-height:120px;"></div>
+        <div style="margin-top:8px; font-size:12px; color:var(--border-gold);">Gold: <span id="trade-partner-gold">0</span>G</div>
+      </div>
+    </div>
+    <div style="padding:10px 16px; border-top:1px solid rgba(200,168,78,0.15); display:flex; justify-content:space-between; align-items:center;">
+      <div id="trade-status" style="font-size:12px; color:var(--text-dim);"></div>
+      <div style="display:flex; gap:8px;">
+        <button id="trade-confirm-btn" style="padding:8px 20px; background:linear-gradient(180deg,#5cb85c,#449d44); border:2px solid #5cb85c; border-radius:6px; color:#fff; font-weight:700; cursor:pointer; font-family:var(--font); font-size:13px;">확인</button>
+        <button id="trade-cancel-btn" style="padding:8px 20px; background:rgba(232,64,64,0.15); border:2px solid var(--accent-red); border-radius:6px; color:var(--accent-red); font-weight:700; cursor:pointer; font-family:var(--font); font-size:13px;">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .set-bonus-section { padding:8px 10px; border-top:1px solid rgba(200,168,78,0.15); max-height:150px; overflow-y:auto; }
+    .set-bonus-entry { margin-bottom:6px; }
+    .set-bonus-title { font-size:11px; font-weight:700; color:var(--accent-purple); margin-bottom:2px; }
+    .set-bonus-tier { font-size:10px; padding:1px 0; }
+    .set-bonus-tier.active { color:var(--accent-green); }
+    .set-bonus-tier.inactive { color:var(--text-dim); opacity:0.5; }
+    .trade-inv-slot { aspect-ratio:1; background:rgba(255,255,255,0.03); border:1px solid rgba(200,168,78,0.2); border-radius:4px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; min-height:40px; font-size:8px; color:var(--text-dim); transition:all 0.15s ease; position:relative; }
+    .trade-inv-slot:hover { border-color:var(--border-gold); background:rgba(200,168,78,0.08); }
+    .trade-inv-slot.selected { border-color:var(--accent-green); background:rgba(92,184,92,0.1); }
+    .trade-item-icon { width:20px; height:20px; border-radius:3px; }
+    .trade-item-name { font-size:7px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+  </style>
 
   <script type="module" src="/src/main.ts"></script>
 </body>

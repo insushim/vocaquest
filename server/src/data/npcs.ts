@@ -164,4 +164,21 @@ export const NPCS: Record<string, NpcDefinition> = {
     ],
     color: "#1ABC9C",
   },
+  master_crafter: {
+    id: "master_crafter",
+    name: "Master Crafter",
+    nameKo: "제작 장인",
+    type: NpcType.CRAFT,
+    dialogue: [
+      "Bring me materials and I'll craft something magnificent!",
+      "Each recipe requires specific materials from different zones.",
+      "The rarest recipes require you to prove your knowledge through quizzes!",
+    ],
+    dialogueKo: [
+      "재료를 가져오시면 멋진 것을 만들어 드리겠습니다!",
+      "각 레시피에는 다양한 지역의 특정 재료가 필요합니다.",
+      "가장 희귀한 레시피는 퀴즈로 지식을 증명해야 합니다!",
+    ],
+    color: "#E67E22",
+  },
 };

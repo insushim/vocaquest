@@ -14,6 +14,10 @@ import type {
   QuestDefinition,
   QuestProgress,
   AchievementDefinition,
+  CraftingRecipe,
+  PartyData,
+  PartyMember,
+  TradeOffer,
 } from "../../shared/types";
 import {
   PacketType,
@@ -29,10 +33,12 @@ import {
   QUIZ_OPTIONS_COUNT,
   getKarmaTitle,
 } from "../../shared/types";
+import { v4 as uuid } from "uuid";
 import { ITEMS } from "./data/items";
 import { SHOPS } from "./data/shops";
 import { SKILLS } from "./data/skills";
 import { QUESTS } from "./data/quests";
+import { RECIPES, getAllRecipes } from "./data/recipes";
 import { ACHIEVEMENTS, getAllAchievements } from "./data/achievements";
 import type { Player } from "./player";
 import type { Mob } from "./mob";
@@ -1346,5 +1352,924 @@ export let AchievementSystem = {
     if (player.karma < 0) {
       this.checkAchievement(player, "karma_negative", Math.abs(player.karma));
     }
+  },
+};
+
+// ---- Party System ----
+
+const PARTY_MAX_SIZE = 4;
+const PARTY_EXP_RANGE = 10; // tiles
+const INVITE_TIMEOUT = 30000; // 30 seconds
+
+export class Party {
+  id: string;
+  leaderId: string;
+  members: Map<string, Player>;
+  maxSize: number = PARTY_MAX_SIZE;
+
+  constructor(leader: Player) {
+    this.id = uuid();
+    this.leaderId = leader.id;
+    this.members = new Map();
+    this.members.set(leader.id, leader);
+    leader.partyId = this.id;
+  }
+
+  addMember(player: Player): boolean {
+    if (this.members.size >= this.maxSize) return false;
+    if (this.members.has(player.id)) return false;
+    this.members.set(player.id, player);
+    player.partyId = this.id;
+    return true;
+  }
+
+  removeMember(playerId: string): void {
+    let player = this.members.get(playerId);
+    if (player) {
+      player.partyId = null;
+    }
+    this.members.delete(playerId);
+
+    // If leader left, assign new leader
+    if (playerId === this.leaderId && this.members.size > 0) {
+      let newLeader = this.members.values().next().value;
+      if (newLeader) {
+        this.leaderId = newLeader.id;
+      }
+    }
+  }
+
+  setLeader(playerId: string): void {
+    if (this.members.has(playerId)) {
+      this.leaderId = playerId;
+    }
+  }
+
+  broadcast(type: PacketType, data: unknown): void {
+    for (let [, member] of this.members) {
+      member.connection.send(type, data);
+    }
+  }
+
+  getMemberData(player: Player): PartyMember {
+    return {
+      id: player.id,
+      name: player.name,
+      level: player.level,
+      hp: player.stats.hp,
+      maxHp: player.stats.maxHp,
+      playerClass: player.playerClass,
+    };
+  }
+
+  getPartyData(): PartyData {
+    let members: PartyMember[] = [];
+    for (let [, member] of this.members) {
+      members.push(this.getMemberData(member));
+    }
+    return {
+      id: this.id,
+      leaderId: this.leaderId,
+      members,
+      maxSize: this.maxSize,
+    };
+  }
+
+  distributeExp(amount: number, killerX: number, killerY: number): void {
+    let nearbyMembers: Player[] = [];
+    for (let [, member] of this.members) {
+      if (member.isDead) continue;
+      let dist = Math.abs(member.x - killerX) + Math.abs(member.y - killerY);
+      if (dist <= PARTY_EXP_RANGE) {
+        nearbyMembers.push(member);
+      }
+    }
+
+    if (nearbyMembers.length === 0) return;
+
+    // Bonus: +10% per party member beyond the first
+    let bonus = 1 + 0.1 * (nearbyMembers.length - 1);
+    let perMember = Math.floor((amount / nearbyMembers.length) * bonus);
+
+    for (let member of nearbyMembers) {
+      member.addExp(perMember);
+      member.connection.send(PacketType.STATS_UPDATE, { stats: member.stats });
+    }
+  }
+
+  distributeGold(amount: number, killerX: number, killerY: number): void {
+    let nearbyMembers: Player[] = [];
+    for (let [, member] of this.members) {
+      if (member.isDead) continue;
+      let dist = Math.abs(member.x - killerX) + Math.abs(member.y - killerY);
+      if (dist <= PARTY_EXP_RANGE) {
+        nearbyMembers.push(member);
+      }
+    }
+
+    if (nearbyMembers.length === 0) return;
+
+    let perMember = Math.floor(amount / nearbyMembers.length);
+    for (let member of nearbyMembers) {
+      member.stats.gold += perMember;
+      member.connection.send(PacketType.STATS_UPDATE, { stats: member.stats });
+    }
+  }
+}
+
+export let PartySystem = {
+  parties: new Map<string, Party>(),
+  playerParties: new Map<string, string>(),
+  pendingInvites: new Map<
+    string,
+    { from: string; partyId?: string; timestamp: number }
+  >(),
+
+  invitePlayer(inviter: Player, targetId: string, world: World): void {
+    let target = world.players.get(targetId);
+    if (!target) {
+      inviter.connection.send(PacketType.NOTIFICATION, {
+        message: "Player not found.",
+        messageKo: "플레이어를 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    if (target.id === inviter.id) {
+      inviter.connection.send(PacketType.NOTIFICATION, {
+        message: "You cannot invite yourself.",
+        messageKo: "자기 자신을 초대할 수 없습니다.",
+      });
+      return;
+    }
+
+    if (target.partyId) {
+      inviter.connection.send(PacketType.NOTIFICATION, {
+        message: "That player is already in a party.",
+        messageKo: "해당 플레이어는 이미 파티에 속해 있습니다.",
+      });
+      return;
+    }
+
+    let existing = this.pendingInvites.get(target.id);
+    if (existing && Date.now() - existing.timestamp < INVITE_TIMEOUT) {
+      inviter.connection.send(PacketType.NOTIFICATION, {
+        message: "That player already has a pending invite.",
+        messageKo: "해당 플레이어에게 이미 초대 요청이 있습니다.",
+      });
+      return;
+    }
+
+    let existingParty = this.getParty(inviter.id);
+    if (existingParty && existingParty.members.size >= existingParty.maxSize) {
+      inviter.connection.send(PacketType.NOTIFICATION, {
+        message: "Party is full.",
+        messageKo: "파티가 가득 찼습니다.",
+      });
+      return;
+    }
+
+    if (existingParty && existingParty.leaderId !== inviter.id) {
+      inviter.connection.send(PacketType.NOTIFICATION, {
+        message: "Only the party leader can invite.",
+        messageKo: "파티장만 초대할 수 있습니다.",
+      });
+      return;
+    }
+
+    this.pendingInvites.set(target.id, {
+      from: inviter.id,
+      partyId: inviter.partyId || undefined,
+      timestamp: Date.now(),
+    });
+    target.partyInviteFrom = inviter.id;
+
+    target.connection.send(PacketType.PARTY_INVITE, {
+      fromId: inviter.id,
+      fromName: inviter.name,
+    });
+
+    inviter.connection.send(PacketType.NOTIFICATION, {
+      message: `Invited ${target.name} to party.`,
+      messageKo: `${target.name}님에게 파티 초대를 보냈습니다.`,
+    });
+
+    setTimeout(() => {
+      let invite = this.pendingInvites.get(target.id);
+      if (invite && invite.from === inviter.id) {
+        this.pendingInvites.delete(target.id);
+        if (target.partyInviteFrom === inviter.id) {
+          target.partyInviteFrom = null;
+        }
+      }
+    }, INVITE_TIMEOUT);
+  },
+
+  acceptInvite(player: Player, world: World): void {
+    let invite = this.pendingInvites.get(player.id);
+    if (!invite) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "No pending invite.",
+        messageKo: "대기 중인 초대가 없습니다.",
+      });
+      return;
+    }
+
+    this.pendingInvites.delete(player.id);
+    player.partyInviteFrom = null;
+
+    let inviter = world.players.get(invite.from);
+    if (!inviter) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Inviter has gone offline.",
+        messageKo: "초대한 플레이어가 접속을 종료했습니다.",
+      });
+      return;
+    }
+
+    let party = this.getParty(inviter.id);
+    if (!party) {
+      party = new Party(inviter);
+      this.parties.set(party.id, party);
+      this.playerParties.set(inviter.id, party.id);
+    }
+
+    if (party.members.size >= party.maxSize) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Party is full.",
+        messageKo: "파티가 가득 찼습니다.",
+      });
+      return;
+    }
+
+    if (!party.addMember(player)) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Could not join party.",
+        messageKo: "파티에 참가할 수 없습니다.",
+      });
+      return;
+    }
+
+    this.playerParties.set(player.id, party.id);
+
+    party.broadcast(PacketType.NOTIFICATION, {
+      message: `${player.name} joined the party.`,
+      messageKo: `${player.name}님이 파티에 참가했습니다.`,
+    });
+
+    this.broadcastPartyUpdate(party);
+  },
+
+  declineInvite(player: Player): void {
+    let invite = this.pendingInvites.get(player.id);
+    if (!invite) return;
+
+    this.pendingInvites.delete(player.id);
+    player.partyInviteFrom = null;
+  },
+
+  leaveParty(player: Player): void {
+    let party = this.getParty(player.id);
+    if (!party) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "You are not in a party.",
+        messageKo: "파티에 속해 있지 않습니다.",
+      });
+      return;
+    }
+
+    party.removeMember(player.id);
+    this.playerParties.delete(player.id);
+
+    player.connection.send(PacketType.NOTIFICATION, {
+      message: "You left the party.",
+      messageKo: "파티를 떠났습니다.",
+    });
+    player.connection.send(PacketType.PARTY_UPDATE, { party: null });
+
+    if (party.members.size === 0) {
+      this.parties.delete(party.id);
+    } else if (party.members.size === 1) {
+      let lastMember = party.members.values().next().value;
+      if (lastMember) {
+        party.removeMember(lastMember.id);
+        this.playerParties.delete(lastMember.id);
+        lastMember.connection.send(PacketType.NOTIFICATION, {
+          message: "Party disbanded.",
+          messageKo: "파티가 해산되었습니다.",
+        });
+        lastMember.connection.send(PacketType.PARTY_UPDATE, { party: null });
+      }
+      this.parties.delete(party.id);
+    } else {
+      party.broadcast(PacketType.NOTIFICATION, {
+        message: `${player.name} left the party.`,
+        messageKo: `${player.name}님이 파티를 떠났습니다.`,
+      });
+      this.broadcastPartyUpdate(party);
+    }
+  },
+
+  kickMember(leader: Player, targetId: string): void {
+    let party = this.getParty(leader.id);
+    if (!party) return;
+
+    if (party.leaderId !== leader.id) {
+      leader.connection.send(PacketType.NOTIFICATION, {
+        message: "Only the leader can kick members.",
+        messageKo: "파티장만 멤버를 추방할 수 있습니다.",
+      });
+      return;
+    }
+
+    if (targetId === leader.id) return;
+
+    let target = party.members.get(targetId);
+    if (!target) return;
+
+    party.removeMember(targetId);
+    this.playerParties.delete(targetId);
+
+    target.connection.send(PacketType.NOTIFICATION, {
+      message: "You have been kicked from the party.",
+      messageKo: "파티에서 추방되었습니다.",
+    });
+    target.connection.send(PacketType.PARTY_UPDATE, { party: null });
+
+    if (party.members.size <= 1) {
+      let lastMember = party.members.values().next().value;
+      if (lastMember) {
+        party.removeMember(lastMember.id);
+        this.playerParties.delete(lastMember.id);
+        lastMember.connection.send(PacketType.NOTIFICATION, {
+          message: "Party disbanded.",
+          messageKo: "파티가 해산되었습니다.",
+        });
+        lastMember.connection.send(PacketType.PARTY_UPDATE, { party: null });
+      }
+      this.parties.delete(party.id);
+    } else {
+      party.broadcast(PacketType.NOTIFICATION, {
+        message: `${target.name} was kicked from the party.`,
+        messageKo: `${target.name}님이 파티에서 추방되었습니다.`,
+      });
+      this.broadcastPartyUpdate(party);
+    }
+  },
+
+  getParty(playerId: string): Party | null {
+    let partyId = this.playerParties.get(playerId);
+    if (!partyId) return null;
+    return this.parties.get(partyId) || null;
+  },
+
+  broadcastPartyUpdate(party: Party): void {
+    let partyData = party.getPartyData();
+    party.broadcast(PacketType.PARTY_UPDATE, { party: partyData });
+  },
+
+  onPlayerDisconnect(playerId: string): void {
+    this.pendingInvites.delete(playerId);
+
+    let party = this.getParty(playerId);
+    if (!party) return;
+
+    let player = party.members.get(playerId);
+    let playerName = player?.name || "???";
+
+    party.removeMember(playerId);
+    this.playerParties.delete(playerId);
+
+    if (party.members.size === 0) {
+      this.parties.delete(party.id);
+    } else if (party.members.size === 1) {
+      let lastMember = party.members.values().next().value;
+      if (lastMember) {
+        party.removeMember(lastMember.id);
+        this.playerParties.delete(lastMember.id);
+        lastMember.connection.send(PacketType.NOTIFICATION, {
+          message: "Party disbanded.",
+          messageKo: "파티가 해산되었습니다.",
+        });
+        lastMember.connection.send(PacketType.PARTY_UPDATE, { party: null });
+      }
+      this.parties.delete(party.id);
+    } else {
+      party.broadcast(PacketType.NOTIFICATION, {
+        message: `${playerName} disconnected from the party.`,
+        messageKo: `${playerName}님의 연결이 끊어졌습니다.`,
+      });
+      this.broadcastPartyUpdate(party);
+    }
+  },
+};
+
+// ---- Crafting System ----
+
+export let CraftingSystem = {
+  getAvailableRecipes(player: Player): CraftingRecipe[] {
+    let recipes: CraftingRecipe[] = [];
+    for (let recipe of getAllRecipes()) {
+      if (player.level >= recipe.level) {
+        recipes.push(recipe);
+      }
+    }
+    return recipes;
+  },
+
+  canCraft(player: Player, recipeId: string): { ok: boolean; reason?: string } {
+    let recipe = RECIPES[recipeId];
+    if (!recipe) {
+      return { ok: false, reason: "레시피를 찾을 수 없습니다." };
+    }
+
+    if (player.level < recipe.level) {
+      return { ok: false, reason: `레벨 ${recipe.level}이 필요합니다.` };
+    }
+
+    if (player.stats.gold < recipe.goldCost) {
+      return {
+        ok: false,
+        reason: `골드가 부족합니다. (필요: ${recipe.goldCost}G)`,
+      };
+    }
+
+    for (let mat of recipe.materials) {
+      let have = 0;
+      for (let slot of player.inventory) {
+        if (slot.itemId === mat.itemId) {
+          have += slot.count;
+        }
+      }
+      if (have < mat.count) {
+        let itemDef = ITEMS[mat.itemId];
+        let itemName = itemDef?.nameKo || mat.itemId;
+        return {
+          ok: false,
+          reason: `${itemName}이(가) 부족합니다. (${have}/${mat.count})`,
+        };
+      }
+    }
+
+    return { ok: true };
+  },
+
+  craft(player: Player, recipeId: string): boolean {
+    let recipe = RECIPES[recipeId];
+    if (!recipe) return false;
+
+    let check = this.canCraft(player, recipeId);
+    if (!check.ok) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: check.reason,
+        messageKo: check.reason,
+      });
+      return false;
+    }
+
+    // Remove materials from inventory
+    for (let mat of recipe.materials) {
+      let remaining = mat.count;
+      for (let i = player.inventory.length - 1; i >= 0 && remaining > 0; i--) {
+        if (player.inventory[i].itemId === mat.itemId) {
+          let take = Math.min(remaining, player.inventory[i].count);
+          player.inventory[i].count -= take;
+          remaining -= take;
+          if (player.inventory[i].count <= 0) {
+            player.inventory.splice(i, 1);
+          }
+        }
+      }
+    }
+
+    // Deduct gold
+    player.stats.gold -= recipe.goldCost;
+
+    // Add result item
+    let added = player.addItem(recipe.resultItemId, recipe.resultCount);
+    if (!added) {
+      player.stats.gold += recipe.goldCost;
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "인벤토리가 가득 찼습니다!",
+        messageKo: "인벤토리가 가득 찼습니다!",
+      });
+      return false;
+    }
+
+    let resultItem = ITEMS[recipe.resultItemId];
+    let resultName = resultItem?.nameKo || recipe.nameKo;
+
+    player.connection.send(PacketType.STATS_UPDATE, { stats: player.stats });
+    player.sendInventoryUpdate();
+
+    player.connection.send(PacketType.CRAFT_RESULT, {
+      success: true,
+      recipeId,
+      itemId: recipe.resultItemId,
+      itemName: resultName,
+      count: recipe.resultCount,
+    });
+
+    player.connection.send(PacketType.NOTIFICATION, {
+      message: `Crafted ${resultName} x${recipe.resultCount}!`,
+      messageKo: `${resultName} x${recipe.resultCount} 제작 완료!`,
+    });
+
+    console.log(
+      `[Craft] ${player.name} crafted ${recipe.resultItemId} x${recipe.resultCount}`,
+    );
+
+    return true;
+  },
+
+  sendRecipeList(player: Player): void {
+    let recipes = this.getAvailableRecipes(player);
+
+    let recipeData = recipes.map((recipe) => {
+      let materials = recipe.materials.map((mat) => {
+        let have = 0;
+        for (let slot of player.inventory) {
+          if (slot.itemId === mat.itemId) {
+            have += slot.count;
+          }
+        }
+        let itemDef = ITEMS[mat.itemId];
+        return {
+          itemId: mat.itemId,
+          itemName: itemDef?.nameKo || mat.itemId,
+          need: mat.count,
+          have,
+          color: itemDef?.color || "#888",
+        };
+      });
+
+      let resultItem = ITEMS[recipe.resultItemId];
+
+      return {
+        id: recipe.id,
+        name: recipe.name,
+        nameKo: recipe.nameKo,
+        resultItemId: recipe.resultItemId,
+        resultName: resultItem?.nameKo || recipe.nameKo,
+        resultCount: recipe.resultCount,
+        resultColor: resultItem?.color || "#888",
+        resultType: resultItem?.type || "",
+        resultStats: {
+          attack: resultItem?.attack,
+          defense: resultItem?.defense,
+          hp: resultItem?.hp,
+          mp: resultItem?.mp,
+          magicAttack: resultItem?.magicAttack,
+          magicDefense: resultItem?.magicDefense,
+          critRate: resultItem?.critRate,
+          critDamage: resultItem?.critDamage,
+          dodgeRate: resultItem?.dodgeRate,
+          attackSpeed: resultItem?.attackSpeed,
+          healAmount: resultItem?.healAmount,
+          mpRestore: resultItem?.mpRestore,
+          speed: resultItem?.speed,
+        },
+        resultDescription: resultItem?.descriptionKo || "",
+        materials,
+        goldCost: recipe.goldCost,
+        level: recipe.level,
+        category: recipe.category,
+        quizRequired: recipe.quizRequired || false,
+        canCraft: this.canCraft(player, recipe.id).ok,
+      };
+    });
+
+    player.connection.send(PacketType.CRAFT_LIST, { recipes: recipeData });
+  },
+};
+
+// ---- Trade System ----
+
+export let TradeSystem = {
+  requestTrade(requester: Player, targetId: string, world: World): void {
+    if (requester.isDead) return;
+    if (requester.tradeState) {
+      requester.connection.send(PacketType.NOTIFICATION, {
+        message: "Already in a trade.",
+        messageKo: "이미 거래 중입니다.",
+      });
+      return;
+    }
+
+    let target = world.players.get(targetId);
+    if (!target || target.isDead) {
+      requester.connection.send(PacketType.NOTIFICATION, {
+        message: "Player not found.",
+        messageKo: "플레이어를 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    if (target.tradeState) {
+      requester.connection.send(PacketType.NOTIFICATION, {
+        message: "That player is already trading.",
+        messageKo: "상대방이 이미 거래 중입니다.",
+      });
+      return;
+    }
+
+    let dist =
+      Math.abs(requester.x - target.x) + Math.abs(requester.y - target.y);
+    if (dist > 5) {
+      requester.connection.send(PacketType.NOTIFICATION, {
+        message: "Too far from target.",
+        messageKo: "대상이 너무 멀리 있습니다.",
+      });
+      return;
+    }
+
+    target.tradeRequestFrom = requester.id;
+    target.connection.send(PacketType.TRADE_REQUEST, {
+      requesterId: requester.id,
+      requesterName: requester.name,
+    });
+
+    requester.connection.send(PacketType.NOTIFICATION, {
+      message: `Trade request sent to ${target.name}.`,
+      messageKo: `${target.name}에게 거래 요청을 보냈습니다.`,
+    });
+  },
+
+  acceptTrade(player: Player, requesterId: string, world: World): void {
+    if (player.tradeRequestFrom !== requesterId) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "No trade request from that player.",
+        messageKo: "해당 플레이어의 거래 요청이 없습니다.",
+      });
+      return;
+    }
+
+    let requester = world.players.get(requesterId);
+    if (!requester || requester.isDead || requester.tradeState) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Trade partner is unavailable.",
+        messageKo: "거래 상대가 이용 불가능합니다.",
+      });
+      player.tradeRequestFrom = null;
+      return;
+    }
+
+    player.tradeRequestFrom = null;
+
+    player.tradeState = {
+      partnerId: requester.id,
+      partnerName: requester.name,
+      myOffer: { items: [], gold: 0 },
+      partnerOffer: { items: [], gold: 0 },
+      myConfirmed: false,
+      partnerConfirmed: false,
+    };
+
+    requester.tradeState = {
+      partnerId: player.id,
+      partnerName: player.name,
+      myOffer: { items: [], gold: 0 },
+      partnerOffer: { items: [], gold: 0 },
+      myConfirmed: false,
+      partnerConfirmed: false,
+    };
+
+    player.connection.send(PacketType.TRADE_ACCEPT, {
+      partnerId: requester.id,
+      partnerName: requester.name,
+    });
+
+    requester.connection.send(PacketType.TRADE_ACCEPT, {
+      partnerId: player.id,
+      partnerName: player.name,
+    });
+  },
+
+  declineTrade(player: Player, world: World): void {
+    if (player.tradeRequestFrom) {
+      let requester = world.players.get(player.tradeRequestFrom);
+      if (requester) {
+        requester.connection.send(PacketType.TRADE_DECLINE, {
+          playerName: player.name,
+        });
+      }
+      player.tradeRequestFrom = null;
+    }
+  },
+
+  updateOffer(
+    player: Player,
+    offer: { items: Array<{ slotIndex: number; count: number }>; gold: number },
+    world: World,
+  ): void {
+    if (!player.tradeState) return;
+
+    let validItems: Array<{ slotIndex: number; count: number }> = [];
+    for (let item of offer.items) {
+      if (item.slotIndex < 0 || item.slotIndex >= player.inventory.length)
+        continue;
+      let slot = player.inventory[item.slotIndex];
+      if (!slot) continue;
+      let count = Math.min(item.count, slot.count);
+      if (count <= 0) continue;
+      validItems.push({ slotIndex: item.slotIndex, count });
+    }
+
+    let gold = Math.max(0, Math.min(offer.gold, player.stats.gold));
+
+    player.tradeState.myOffer = { items: validItems, gold };
+    player.tradeState.myConfirmed = false;
+    player.tradeState.partnerConfirmed = false;
+
+    let partner = world.players.get(player.tradeState.partnerId);
+    if (partner && partner.tradeState) {
+      partner.tradeState.partnerOffer = { items: validItems, gold };
+      partner.tradeState.myConfirmed = false;
+      partner.tradeState.partnerConfirmed = false;
+
+      let offerDetails = validItems.map((vi) => {
+        let slot = player.inventory[vi.slotIndex];
+        let itemDef = ITEMS[slot.itemId];
+        return {
+          slotIndex: vi.slotIndex,
+          count: vi.count,
+          itemId: slot.itemId,
+          itemName: itemDef?.nameKo || slot.itemId,
+          itemColor: itemDef?.color || "#888",
+          enhancement: slot.enhancement || 0,
+        };
+      });
+
+      partner.connection.send(PacketType.TRADE_OFFER_UPDATE, {
+        from: "partner",
+        items: offerDetails,
+        gold,
+      });
+    }
+
+    player.connection.send(PacketType.TRADE_OFFER_UPDATE, {
+      from: "self",
+      items: validItems.map((vi) => {
+        let slot = player.inventory[vi.slotIndex];
+        let itemDef = ITEMS[slot.itemId];
+        return {
+          slotIndex: vi.slotIndex,
+          count: vi.count,
+          itemId: slot.itemId,
+          itemName: itemDef?.nameKo || slot.itemId,
+          itemColor: itemDef?.color || "#888",
+          enhancement: slot.enhancement || 0,
+        };
+      }),
+      gold,
+    });
+  },
+
+  confirmTrade(player: Player, world: World): void {
+    if (!player.tradeState) return;
+
+    player.tradeState.myConfirmed = true;
+
+    let partner = world.players.get(player.tradeState.partnerId);
+    if (!partner || !partner.tradeState) {
+      this.cancelTrade(player, world);
+      return;
+    }
+
+    partner.tradeState.partnerConfirmed = true;
+
+    partner.connection.send(PacketType.TRADE_CONFIRM, { who: "partner" });
+    player.connection.send(PacketType.TRADE_CONFIRM, { who: "self" });
+
+    if (player.tradeState.myConfirmed && player.tradeState.partnerConfirmed) {
+      this.executeTrade(player, partner);
+    }
+  },
+
+  executeTrade(player1: Player, player2: Player): boolean {
+    if (!player1.tradeState || !player2.tradeState) return false;
+
+    let offer1 = player1.tradeState.myOffer;
+    let offer2 = player2.tradeState.myOffer;
+
+    if (player1.stats.gold < offer1.gold || player2.stats.gold < offer2.gold) {
+      this.cancelTradeWithMessage(player1, player2, "골드가 부족합니다.");
+      return false;
+    }
+
+    for (let item of offer1.items) {
+      if (item.slotIndex >= player1.inventory.length) {
+        this.cancelTradeWithMessage(
+          player1,
+          player2,
+          "아이템이 변경되었습니다.",
+        );
+        return false;
+      }
+      let slot = player1.inventory[item.slotIndex];
+      if (!slot || slot.count < item.count) {
+        this.cancelTradeWithMessage(
+          player1,
+          player2,
+          "아이템이 변경되었습니다.",
+        );
+        return false;
+      }
+    }
+    for (let item of offer2.items) {
+      if (item.slotIndex >= player2.inventory.length) {
+        this.cancelTradeWithMessage(
+          player1,
+          player2,
+          "아이템이 변경되었습니다.",
+        );
+        return false;
+      }
+      let slot = player2.inventory[item.slotIndex];
+      if (!slot || slot.count < item.count) {
+        this.cancelTradeWithMessage(
+          player1,
+          player2,
+          "아이템이 변경되었습니다.",
+        );
+        return false;
+      }
+    }
+
+    // Snapshot items
+    let items1To2 = offer1.items.map((item) => {
+      let slot = player1.inventory[item.slotIndex];
+      return {
+        itemId: slot.itemId,
+        count: item.count,
+        enhancement: slot.enhancement,
+      };
+    });
+    let items2To1 = offer2.items.map((item) => {
+      let slot = player2.inventory[item.slotIndex];
+      return {
+        itemId: slot.itemId,
+        count: item.count,
+        enhancement: slot.enhancement,
+      };
+    });
+
+    // Remove items (reverse order)
+    let sorted1 = [...offer1.items].sort((a, b) => b.slotIndex - a.slotIndex);
+    for (let item of sorted1) player1.removeItem(item.slotIndex, item.count);
+    let sorted2 = [...offer2.items].sort((a, b) => b.slotIndex - a.slotIndex);
+    for (let item of sorted2) player2.removeItem(item.slotIndex, item.count);
+
+    // Transfer gold
+    player1.stats.gold -= offer1.gold;
+    player1.stats.gold += offer2.gold;
+    player2.stats.gold -= offer2.gold;
+    player2.stats.gold += offer1.gold;
+
+    // Add received items
+    for (let item of items2To1)
+      player1.addItem(item.itemId, item.count, item.enhancement);
+    for (let item of items1To2)
+      player2.addItem(item.itemId, item.count, item.enhancement);
+
+    player1.connection.send(PacketType.STATS_UPDATE, { stats: player1.stats });
+    player2.connection.send(PacketType.STATS_UPDATE, { stats: player2.stats });
+
+    player1.connection.send(PacketType.TRADE_COMPLETE, { success: true });
+    player2.connection.send(PacketType.TRADE_COMPLETE, { success: true });
+
+    player1.tradeState = null;
+    player2.tradeState = null;
+
+    console.log(`[Trade] Trade completed: ${player1.name} <-> ${player2.name}`);
+    return true;
+  },
+
+  cancelTrade(player: Player, world: World): void {
+    if (!player.tradeState) return;
+
+    let partner = world.players.get(player.tradeState.partnerId);
+    if (partner) {
+      partner.connection.send(PacketType.TRADE_CANCEL, {
+        reason: "상대방이 거래를 취소했습니다.",
+      });
+      partner.tradeState = null;
+    }
+
+    player.connection.send(PacketType.TRADE_CANCEL, {
+      reason: "거래가 취소되었습니다.",
+    });
+    player.tradeState = null;
+  },
+
+  cancelTradeWithMessage(
+    player1: Player,
+    player2: Player,
+    message: string,
+  ): void {
+    player1.connection.send(PacketType.TRADE_CANCEL, { reason: message });
+    player2.connection.send(PacketType.TRADE_CANCEL, { reason: message });
+    player1.tradeState = null;
+    player2.tradeState = null;
   },
 };
