@@ -21,12 +21,14 @@ import {
   EntityData,
   Position,
   SET_BONUSES,
+  getEnhanceColor,
 } from "@shared/types";
 import type {
   QuestDefinition,
   QuestProgress,
   PartyData,
   PartyMember,
+  GroundItemDrop,
 } from "@shared/types";
 import { socket } from "./network";
 
@@ -479,6 +481,15 @@ class UIManager {
   private currentPartyData: PartyData | null = null;
   private currentPlayerId: string = "";
 
+  // PK and Auto-potion
+  private pkMode: boolean = false;
+  private autoPotion: boolean = false;
+  private pkButton!: HTMLElement;
+  private autoPotionButton!: HTMLElement;
+
+  // Ground items tracking
+  private groundItems: Map<string, GroundItemDrop> = new Map();
+
   // Crafting system
   private craftingPanel!: HTMLElement;
   private craftingClose!: HTMLElement;
@@ -518,6 +529,7 @@ class UIManager {
     this.setupTradePanel();
     this.setupPartyPanel();
     this.setupCraftingPanel();
+    this.setupPkAndAutoPotion();
     this.setupSocketListeners();
   }
 
@@ -1209,6 +1221,14 @@ class UIManager {
           const enhLabel = document.createElement("div");
           enhLabel.className = "item-enhance";
           enhLabel.textContent = `+${slot.enhancement}`;
+          // Glow color for +4 and above
+          let glowColor = getEnhanceColor(slot.enhancement);
+          if (glowColor) {
+            enhLabel.style.color = glowColor;
+            enhLabel.style.textShadow = `0 0 6px ${glowColor}`;
+            slotDiv.style.borderColor = glowColor;
+            slotDiv.style.boxShadow = `0 0 8px ${glowColor}40`;
+          }
           slotDiv.style.position = "relative";
           slotDiv.appendChild(enhLabel);
         }
@@ -1216,6 +1236,13 @@ class UIManager {
         const nameLabel = document.createElement("div");
         nameLabel.className = "item-name";
         nameLabel.textContent = name;
+        // Color the name for enhanced items
+        if (slot.enhancement && slot.enhancement >= 4) {
+          let glowColor = getEnhanceColor(slot.enhancement);
+          if (glowColor) {
+            nameLabel.style.color = glowColor;
+          }
+        }
         slotDiv.appendChild(nameLabel);
 
         if (slot.count > 1) {
@@ -1877,6 +1904,14 @@ class UIManager {
       const label = document.createElement("span");
       label.textContent = name;
       label.style.fontSize = "10px";
+      // Enhancement glow color
+      if (slot.enhancement && slot.enhancement >= 4) {
+        let glowColor = getEnhanceColor(slot.enhancement);
+        if (glowColor) {
+          label.style.color = glowColor;
+          label.style.textShadow = `0 0 6px ${glowColor}`;
+        }
+      }
       this.enhanceItemSlot.appendChild(label);
     }
   }
@@ -1907,6 +1942,15 @@ class UIManager {
     if (success) {
       this.enhanceResultText.textContent = `\uAC15\uD654 \uC131\uACF5! +${newLevel}`;
       this.enhanceResultText.className = "enhance-result success";
+      // Enhancement glow color on result text
+      let glowColor = getEnhanceColor(newLevel);
+      if (glowColor) {
+        this.enhanceResultText.style.color = glowColor;
+        this.enhanceResultText.style.textShadow = `0 0 10px ${glowColor}`;
+      } else {
+        this.enhanceResultText.style.color = "";
+        this.enhanceResultText.style.textShadow = "";
+      }
     } else if (destroyed) {
       this.enhanceResultText.textContent =
         "\uAC15\uD654 \uC2E4\uD328! \uC544\uC774\uD15C \uD30C\uAD34!";
@@ -2367,6 +2411,68 @@ class UIManager {
     }
     this.potionHpCount.textContent = String(hpCount);
     this.potionMpCount.textContent = String(mpCount);
+  }
+
+  // ================================================
+  // PK Mode & Auto-Potion Toggle
+  // ================================================
+
+  private setupPkAndAutoPotion(): void {
+    // Create PK toggle button near potion quickslot
+    let quickslotArea = document.getElementById("potion-quickslot");
+    if (quickslotArea) {
+      // PK button
+      this.pkButton = document.createElement("div");
+      this.pkButton.id = "pk-toggle";
+      this.pkButton.className = "pk-btn";
+      this.pkButton.textContent = "PK: OFF";
+      this.pkButton.style.cssText =
+        "position:absolute;right:-70px;top:0;width:60px;height:24px;line-height:24px;text-align:center;background:#333;color:#aaa;border:1px solid #555;border-radius:4px;cursor:pointer;font-size:11px;user-select:none;z-index:100;";
+      this.pkButton.addEventListener("click", () => {
+        socket.send(PacketType.PK_TOGGLE, {});
+      });
+      quickslotArea.style.position = "relative";
+      quickslotArea.appendChild(this.pkButton);
+
+      // Auto-potion button
+      this.autoPotionButton = document.createElement("div");
+      this.autoPotionButton.id = "auto-potion-toggle";
+      this.autoPotionButton.textContent = "AUTO: OFF";
+      this.autoPotionButton.style.cssText =
+        "position:absolute;right:-70px;top:28px;width:60px;height:24px;line-height:24px;text-align:center;background:#333;color:#aaa;border:1px solid #555;border-radius:4px;cursor:pointer;font-size:11px;user-select:none;z-index:100;";
+      this.autoPotionButton.addEventListener("click", () => {
+        socket.send(PacketType.AUTO_POTION_TOGGLE, {});
+      });
+      quickslotArea.appendChild(this.autoPotionButton);
+    }
+  }
+
+  updatePkMode(enabled: boolean): void {
+    this.pkMode = enabled;
+    if (this.pkButton) {
+      this.pkButton.textContent = enabled ? "PK: ON" : "PK: OFF";
+      this.pkButton.style.color = enabled ? "#FF4444" : "#aaa";
+      this.pkButton.style.borderColor = enabled ? "#FF4444" : "#555";
+      this.pkButton.style.background = enabled ? "#441111" : "#333";
+    }
+  }
+
+  getGroundItems(): Map<string, GroundItemDrop> {
+    return this.groundItems;
+  }
+
+  pickupGroundItem(itemId: string): void {
+    socket.send(PacketType.PICKUP_GROUND_ITEM, { itemId });
+  }
+
+  updateAutoPotion(enabled: boolean): void {
+    this.autoPotion = enabled;
+    if (this.autoPotionButton) {
+      this.autoPotionButton.textContent = enabled ? "AUTO: ON" : "AUTO: OFF";
+      this.autoPotionButton.style.color = enabled ? "#44FF44" : "#aaa";
+      this.autoPotionButton.style.borderColor = enabled ? "#44FF44" : "#555";
+      this.autoPotionButton.style.background = enabled ? "#114411" : "#333";
+    }
   }
 
   // ================================================
@@ -3029,6 +3135,29 @@ class UIManager {
         this.addChatMessage(`[P] ${data.sender}`, data.message, "party");
       },
     );
+
+    // PK mode toggle response
+    socket.on(PacketType.PK_TOGGLE, (data: { pkMode: boolean }) => {
+      this.updatePkMode(data.pkMode);
+    });
+
+    // Auto-potion toggle response
+    socket.on(
+      PacketType.AUTO_POTION_TOGGLE,
+      (data: { autoPotion: boolean }) => {
+        this.updateAutoPotion(data.autoPotion);
+      },
+    );
+
+    // Ground item spawned
+    socket.on(PacketType.GROUND_ITEM, (data: { item: GroundItemDrop }) => {
+      this.groundItems.set(data.item.id, data.item);
+    });
+
+    // Ground item removed (picked up or expired)
+    socket.on(PacketType.GROUND_ITEM_REMOVED, (data: { id: string }) => {
+      this.groundItems.delete(data.id);
+    });
   }
 
   // ================================================

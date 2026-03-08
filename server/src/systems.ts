@@ -32,6 +32,7 @@ import {
   KARMA_GAIN_PER_MOB,
   QUIZ_OPTIONS_COUNT,
   getKarmaTitle,
+  getKarmaShopMultiplier,
 } from "../../shared/types";
 import { v4 as uuid } from "uuid";
 import { ITEMS } from "./data/items";
@@ -205,7 +206,7 @@ export let CombatSystem = {
         attacker.stats.critRate,
         attacker.stats.critDamage,
       );
-      let actualDamage = mob.takeDamage(damage, attacker);
+      let actualDamage = mob.takeDamage(damage, attacker, world);
 
       world.broadcastCombatHit(
         attacker.id,
@@ -241,13 +242,40 @@ export let CombatSystem = {
       return;
     }
 
-    // PvP attack
+    // PvP attack - require PK mode to be ON
     let targetPlayer = world.players.get(targetId);
     if (
       targetPlayer &&
       !targetPlayer.isDead &&
       targetPlayer.id !== attacker.id
     ) {
+      // Check if attacker has PK mode enabled
+      if (!attacker.pkMode) {
+        attacker.connection.send(PacketType.NOTIFICATION, {
+          message: "Enable PK mode to attack other players.",
+          messageKo: "다른 플레이어를 공격하려면 PK 모드를 활성화하세요.",
+        });
+        return;
+      }
+
+      // Check if target is invulnerable (respawn protection)
+      if (targetPlayer.isInvulnerable()) {
+        attacker.connection.send(PacketType.NOTIFICATION, {
+          message: "Target is invulnerable.",
+          messageKo: "대상이 무적 상태입니다.",
+        });
+        return;
+      }
+
+      // Check if attacker is invulnerable (can't attack during invuln)
+      if (attacker.isInvulnerable()) {
+        attacker.connection.send(PacketType.NOTIFICATION, {
+          message: "Cannot attack while invulnerable.",
+          messageKo: "무적 상태에서는 공격할 수 없습니다.",
+        });
+        return;
+      }
+
       let dist =
         Math.abs(attacker.x - targetPlayer.x) +
         Math.abs(attacker.y - targetPlayer.y);
@@ -489,7 +517,7 @@ export let CombatSystem = {
             mob.definition.defense,
             mob.definition.magicDefense || 0,
           );
-          let actualDamage = mob.takeDamage(damage, player);
+          let actualDamage = mob.takeDamage(damage, player, world);
           world.broadcastCombatHit(
             player.id,
             EntityType.PLAYER,
@@ -518,9 +546,11 @@ export let CombatSystem = {
         }
       }
 
-      // Also hit players in AoE (PvP)
+      // Also hit players in AoE (PvP) - requires PK mode
       for (let [, target] of world.players) {
         if (target.isDead || target.id === player.id) continue;
+        if (!player.pkMode) continue; // PK mode required
+        if (target.isInvulnerable()) continue; // respawn protection
         let pDist =
           Math.abs(targetEntity.x - target.x) +
           Math.abs(targetEntity.y - target.y);
@@ -578,7 +608,7 @@ export let CombatSystem = {
           mob.definition.defense,
           mob.definition.magicDefense || 0,
         );
-        let actualDamage = mob.takeDamage(damage, player);
+        let actualDamage = mob.takeDamage(damage, player, world);
         world.broadcastCombatHit(
           player.id,
           EntityType.PLAYER,
@@ -611,13 +641,29 @@ export let CombatSystem = {
           damage: actualDamage,
         });
       } else {
-        // PvP skill
+        // PvP skill - requires PK mode
         let targetPlayer = world.players.get(targetId);
         if (
           targetPlayer &&
           !targetPlayer.isDead &&
           targetPlayer.id !== player.id
         ) {
+          // PK mode required for PvP skills
+          if (!player.pkMode) {
+            player.connection.send(PacketType.NOTIFICATION, {
+              message: "Enable PK mode to attack other players.",
+              messageKo: "다른 플레이어를 공격하려면 PK 모드를 활성화하세요.",
+            });
+            return;
+          }
+          if (targetPlayer.isInvulnerable()) {
+            player.connection.send(PacketType.NOTIFICATION, {
+              message: "Target is invulnerable.",
+              messageKo: "대상이 무적 상태입니다.",
+            });
+            return;
+          }
+
           let dist =
             Math.abs(player.x - targetPlayer.x) +
             Math.abs(player.y - targetPlayer.y);
@@ -782,11 +828,22 @@ export let ShopSystem = {
       return false;
     }
 
-    if (player.stats.gold < item.price) {
-      player.connection.send(PacketType.NOTIFICATION, {
-        message: "Not enough gold.",
-        messageKo: "골드가 부족합니다.",
-      });
+    // Karma penalty: negative karma increases shop prices
+    let karmaMultiplier = getKarmaShopMultiplier(player.karma);
+    let actualPrice = Math.floor(item.price * karmaMultiplier);
+
+    if (player.stats.gold < actualPrice) {
+      if (karmaMultiplier > 1) {
+        player.connection.send(PacketType.NOTIFICATION, {
+          message: `Not enough gold. (Karma penalty: ${Math.round(karmaMultiplier * 100)}% price)`,
+          messageKo: `골드가 부족합니다. (카르마 패널티: ${Math.round(karmaMultiplier * 100)}% 가격)`,
+        });
+      } else {
+        player.connection.send(PacketType.NOTIFICATION, {
+          message: "Not enough gold.",
+          messageKo: "골드가 부족합니다.",
+        });
+      }
       return false;
     }
 
@@ -794,7 +851,7 @@ export let ShopSystem = {
       return false;
     }
 
-    player.stats.gold -= item.price;
+    player.stats.gold -= actualPrice;
     player.connection.send(PacketType.STATS_UPDATE, { stats: player.stats });
     player.connection.send(PacketType.NOTIFICATION, {
       message: `Purchased ${item.name}.`,

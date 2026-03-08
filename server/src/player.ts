@@ -36,6 +36,8 @@ import {
   SET_BONUSES,
   expForLevel,
   getKarmaTitle,
+  getInventoryWeight,
+  RESPAWN_INVULN_DURATION,
   PacketType,
   TICK_INTERVAL,
 } from "../../shared/types";
@@ -265,6 +267,19 @@ export class Player {
   tradeState: TradeState | null;
   tradeRequestFrom: string | null;
 
+  // PK system
+  pkMode: boolean;
+
+  // Auto-potion
+  autoPotion: boolean;
+  lastAutoPotionTime: number;
+
+  // Respawn invulnerability
+  invulnerableUntil: number;
+
+  // Killed by player tracking (for PK death penalty)
+  lastKillerPlayerId: string | null;
+
   constructor(
     id: string,
     name: string,
@@ -321,6 +336,12 @@ export class Player {
     this.partyInviteFrom = null;
     this.tradeState = null;
     this.tradeRequestFrom = null;
+
+    this.pkMode = false;
+    this.autoPotion = false;
+    this.lastAutoPotionTime = 0;
+    this.invulnerableUntil = 0;
+    this.lastKillerPlayerId = null;
 
     this.stats = this.calculateStats();
     this.stats.hp = this.stats.maxHp;
@@ -519,6 +540,10 @@ export class Player {
       }
     }
 
+    // Apply inventory weight speed penalty
+    let weight = getInventoryWeight(this.inventory.length);
+    speed = Math.floor(speed * weight.speedMultiplier);
+
     return {
       hp: this.stats?.hp ?? maxHp,
       maxHp,
@@ -526,7 +551,7 @@ export class Player {
       maxMp,
       attack,
       defense,
-      speed,
+      speed: Math.max(1, speed),
       exp: this.stats?.exp ?? 0,
       expToLevel: expForLevel(this.level),
       level: this.level,
@@ -621,6 +646,11 @@ export class Player {
   }
 
   takeDamage(amount: number, attackerId?: string): number {
+    // Check respawn invulnerability
+    if (this.isInvulnerable()) {
+      return 0;
+    }
+
     // Check evasion buff
     if (
       this.buffs.has("evasion") &&
@@ -669,23 +699,95 @@ export class Player {
     this.lastCombatTime = Date.now();
 
     if (this.stats.hp <= 0) {
-      this.die();
+      // Pass attacker ID if it's a player (PvP death)
+      let killerPlayerId: string | undefined;
+      if (attackerId) {
+        let world = this.connection.server.world;
+        if (world.players.has(attackerId)) {
+          killerPlayerId = attackerId;
+        }
+      }
+      this.die(killerPlayerId);
     }
 
     return actualDamage;
   }
 
-  die(): void {
+  die(killerPlayerId?: string): void {
     this.isDead = true;
     this.target = null;
+    this.lastKillerPlayerId = killerPlayerId || null;
 
-    // Lose 5% exp
-    let expLoss = Math.floor(this.stats.exp * 0.05);
+    let isPvPDeath = !!killerPlayerId;
+
+    // EXP loss: 5% for PvE, 10% for PvP
+    let expLossRate = isPvPDeath ? 0.1 : 0.05;
+    let expLoss = Math.floor(this.stats.exp * expLossRate);
     this.stats.exp = Math.max(0, this.stats.exp - expLoss);
 
-    // Drop some gold (10%)
-    let goldDrop = Math.floor(this.stats.gold * 0.1);
+    // Gold drop: 5% for PvE, 10% for PvP
+    let goldDropRate = isPvPDeath ? 0.1 : 0.05;
+    let goldDrop = Math.floor(this.stats.gold * goldDropRate);
     this.stats.gold -= goldDrop;
+
+    // PK death: chance to drop items on the ground
+    let droppedItems: Array<{
+      itemId: string;
+      count: number;
+      enhancement?: number;
+    }> = [];
+    if (isPvPDeath && this.inventory.length > 0) {
+      let dropCount = 0;
+      let maxDrops = 3;
+      // Iterate in reverse to avoid index shift issues
+      let indices = [...Array(this.inventory.length).keys()].sort(
+        () => Math.random() - 0.5,
+      );
+      for (let idx of indices) {
+        if (dropCount >= maxDrops) break;
+        if (Math.random() < 0.3) {
+          // 30% chance per slot
+          let slot = this.inventory[idx];
+          droppedItems.push({
+            itemId: slot.itemId,
+            count: 1, // drop 1 of stack
+            enhancement: slot.enhancement,
+          });
+          dropCount++;
+        }
+      }
+
+      // Remove dropped items from inventory (reverse order)
+      if (droppedItems.length > 0) {
+        for (let dropped of droppedItems) {
+          let invIdx = this.inventory.findIndex(
+            (s) =>
+              s.itemId === dropped.itemId &&
+              (s.enhancement || 0) === (dropped.enhancement || 0),
+          );
+          if (invIdx >= 0) {
+            this.inventory[invIdx].count -= 1;
+            if (this.inventory[invIdx].count <= 0) {
+              this.inventory.splice(invIdx, 1);
+            }
+          }
+        }
+        this.sendInventoryUpdate();
+
+        // Create ground item drops via world
+        let world = this.connection.server.world;
+        for (let dropped of droppedItems) {
+          world.addGroundItem(
+            dropped.itemId,
+            dropped.count,
+            this.x,
+            this.y,
+            this.id,
+            dropped.enhancement,
+          );
+        }
+      }
+    }
 
     this.respawnTimer = Date.now() + 5000;
 
@@ -693,12 +795,20 @@ export class Player {
     this.connection.server.world.broadcastEntityDeath(
       this.id,
       EntityType.PLAYER,
-      undefined,
+      killerPlayerId,
       expLoss,
     );
 
     // Send updated stats to the dead player
     this.connection.send(PacketType.STATS_UPDATE, { stats: this.stats });
+
+    // Notify victim about dropped items
+    if (droppedItems.length > 0) {
+      this.connection.send(PacketType.NOTIFICATION, {
+        message: `You dropped ${droppedItems.length} item(s) on death!`,
+        messageKo: `사망 시 ${droppedItems.length}개의 아이템을 떨어뜨렸습니다!`,
+      });
+    }
   }
 
   respawn(spawnX: number, spawnY: number): void {
@@ -709,12 +819,27 @@ export class Player {
     this.stats.hp = this.stats.maxHp;
     this.stats.mp = Math.floor(this.stats.maxMp * 0.5);
     this.target = null;
+    this.lastKillerPlayerId = null;
+
+    // Grant invulnerability for 3 seconds
+    this.invulnerableUntil = Date.now() + RESPAWN_INVULN_DURATION;
 
     this.connection.send(PacketType.RESPAWN, {
       x: this.x,
       y: this.y,
       stats: this.stats,
+      invulnerable: true,
+      invulnDuration: RESPAWN_INVULN_DURATION,
     });
+
+    this.connection.send(PacketType.NOTIFICATION, {
+      message: "You are invulnerable for 3 seconds.",
+      messageKo: "3초간 무적 상태입니다.",
+    });
+  }
+
+  isInvulnerable(): boolean {
+    return Date.now() < this.invulnerableUntil;
   }
 
   addExp(amount: number): boolean {
@@ -1106,7 +1231,9 @@ export class Player {
     } else {
       // Failure
       let destroyed = false;
-      if (!isBlessed && currentEnhance >= ENHANCE_DESTROY_THRESHOLD) {
+      // Blessed scroll protects up to +7 from destruction
+      let protectedByBlessed = isBlessed && currentEnhance < 7;
+      if (!protectedByBlessed && currentEnhance >= ENHANCE_DESTROY_THRESHOLD) {
         // Destroy the item
         if (inventorySlotIndex < this.inventory.length) {
           this.inventory.splice(inventorySlotIndex, 1);
@@ -1265,16 +1392,106 @@ export class Player {
     this.regen();
     this.updateBuffs();
     this.updateStatusEffects();
+    this.updateAutoPotion();
 
     if (this.attackCooldown > 0) {
       this.attackCooldown -= TICK_INTERVAL;
     }
   }
 
+  // Auto-potion system
+  updateAutoPotion(): void {
+    if (!this.autoPotion) return;
+    let now = Date.now();
+    if (now - this.lastAutoPotionTime < 1000) return; // 1s cooldown
+
+    // Auto HP potion when below 30%
+    if (this.stats.hp < this.stats.maxHp * 0.3) {
+      let potionIdx = this.findCheapestPotion("hp");
+      if (potionIdx >= 0) {
+        this.useItem(potionIdx);
+        this.lastAutoPotionTime = now;
+        return; // one potion per tick
+      }
+    }
+
+    // Auto MP potion when below 20%
+    if (this.stats.mp < this.stats.maxMp * 0.2) {
+      let potionIdx = this.findCheapestPotion("mp");
+      if (potionIdx >= 0) {
+        this.useItem(potionIdx);
+        this.lastAutoPotionTime = now;
+      }
+    }
+  }
+
+  findCheapestPotion(type: "hp" | "mp"): number {
+    let bestIdx = -1;
+    let bestPrice = Infinity;
+
+    for (let i = 0; i < this.inventory.length; i++) {
+      let slot = this.inventory[i];
+      let item = ITEMS[slot.itemId];
+      if (!item || item.type !== ItemType.CONSUMABLE) continue;
+
+      if (type === "hp" && item.healAmount && item.healAmount > 0) {
+        if (item.price < bestPrice) {
+          bestPrice = item.price;
+          bestIdx = i;
+        }
+      }
+      if (type === "mp" && item.mpRestore && item.mpRestore > 0) {
+        if (item.price < bestPrice) {
+          bestPrice = item.price;
+          bestIdx = i;
+        }
+      }
+    }
+
+    return bestIdx;
+  }
+
+  private lastWeightState: "normal" | "heavy" | "full" = "normal";
+
   sendInventoryUpdate(): void {
     this.connection.send(PacketType.INVENTORY_UPDATE, {
       inventory: this.inventory,
     });
+
+    // Check weight and notify on state change
+    let weight = getInventoryWeight(this.inventory.length);
+    let newState: "normal" | "heavy" | "full" = "normal";
+    if (weight.isFull) newState = "full";
+    else if (weight.isHeavy) newState = "heavy";
+
+    if (newState !== this.lastWeightState) {
+      this.lastWeightState = newState;
+      if (newState === "full") {
+        this.connection.send(PacketType.NOTIFICATION, {
+          message: "Inventory full! Movement speed greatly reduced.",
+          messageKo: "인벤토리가 가득 찼습니다! 이동 속도가 크게 감소합니다.",
+        });
+      } else if (newState === "heavy") {
+        this.connection.send(PacketType.NOTIFICATION, {
+          message: "Inventory is heavy. Movement speed reduced.",
+          messageKo: "인벤토리가 무겁습니다. 이동 속도가 감소합니다.",
+        });
+      }
+
+      // Recalculate stats for speed change
+      let currentHp = this.stats.hp;
+      let currentMp = this.stats.mp;
+      let currentExp = this.stats.exp;
+      let currentGold = this.stats.gold;
+      let sp = this.stats.statPoints;
+      this.stats = this.calculateStats();
+      this.stats.hp = Math.min(currentHp, this.stats.maxHp);
+      this.stats.mp = Math.min(currentMp, this.stats.maxMp);
+      this.stats.exp = currentExp;
+      this.stats.gold = currentGold;
+      this.stats.statPoints = sp;
+      this.connection.send(PacketType.STATS_UPDATE, { stats: this.stats });
+    }
   }
 
   sendEquipmentUpdate(): void {
@@ -1299,6 +1516,8 @@ export class Player {
       karmaTitle: karmaInfo.ko,
       gradeLevel: this.gradeLevel,
       equipment: this.equipment,
+      pkMode: this.pkMode,
+      invulnerable: this.isInvulnerable(),
     };
   }
 

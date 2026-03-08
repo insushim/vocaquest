@@ -90,6 +90,19 @@ export enum PacketType {
   QUEST_ABANDON = "quest_abandon",
   QUEST_AVAILABLE = "quest_available",
 
+  // PK System
+  PK_TOGGLE = "pk_toggle",
+  PK_ITEM_DROP = "pk_item_drop",
+  GROUND_ITEM = "ground_item",
+  PICKUP_GROUND_ITEM = "pickup_ground_item",
+  GROUND_ITEM_REMOVED = "ground_item_removed",
+
+  // Auto-potion
+  AUTO_POTION_TOGGLE = "auto_potion_toggle",
+
+  // System announcement
+  SYSTEM_ANNOUNCE = "system_announce",
+
   // Ping
   PING = "ping",
   PONG = "pong",
@@ -373,6 +386,8 @@ export interface PlayerData extends EntityData {
   karmaTitle: string;
   gradeLevel: number;
   equipment: EquipmentSlots;
+  pkMode?: boolean;
+  invulnerable?: boolean;
 }
 
 // ---- Status Effects ----
@@ -402,9 +417,22 @@ export interface StatusEffect {
 // ---- Mob ----
 export enum MobBehavior {
   PASSIVE = "passive",
+  NORMAL = "normal",
   AGGRESSIVE = "aggressive",
   BOSS = "boss",
 }
+
+// Aggro ranges by behavior type
+export const AGGRO_RANGES: Record<MobBehavior, number> = {
+  [MobBehavior.PASSIVE]: 0,
+  [MobBehavior.NORMAL]: 3,
+  [MobBehavior.AGGRESSIVE]: 5,
+  [MobBehavior.BOSS]: 8,
+};
+
+// De-aggro constants
+export const DEAGGRO_DISTANCE = 15; // tiles from spawn
+export const DEAGGRO_TIME = 30000; // 30 seconds
 
 export interface MobData extends EntityData {
   type: EntityType.MOB;
@@ -563,6 +591,18 @@ export interface LootDrop {
   chance: number;
   minCount: number;
   maxCount: number;
+}
+
+// ---- Ground Item Drop ----
+export interface GroundItemDrop {
+  id: string;
+  itemId: string;
+  count: number;
+  enhancement?: number;
+  x: number;
+  y: number;
+  droppedBy?: string; // player who dropped it (PK death)
+  createdAt: number;
 }
 
 // ---- Enhancement System ----
@@ -941,3 +981,47 @@ export interface PartyData {
   members: PartyMember[];
   maxSize: number;
 }
+
+// ---- Enhancement Glow Colors ----
+export function getEnhanceColor(level: number): string | null {
+  if (level >= 10) return "#FF4444"; // red
+  if (level >= 7) return "#FFD700"; // yellow/gold
+  if (level >= 4) return "#4488FF"; // blue
+  return null;
+}
+
+export function getEnhanceDisplayName(
+  baseName: string,
+  enhancement?: number,
+): string {
+  if (!enhancement || enhancement <= 0) return baseName;
+  let color = getEnhanceColor(enhancement);
+  // Return name with enhancement prefix
+  return `+${enhancement} ${baseName}`;
+}
+
+// ---- Karma Shop Price Multiplier ----
+export function getKarmaShopMultiplier(karma: number): number {
+  if (karma >= 0) return 1.0;
+  if (karma >= -30) return 1.0;
+  if (karma >= -50) return 1.2;
+  if (karma >= -100) return 1.5;
+  return 2.0; // karma < -100
+}
+
+// ---- Inventory Weight ----
+export function getInventoryWeight(slotCount: number): {
+  speedMultiplier: number;
+  isHeavy: boolean;
+  isFull: boolean;
+} {
+  let ratio = slotCount / MAX_INVENTORY_SLOTS;
+  if (ratio >= 1.0)
+    return { speedMultiplier: 0.6, isHeavy: true, isFull: true };
+  if (ratio >= 0.8)
+    return { speedMultiplier: 0.8, isHeavy: true, isFull: false };
+  return { speedMultiplier: 1.0, isHeavy: false, isFull: false };
+}
+
+// ---- Respawn Invulnerability ----
+export const RESPAWN_INVULN_DURATION = 3000; // 3 seconds

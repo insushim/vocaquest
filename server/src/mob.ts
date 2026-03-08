@@ -10,6 +10,8 @@ import {
   Direction,
   MobBehavior,
   TICK_INTERVAL,
+  DEAGGRO_DISTANCE,
+  DEAGGRO_TIME,
 } from "../../shared/types";
 import type { Player } from "./player";
 import type { World } from "./world";
@@ -44,6 +46,10 @@ export class Mob {
   // Status effects
   statusEffects: Map<string, { type: string; endsAt: number; value: number }>;
 
+  // Aggro tracking
+  aggroStartTime: number;
+  hitByPlayers: Set<string>; // track who hit this mob
+
   // Internal AI timers
   private roamCooldown: number;
   private moveCooldown: number;
@@ -68,6 +74,8 @@ export class Mob {
     this.roamCooldown = 0;
     this.moveCooldown = 0;
     this.statusEffects = new Map();
+    this.aggroStartTime = 0;
+    this.hitByPlayers = new Set();
   }
 
   applyStatusEffect(type: string, duration: number, value: number): void {
@@ -138,12 +146,16 @@ export class Mob {
   }
 
   private updateIdle(world: World): void {
-    // Check for nearby players (aggressive/boss only)
-    if (this.definition.behavior !== MobBehavior.PASSIVE) {
+    // Check for nearby players (non-passive mobs)
+    if (
+      this.definition.behavior !== MobBehavior.PASSIVE &&
+      this.definition.aggroRange > 0
+    ) {
       let nearest = this.findNearestPlayer(world);
       if (nearest) {
         this.target = nearest;
         this.state = "chasing";
+        this.aggroStartTime = Date.now();
         return;
       }
     }
@@ -157,11 +169,15 @@ export class Mob {
 
   private updateRoaming(world: World): void {
     // Check for players while roaming
-    if (this.definition.behavior !== MobBehavior.PASSIVE) {
+    if (
+      this.definition.behavior !== MobBehavior.PASSIVE &&
+      this.definition.aggroRange > 0
+    ) {
       let nearest = this.findNearestPlayer(world);
       if (nearest) {
         this.target = nearest;
         this.state = "chasing";
+        this.aggroStartTime = Date.now();
         return;
       }
     }
@@ -208,9 +224,22 @@ export class Mob {
       this.spawnY,
     );
 
-    // If too far from spawn, return
-    if (distFromSpawn > this.definition.roamDistance * 2) {
+    // De-aggro: too far from spawn (15 tiles)
+    if (distFromSpawn > DEAGGRO_DISTANCE) {
       this.target = null;
+      this.hitByPlayers.clear();
+      this.state = "returning";
+      return;
+    }
+
+    // De-aggro: chase timeout (30 seconds)
+    if (
+      this.aggroStartTime > 0 &&
+      Date.now() - this.aggroStartTime > DEAGGRO_TIME
+    ) {
+      this.target = null;
+      this.aggroStartTime = 0;
+      this.hitByPlayers.clear();
       this.state = "returning";
       return;
     }
@@ -299,6 +328,8 @@ export class Mob {
       this.y = this.spawnY;
       this.state = "idle";
       this.hp = this.maxHp; // Heal when returning
+      this.aggroStartTime = 0;
+      this.hitByPlayers.clear();
       world.broadcastEntityMove(this);
       return;
     }
@@ -325,17 +356,48 @@ export class Mob {
     return nearestPlayer;
   }
 
-  takeDamage(amount: number, attacker: Player): number {
+  takeDamage(amount: number, attacker: Player, world?: World): number {
     let actualDamage = Math.max(1, amount);
     this.hp = Math.max(0, this.hp - actualDamage);
 
-    // Set attacker as target if not already targeting
+    // Track who hit this mob
+    this.hitByPlayers.add(attacker.id);
+
+    // Set attacker as target if not already targeting (aggro on hit - all mobs)
     if (!this.target || this.target.isDead) {
       this.target = attacker;
       this.state = "chasing";
+      this.aggroStartTime = Date.now();
+    }
+
+    // Multi-aggro: nearby aggressive mobs of same zone join the fight
+    if (world) {
+      this.alertNearbyMobs(attacker, world);
     }
 
     return actualDamage;
+  }
+
+  // Alert nearby aggressive mobs when this mob is hit
+  private alertNearbyMobs(attacker: Player, world: World): void {
+    let alertRange = 4; // tiles
+    let alerted = 0;
+    let maxAlert = 2; // max 2 additional mobs join
+
+    for (let [, mob] of world.mobs) {
+      if (mob.id === this.id || mob.isDead) continue;
+      if (mob.target) continue; // already has a target
+      if (mob.definition.behavior === MobBehavior.PASSIVE) continue;
+
+      let dist = this.distanceTo(this.x, this.y, mob.x, mob.y);
+      if (dist <= alertRange) {
+        mob.target = attacker;
+        mob.state = "chasing";
+        mob.aggroStartTime = Date.now();
+        alerted++;
+        if (alerted >= maxAlert) break;
+      }
+    }
   }
 
   die(killer: Player, world: World): void {
@@ -393,6 +455,8 @@ export class Mob {
     this.target = null;
     this.respawnTimer = null;
     this.lastAttackTime = 0;
+    this.aggroStartTime = 0;
+    this.hitByPlayers.clear();
   }
 
   moveToward(targetX: number, targetY: number, world: World): void {

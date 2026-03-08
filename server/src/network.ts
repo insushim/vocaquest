@@ -217,6 +217,15 @@ export class Connection {
       case PacketType.TRADE_CANCEL:
         this.handleTradeCancel();
         break;
+      case PacketType.PK_TOGGLE:
+        this.handlePkToggle();
+        break;
+      case PacketType.AUTO_POTION_TOGGLE:
+        this.handleAutoPotionToggle();
+        break;
+      case PacketType.PICKUP_GROUND_ITEM:
+        this.handlePickupGroundItem(data);
+        break;
       default:
         console.warn(`[Connection ${this.id}] Unknown packet type: ${type}`);
     }
@@ -413,6 +422,16 @@ export class Connection {
     this.send(PacketType.STATS_UPDATE, { stats: player.stats });
     this.send(PacketType.INVENTORY_UPDATE, { inventory: player.inventory });
     this.send(PacketType.EQUIPMENT_UPDATE, { equipment: player.equipment });
+
+    // Send ground items
+    let groundItems = this.server.world.getGroundItemsNear(
+      player.x,
+      player.y,
+      100,
+    );
+    for (let item of groundItems) {
+      this.send(PacketType.GROUND_ITEM, { item });
+    }
 
     // Send quest data
     QuestSystem.sendQuestUpdate(player);
@@ -846,6 +865,22 @@ export class Connection {
         message: `Enhancement success! +${result.newLevel}`,
         messageKo: `강화 성공! +${result.newLevel}`,
       });
+
+      // Broadcast announcement for +7 and above
+      if (result.newLevel >= 7) {
+        let glowLabel =
+          result.newLevel >= 10
+            ? "[RED]"
+            : result.newLevel >= 7
+              ? "[GOLD]"
+              : "";
+        this.server.broadcast(PacketType.CHAT_MESSAGE, {
+          sender: "System",
+          message: `${this.player.name} has enhanced ${itemName} to +${result.newLevel}! ${glowLabel}`,
+          messageKo: `${this.player.name}이(가) ${itemName}을(를) +${result.newLevel}(으)로 강화에 성공했습니다! ${glowLabel}`,
+          system: true,
+        });
+      }
     } else if (result.destroyed) {
       this.send(PacketType.NOTIFICATION, {
         message: `Enhancement failed! Item destroyed!`,
@@ -866,6 +901,71 @@ export class Connection {
     if (!Object.values(StatType).includes(statType)) return;
 
     this.player.allocateStat(statType);
+  }
+
+  private handlePkToggle(): void {
+    if (!this.player) return;
+    this.player.pkMode = !this.player.pkMode;
+
+    // Cancel invulnerability when enabling PK mode
+    if (this.player.pkMode) {
+      this.player.invulnerableUntil = 0;
+    }
+
+    this.send(PacketType.PK_TOGGLE, { pkMode: this.player.pkMode });
+    this.send(PacketType.NOTIFICATION, {
+      message: this.player.pkMode
+        ? "PK mode enabled. You can now attack other players."
+        : "PK mode disabled.",
+      messageKo: this.player.pkMode
+        ? "PK 모드 활성화. 다른 플레이어를 공격할 수 있습니다."
+        : "PK 모드 비활성화.",
+    });
+
+    // Broadcast to other players so they can see the PK flag
+    this.server.broadcast(
+      PacketType.ENTITY_MOVE,
+      {
+        id: this.player.id,
+        type: EntityType.PLAYER,
+        x: this.player.x,
+        y: this.player.y,
+        direction: this.player.direction,
+        pkMode: this.player.pkMode,
+      },
+      this.id,
+    );
+  }
+
+  private handleAutoPotionToggle(): void {
+    if (!this.player) return;
+    this.player.autoPotion = !this.player.autoPotion;
+    this.send(PacketType.AUTO_POTION_TOGGLE, {
+      autoPotion: this.player.autoPotion,
+    });
+    this.send(PacketType.NOTIFICATION, {
+      message: this.player.autoPotion
+        ? "Auto-potion enabled."
+        : "Auto-potion disabled.",
+      messageKo: this.player.autoPotion
+        ? "자동 물약 사용 활성화."
+        : "자동 물약 사용 비활성화.",
+    });
+  }
+
+  private handlePickupGroundItem(data: Record<string, unknown>): void {
+    if (!this.player || this.player.isDead) return;
+
+    let itemId = String(data.itemId || "");
+    if (!itemId) return;
+
+    let success = this.server.world.pickupGroundItem(this.player, itemId);
+    if (success) {
+      this.send(PacketType.NOTIFICATION, {
+        message: "Item picked up!",
+        messageKo: "아이템을 획득했습니다!",
+      });
+    }
   }
 
   private handleQuestList(data: Record<string, unknown>): void {

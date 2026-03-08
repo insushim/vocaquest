@@ -26,6 +26,7 @@ import {
   getMobTextureKey,
   getNpcTextureKey,
   getTileTextureKey,
+  getTileVariantCount,
 } from "../sprites";
 
 // ---- Tile color palette (dark medieval fantasy) ----
@@ -89,7 +90,104 @@ interface EntityContainerData {
   maxHp?: number;
   direction?: Direction;
   playerClass?: string;
+  level?: number;
+  isBoss?: boolean;
+  mobId?: string;
+  karma?: number;
+  pkMode?: boolean;
 }
+
+// ---- Zone atmosphere config ----
+interface ZoneAtmosphere {
+  particleColor: number;
+  particleColor2?: number;
+  particleDirection: { x: number; y: number }; // velocity bias
+  particleShape: "circle" | "leaf" | "snow" | "ember";
+  vignetteStrength: number; // 0.0 - 1.0
+  vignetteColor: number;
+}
+
+const ZONE_ATMOSPHERES: Record<string, ZoneAtmosphere> = {
+  town: {
+    particleColor: 0xccbb88,
+    particleDirection: { x: 0, y: -1 },
+    particleShape: "circle",
+    vignetteStrength: 0.2,
+    vignetteColor: 0x000000,
+  },
+  starter_meadow: {
+    particleColor: 0x88cc44,
+    particleColor2: 0xffee44,
+    particleDirection: { x: 0.5, y: -0.5 },
+    particleShape: "leaf",
+    vignetteStrength: 0.15,
+    vignetteColor: 0x000000,
+  },
+  dark_forest: {
+    particleColor: 0x44aa44,
+    particleColor2: 0xaacc44,
+    particleDirection: { x: -0.3, y: 0.8 },
+    particleShape: "leaf",
+    vignetteStrength: 0.5,
+    vignetteColor: 0x001100,
+  },
+  scorching_desert: {
+    particleColor: 0xccaa66,
+    particleColor2: 0xddbb77,
+    particleDirection: { x: 2, y: -0.2 },
+    particleShape: "circle",
+    vignetteStrength: 0.25,
+    vignetteColor: 0x110800,
+  },
+  frozen_mountains: {
+    particleColor: 0xeeeeff,
+    particleColor2: 0xccddee,
+    particleDirection: { x: -0.5, y: 1.5 },
+    particleShape: "snow",
+    vignetteStrength: 0.2,
+    vignetteColor: 0x000008,
+  },
+  shadow_realm: {
+    particleColor: 0x8844cc,
+    particleColor2: 0xaa66ee,
+    particleDirection: { x: 0, y: -0.8 },
+    particleShape: "circle",
+    vignetteStrength: 0.6,
+    vignetteColor: 0x0a0020,
+  },
+  volcanic_cavern: {
+    particleColor: 0xff6600,
+    particleColor2: 0xff3300,
+    particleDirection: { x: 0.3, y: -2 },
+    particleShape: "ember",
+    vignetteStrength: 0.5,
+    vignetteColor: 0x110000,
+  },
+  ancient_ruins: {
+    particleColor: 0x8866cc,
+    particleColor2: 0xaa88ee,
+    particleDirection: { x: 0, y: -0.5 },
+    particleShape: "circle",
+    vignetteStrength: 0.45,
+    vignetteColor: 0x080010,
+  },
+  abyssal_depths: {
+    particleColor: 0x4488cc,
+    particleColor2: 0x66aaee,
+    particleDirection: { x: 0, y: -1.5 },
+    particleShape: "circle",
+    vignetteStrength: 0.55,
+    vignetteColor: 0x000814,
+  },
+  dragons_sanctum: {
+    particleColor: 0xff4400,
+    particleColor2: 0xffaa00,
+    particleDirection: { x: 0.5, y: -2.5 },
+    particleShape: "ember",
+    vignetteStrength: 0.5,
+    vignetteColor: 0x0c0000,
+  },
+};
 
 export class GameScene extends Phaser.Scene {
   // ---- Map rendering ----
@@ -104,6 +202,8 @@ export class GameScene extends Phaser.Scene {
   private mobs: Map<string, Phaser.GameObjects.Container> = new Map();
   private npcs: Map<string, Phaser.GameObjects.Container> = new Map();
   private itemDrops: Map<string, Phaser.GameObjects.Container> = new Map();
+  private groundItemSprites: Map<string, Phaser.GameObjects.Container> =
+    new Map();
 
   // ---- Map data ----
   private mapData: MapData | null = null;
@@ -177,12 +277,28 @@ export class GameScene extends Phaser.Scene {
     vy: number;
     alpha: number;
     size: number;
+    color?: number;
   }[] = [];
   private ambientLayer: Phaser.GameObjects.Graphics | null = null;
   private walkAnimPhase: number = 0;
+  private currentZoneId: string = "town";
+  private currentAtmosphere: ZoneAtmosphere = ZONE_ATMOSPHERES.town;
 
   // ---- Player class (for skills) ----
   private playerClass: PlayerClass = PlayerClass.WARRIOR;
+
+  // ---- Combat effects ----
+  private effectsLayer: Phaser.GameObjects.Graphics | null = null;
+  private activeEffects: {
+    type: string;
+    x: number;
+    y: number;
+    startTime: number;
+    duration: number;
+    data?: any;
+  }[] = [];
+  private waterAnimTimer: number = 0;
+  private lavaAnimTimer: number = 0;
 
   constructor() {
     super({ key: "GameScene" });
@@ -205,6 +321,10 @@ export class GameScene extends Phaser.Scene {
     this.targetIndicator.setDepth(5);
     this.targetIndicator.setVisible(false);
 
+    // Combat effects layer
+    this.effectsLayer = this.add.graphics();
+    this.effectsLayer.setDepth(12);
+
     // Ambient particle layer
     this.ambientLayer = this.add.graphics();
     this.ambientLayer.setDepth(15);
@@ -215,17 +335,8 @@ export class GameScene extends Phaser.Scene {
     this.vignetteOverlay.setScrollFactor(0);
     this.drawVignette();
 
-    // Initialize ambient particles
-    for (let i = 0; i < 30; i++) {
-      this.ambientParticles.push({
-        x: Math.random() * 800 - 400,
-        y: Math.random() * 600 - 300,
-        vx: (Math.random() - 0.5) * 8,
-        vy: -Math.random() * 6 - 2,
-        alpha: Math.random() * 0.3 + 0.1,
-        size: Math.random() * 1.5 + 0.5,
-      });
-    }
+    // Initialize ambient particles (zone-aware)
+    this.initAmbientParticles();
 
     // Setup input
     this.setupInput();
@@ -266,7 +377,7 @@ export class GameScene extends Phaser.Scene {
         this.playerY = this.targetY;
         this.isMoving = false;
         // Switch to idle frame
-        this.swapPlayerTexture(false);
+        this.swapPlayerTexture(0);
       } else {
         const speed = Math.min(
           dist,
@@ -274,12 +385,12 @@ export class GameScene extends Phaser.Scene {
         );
         this.playerSprite.x += (dx / dist) * speed;
         this.playerSprite.y += (dy / dist) * speed;
-        // Walking bob + frame swap
+        // Walking bob + frame swap (3-frame cycle: idle->walk1->walk2)
         const bob = Math.sin(this.walkAnimPhase * Math.PI) * 1.5;
         this.playerSprite.y += bob;
-        // Alternate walk frames
-        const walkFrame = Math.floor(this.walkAnimPhase) % 2 === 0;
-        this.swapPlayerTexture(walkFrame);
+        // 3-frame walk cycle
+        const walkCycle = Math.floor(this.walkAnimPhase * 2) % 3; // 0, 1, 2
+        this.swapPlayerTexture(walkCycle);
         // Flip sprite based on direction
         const ed = this.playerSprite.getData("entityData") as any;
         if (ed?.bodySprite) {
@@ -339,11 +450,17 @@ export class GameScene extends Phaser.Scene {
     // ---- Animate ambient particles ----
     this.updateAmbientParticles(delta);
 
+    // ---- Update combat effects ----
+    this.updateActiveEffects(time);
+
     // ---- Animate special tiles ----
     this.animTimer += delta;
     if (this.animTimer > 500) {
       this.animTimer = 0;
     }
+    // Water/lava animation timers
+    this.waterAnimTimer += delta;
+    this.lavaAnimTimer += delta;
 
     // ---- Update minimap periodically ----
     this.minimapTimer += delta;
@@ -354,6 +471,12 @@ export class GameScene extends Phaser.Scene {
 
     // ---- Update player position for zone tracking ----
     ui.updatePlayerPosition(this.playerX, this.playerY);
+
+    // ---- Update ground items ----
+    this.updateGroundItems();
+
+    // ---- Detect zone change for atmosphere ----
+    this.updateZoneAtmosphere();
 
     // ---- Auto-attack ----
     if (ui.isAutoAttack() && this.selectedTarget) {
@@ -824,7 +947,13 @@ export class GameScene extends Phaser.Scene {
     // ENTITY_MOVE: entity moved to a new position
     socket.on(
       PacketType.ENTITY_MOVE,
-      (data: { id: string; x: number; y: number; direction: Direction }) => {
+      (data: {
+        id: string;
+        x: number;
+        y: number;
+        direction: Direction;
+        pkMode?: boolean;
+      }) => {
         if (data.id === this.playerId) {
           // Server confirmed our position (or corrected it)
           this.targetX = data.x;
@@ -846,6 +975,24 @@ export class GameScene extends Phaser.Scene {
             entityData.targetY =
               data.y * ClientConfig.TILE_SIZE + ClientConfig.TILE_SIZE / 2;
             entityData.direction = data.direction;
+
+            // Update PK mode display
+            if (
+              data.pkMode !== undefined &&
+              entityData.pkMode !== data.pkMode
+            ) {
+              entityData.pkMode = data.pkMode;
+              if (entityData.nameText) {
+                let name = entityData.nameText.text.replace(/^\[PK\] /, "");
+                if (data.pkMode) {
+                  entityData.nameText.setText(`[PK] ${name}`);
+                  entityData.nameText.setColor("#FF6666");
+                } else {
+                  entityData.nameText.setText(name);
+                  entityData.nameText.setColor("#e8d5b0");
+                }
+              }
+            }
           }
         }
       },
@@ -1032,12 +1179,12 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
-  /** Swap player sprite between idle and walk textures */
-  private swapPlayerTexture(walking: boolean): void {
+  /** Swap player sprite between idle and walk textures (3-frame cycle) */
+  private swapPlayerTexture(walkFrame: number): void {
     if (!this.playerSprite) return;
     const ed = this.playerSprite.getData("entityData") as any;
     if (!ed?.bodySprite) return;
-    const texKey = getPlayerTextureKey(this.playerClass, walking);
+    const texKey = getPlayerTextureKey(this.playerClass, walkFrame);
     if (ed.bodySprite.texture.key !== texKey) {
       ed.bodySprite.setTexture(texKey);
     }
@@ -1098,8 +1245,11 @@ export class GameScene extends Phaser.Scene {
             const px = tx * ts;
             const py = ty * ts;
 
-            // Create an Image from pre-rendered tile texture
-            const texKey = getTileTextureKey(tileType);
+            // Create an Image from pre-rendered tile texture (with variants)
+            const variantCount = getTileVariantCount(tileType);
+            const variant =
+              variantCount > 1 ? (tx * 7 + ty * 13) % variantCount : 0;
+            const texKey = getTileTextureKey(tileType, variant);
             const img = this.add.image(px + ts / 2, py + ts / 2, texKey);
             img.setDepth(0);
             img.setDisplaySize(ts, ts);
@@ -1351,9 +1501,23 @@ export class GameScene extends Phaser.Scene {
     shadow.fillEllipse(0, ts * 0.25, ts * 0.5, ts * 0.15);
     container.addAt(shadow, 0);
 
-    const nameText = this.add.text(0, -ts * 0.85, data.name, {
+    // Name color based on karma and PK mode
+    let nameColor = "#e8d5b0";
+    let displayName = data.name;
+    if (data.karma !== undefined && data.karma < -30) {
+      nameColor = "#FF4444"; // Red name for negative karma
+    }
+    if (data.pkMode) {
+      displayName = `[PK] ${data.name}`;
+      nameColor = "#FF6666";
+    }
+    if (data.invulnerable) {
+      nameColor = "#88CCFF"; // Blue for invulnerable
+    }
+
+    const nameText = this.add.text(0, -ts * 0.85, displayName, {
       fontSize: "11px",
-      color: "#e8d5b0",
+      color: nameColor,
       fontStyle: "bold",
       stroke: "#000000",
       strokeThickness: 3,
@@ -1372,6 +1536,8 @@ export class GameScene extends Phaser.Scene {
       nameText,
       bodySprite,
       playerClass: data.class,
+      karma: data.karma,
+      pkMode: data.pkMode,
     } as EntityContainerData);
 
     this.otherPlayers.set(data.id, container);
@@ -1902,26 +2068,44 @@ export class GameScene extends Phaser.Scene {
     shadow.fillEllipse(0, ts * 0.2, ts * 0.4 * sizeMultiplier, ts * 0.12);
     container.addAt(shadow, 0);
 
-    // Boss golden aura
+    // Boss golden aura + red glow
     if (data.isBoss) {
       const aura = this.add.graphics();
-      aura.lineStyle(2, 0xffcc00, 0.6);
-      aura.strokeEllipse(0, 0, ts * 0.9, ts * 0.7);
+      aura.lineStyle(2.5, 0xffcc00, 0.7);
+      aura.strokeEllipse(0, 0, ts * 1.0, ts * 0.8);
+      aura.lineStyle(1.5, 0xff4444, 0.3);
+      aura.strokeEllipse(0, 0, ts * 1.15, ts * 0.9);
       container.addAt(aura, 0);
     }
 
-    // Name + level text (prefer Korean name)
+    // Determine name color based on difficulty relative to player
     const displayName = (data as any).nameKo || data.name || "\uBAB9";
+    let nameColor = "#ff9999"; // default red
+    if (data.isBoss) {
+      nameColor = "#ffcc00"; // gold for bosses
+    } else if (data.level <= 5) {
+      nameColor = "#88cc88"; // green for easy
+    } else if (data.level <= 15) {
+      nameColor = "#ffcc66"; // yellow for normal
+    } else if (data.level <= 30) {
+      nameColor = "#ff8866"; // orange for hard
+    } else {
+      nameColor = "#cc66ff"; // purple for very hard
+    }
+
+    // Boss skull icon prefix
+    const namePrefix = data.isBoss ? "\u2620 " : "";
+
     const nameText = this.add.text(
       0,
-      -halfSize - 16,
-      `Lv.${data.level} ${displayName}`,
+      -halfSize - 18,
+      `${namePrefix}Lv.${data.level} ${displayName}`,
       {
-        fontSize: data.isBoss ? "12px" : "10px",
-        color: data.isBoss ? "#ffcc00" : "#ff9999",
-        fontStyle: data.isBoss ? "bold" : "normal",
+        fontSize: data.isBoss ? "13px" : "10px",
+        color: nameColor,
+        fontStyle: "bold",
         stroke: "#000000",
-        strokeThickness: 2,
+        strokeThickness: data.isBoss ? 4 : 3,
       },
     );
     nameText.setOrigin(0.5, 1);
@@ -1929,7 +2113,7 @@ export class GameScene extends Phaser.Scene {
 
     // Health bar
     const healthBar = this.add.graphics();
-    this.drawHealthBar(healthBar, data.hp, data.maxHp, halfSize);
+    this.drawHealthBar(healthBar, data.hp, data.maxHp, halfSize, data.isBoss);
     container.add(healthBar);
 
     container.setData("entityData", {
@@ -1944,6 +2128,9 @@ export class GameScene extends Phaser.Scene {
       bodySprite,
       hp: data.hp,
       maxHp: data.maxHp,
+      level: data.level,
+      isBoss: data.isBoss,
+      mobId: data.mobId || data.id,
     } as EntityContainerData);
 
     this.mobs.set(data.id, container);
@@ -2133,15 +2320,26 @@ export class GameScene extends Phaser.Scene {
     hp: number,
     maxHp: number,
     halfSize: number,
+    isBoss: boolean = false,
   ): void {
     g.clear();
-    const barWidth = halfSize * 2.2;
-    const barHeight = 5;
+    const barWidth = isBoss ? halfSize * 3.0 : halfSize * 2.2;
+    const barHeight = isBoss ? 7 : 5;
     const barY = halfSize + 5;
 
-    // Dark border
+    // Outer border (darker for bosses)
+    g.fillStyle(isBoss ? 0x332200 : 0x000000, 0.9);
+    g.fillRect(-barWidth / 2 - 2, barY - 2, barWidth + 4, barHeight + 4);
+
+    // Inner border
     g.fillStyle(0x000000, 0.9);
     g.fillRect(-barWidth / 2 - 1, barY - 1, barWidth + 2, barHeight + 2);
+
+    // Boss golden border
+    if (isBoss) {
+      g.lineStyle(1, 0xffcc00, 0.6);
+      g.strokeRect(-barWidth / 2 - 2, barY - 2, barWidth + 4, barHeight + 4);
+    }
 
     // Background
     g.fillStyle(0x1a1a1a, 0.9);
@@ -2154,7 +2352,7 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(fillColor, 1);
     g.fillRect(-barWidth / 2, barY, barWidth * ratio, barHeight);
 
-    // Highlight on top of fill
+    // Highlight on top of fill (gradient simulation)
     const brightColor =
       ratio > 0.5 ? 0x5aaa5a : ratio > 0.25 ? 0xeeaa33 : 0xcc4444;
     g.fillStyle(brightColor, 0.4);
@@ -2170,10 +2368,10 @@ export class GameScene extends Phaser.Scene {
     if (!entityData?.healthBar) return;
 
     const ts = ClientConfig.TILE_SIZE;
-    const isBoss = container.getData("isBoss") as boolean;
-    const halfSize = ts * 0.35 * (isBoss ? 1.2 : 0.9);
+    const isBoss = entityData.isBoss || false;
+    const halfSize = ts * 0.35 * (isBoss ? 1.5 : 0.9);
 
-    this.drawHealthBar(entityData.healthBar, hp, maxHp, halfSize);
+    this.drawHealthBar(entityData.healthBar, hp, maxHp, halfSize, isBoss);
   }
 
   // ================================================
@@ -2256,32 +2454,160 @@ export class GameScene extends Phaser.Scene {
   // Visual Effects
   // ================================================
 
-  /** Show a floating damage number */
+  /** Show a floating damage number with enhanced visuals */
   private showDamageNumber(
     x: number,
     y: number,
     damage: number,
     isCrit: boolean = false,
   ): void {
-    const dmgText = isCrit ? `\u2620 ${damage}` : `-${damage}`;
-    const text = this.add.text(x, y - 10, dmgText, {
-      fontSize: isCrit ? "20px" : "14px",
-      color: isCrit ? "#ff2200" : "#ffcc00",
+    if (isCrit) {
+      // Critical hit: "CRITICAL!" label + large golden number + screen shake + particles
+      const critLabel = this.add.text(x, y - 30, "CRITICAL!", {
+        fontSize: "11px",
+        color: "#FFD700",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 3,
+      });
+      critLabel.setOrigin(0.5, 1);
+      critLabel.setDepth(52);
+      this.tweens.add({
+        targets: critLabel,
+        y: y - 60,
+        alpha: 0,
+        scaleX: 1.3,
+        scaleY: 1.3,
+        duration: 900,
+        ease: "Power2",
+        onComplete: () => critLabel.destroy(),
+      });
+
+      // Large damage number
+      const dmgText = `${damage}`;
+      const text = this.add.text(x, y - 10, dmgText, {
+        fontSize: "24px",
+        color: "#FFD700",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 5,
+      });
+      text.setOrigin(0.5, 1);
+      text.setDepth(51);
+      text.x += (Math.random() - 0.5) * 15;
+
+      this.damageTexts.push({
+        text,
+        startTime: this.time.now,
+        startY: text.y,
+      });
+
+      // Screen shake
+      this.cameras.main.shake(150, 0.005);
+
+      // Particle burst
+      this.showCritParticles(x, y);
+    } else {
+      // Normal damage
+      const dmgText = `-${damage}`;
+      const text = this.add.text(x, y - 10, dmgText, {
+        fontSize: "16px",
+        color: "#ffcc00",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 3,
+      });
+      text.setOrigin(0.5, 1);
+      text.setDepth(50);
+      text.x += (Math.random() - 0.5) * 20;
+
+      this.damageTexts.push({
+        text,
+        startTime: this.time.now,
+        startY: text.y,
+      });
+    }
+  }
+
+  /** Show heal number (green, with + prefix) */
+  private showHealNumber(x: number, y: number, amount: number): void {
+    const text = this.add.text(x, y - 10, `+${amount}`, {
+      fontSize: "16px",
+      color: "#44ff66",
       fontStyle: "bold",
       stroke: "#000000",
-      strokeThickness: isCrit ? 4 : 3,
+      strokeThickness: 3,
     });
     text.setOrigin(0.5, 1);
     text.setDepth(50);
-
-    // Add slight random horizontal offset
-    text.x += (Math.random() - 0.5) * 20;
 
     this.damageTexts.push({
       text,
       startTime: this.time.now,
       startY: text.y,
     });
+
+    // Green sparkle particles
+    for (let i = 0; i < 4; i++) {
+      const spark = this.add.graphics();
+      spark.fillStyle(0x44ff66, 0.8);
+      spark.fillCircle(0, 0, 2);
+      spark.setPosition(x + (Math.random() - 0.5) * 20, y - 5);
+      spark.setDepth(49);
+      this.tweens.add({
+        targets: spark,
+        y: spark.y - 25 - Math.random() * 15,
+        alpha: 0,
+        duration: 600 + Math.random() * 300,
+        ease: "Power2",
+        onComplete: () => spark.destroy(),
+      });
+    }
+  }
+
+  /** Show miss/dodge text */
+  private showMissText(x: number, y: number, isDodge: boolean = false): void {
+    const text = this.add.text(x, y - 10, isDodge ? "DODGE" : "MISS", {
+      fontSize: "13px",
+      color: "#888888",
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 2,
+    });
+    text.setOrigin(0.5, 1);
+    text.setDepth(50);
+
+    this.damageTexts.push({
+      text,
+      startTime: this.time.now,
+      startY: text.y,
+    });
+  }
+
+  /** Critical hit particle burst */
+  private showCritParticles(x: number, y: number): void {
+    const colors = [0xffd700, 0xff6600, 0xffcc00, 0xffffff];
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2 + Math.random() * 0.5;
+      const dist = 20 + Math.random() * 15;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+
+      const particle = this.add.graphics();
+      particle.fillStyle(color, 1);
+      particle.fillCircle(0, 0, 2 + Math.random() * 1.5);
+      particle.setPosition(x, y);
+      particle.setDepth(55);
+
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        duration: 400 + Math.random() * 200,
+        ease: "Power2",
+        onComplete: () => particle.destroy(),
+      });
+    }
   }
 
   /** Update floating damage texts (rise and fade) */
@@ -2348,116 +2674,399 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Flash an entity red when hit */
+  /** Flash an entity white->red when hit (uses sprite tint) */
   private flashEntity(container: Phaser.GameObjects.Container): void {
     const data = container.getData("entityData") as EntityContainerData;
-    if (!data?.bodyGraphic) return;
+    const sprite = data?.bodySprite;
 
-    // Tint the body graphic red
-    const originalAlpha = container.alpha;
-    container.setAlpha(0.5);
-
-    this.time.delayedCall(100, () => {
-      container.setAlpha(originalAlpha);
-    });
-
-    this.time.delayedCall(200, () => {
+    if (sprite) {
+      // White flash first
+      sprite.setTint(0xffffff);
+      this.time.delayedCall(80, () => {
+        sprite.setTint(0xff4444); // Red flash
+      });
+      this.time.delayedCall(180, () => {
+        sprite.setTint(0xffffff); // Brief white
+      });
+      this.time.delayedCall(280, () => {
+        sprite.clearTint(); // Back to normal
+      });
+    } else {
+      // Fallback for non-sprite entities
+      const originalAlpha = container.alpha;
       container.setAlpha(0.5);
-    });
+      this.time.delayedCall(100, () => container.setAlpha(originalAlpha));
+      this.time.delayedCall(200, () => container.setAlpha(0.5));
+      this.time.delayedCall(300, () => container.setAlpha(originalAlpha));
+    }
 
-    this.time.delayedCall(300, () => {
-      container.setAlpha(originalAlpha);
+    // Show attack slash arc effect
+    this.showAttackSlash(container.x, container.y);
+  }
+
+  /** Show attack slash arc (white arc at target position) */
+  private showAttackSlash(x: number, y: number): void {
+    const slash = this.add.graphics();
+    slash.setPosition(x, y - 5);
+    slash.setDepth(45);
+
+    // Draw arc
+    const angle = Math.random() * Math.PI * 0.5 - Math.PI * 0.25;
+    slash.lineStyle(3, 0xffffff, 0.9);
+    slash.beginPath();
+    slash.arc(0, 0, 16, angle - 1.2, angle + 1.2, false);
+    slash.strokePath();
+    // Inner brighter arc
+    slash.lineStyle(1.5, 0xffffcc, 0.7);
+    slash.beginPath();
+    slash.arc(0, 0, 13, angle - 1.0, angle + 1.0, false);
+    slash.strokePath();
+
+    this.tweens.add({
+      targets: slash,
+      alpha: 0,
+      scaleX: 1.5,
+      scaleY: 1.5,
+      duration: 250,
+      ease: "Power2",
+      onComplete: () => slash.destroy(),
     });
   }
 
-  /** Play death animation (fade to gray, shrink) */
+  /** Play death animation: fade + sink into ground */
   private playDeathAnimation(container: Phaser.GameObjects.Container): void {
+    // Tint gray first
+    const data = container.getData("entityData") as EntityContainerData;
+    if (data?.bodySprite) {
+      data.bodySprite.setTint(0x666666);
+    }
+
     this.tweens.add({
       targets: container,
       alpha: 0,
       scaleX: 0.3,
-      scaleY: 0.3,
-      duration: 500,
+      scaleY: 0.1, // Flatten (sink into ground)
+      y: container.y + 10, // Drop slightly
+      duration: 600,
       ease: "Power2",
     });
+
+    // Death particles (dark wisps)
+    for (let i = 0; i < 6; i++) {
+      const p = this.add.graphics();
+      p.fillStyle(0x333333, 0.6);
+      p.fillCircle(0, 0, 2 + Math.random() * 2);
+      p.setPosition(container.x + (Math.random() - 0.5) * 20, container.y);
+      p.setDepth(45);
+
+      this.tweens.add({
+        targets: p,
+        y: p.y - 20 - Math.random() * 15,
+        alpha: 0,
+        duration: 500 + Math.random() * 300,
+        ease: "Power2",
+        onComplete: () => p.destroy(),
+      });
+    }
   }
 
-  /** Show level up particle burst effect */
+  /** Show level up effect: golden pillar of light + expanding ring + particles */
   private showLevelUpEffect(x: number, y: number): void {
-    const particleCount = 12;
+    // Golden pillar of light
+    const pillar = this.add.graphics();
+    pillar.setDepth(55);
+    pillar.fillStyle(0xffd700, 0.3);
+    pillar.fillRect(x - 8, y - 80, 16, 100);
+    pillar.fillStyle(0xffd700, 0.5);
+    pillar.fillRect(x - 4, y - 80, 8, 100);
+    pillar.fillStyle(0xffffff, 0.3);
+    pillar.fillRect(x - 2, y - 80, 4, 100);
+
+    this.tweens.add({
+      targets: pillar,
+      alpha: 0,
+      scaleX: 2,
+      duration: 1200,
+      ease: "Power2",
+      onComplete: () => pillar.destroy(),
+    });
+
+    // Expanding ring
+    const ring = this.add.graphics();
+    ring.setDepth(54);
+    ring.lineStyle(3, 0xffd700, 0.8);
+    ring.strokeCircle(x, y, 5);
+
+    this.tweens.add({
+      targets: ring,
+      scaleX: 6,
+      scaleY: 6,
+      alpha: 0,
+      duration: 800,
+      ease: "Power2",
+      onComplete: () => ring.destroy(),
+    });
+
+    // Particles bursting outward
+    const particleCount = 16;
+    const colors = [0xffd700, 0xffee88, 0xffffff, 0xffcc00];
     for (let i = 0; i < particleCount; i++) {
       const angle = (i / particleCount) * Math.PI * 2;
-      const dist = 30 + Math.random() * 20;
+      const dist = 35 + Math.random() * 25;
+      const color = colors[i % colors.length];
 
       const particle = this.add.graphics();
-      particle.fillStyle(0xffd700, 1);
-      particle.fillCircle(0, 0, 3 + Math.random() * 2);
+      particle.fillStyle(color, 1);
+      particle.fillCircle(0, 0, 2 + Math.random() * 2);
       particle.setPosition(x, y);
       particle.setDepth(60);
 
       this.tweens.add({
         targets: particle,
         x: x + Math.cos(angle) * dist,
-        y: y + Math.sin(angle) * dist,
+        y: y + Math.sin(angle) * dist - 10,
         alpha: 0,
         scaleX: 0.2,
         scaleY: 0.2,
         duration: 800 + Math.random() * 400,
         ease: "Power2",
-        onComplete: () => {
-          particle.destroy();
-        },
+        onComplete: () => particle.destroy(),
       });
     }
 
-    // Big golden flash
-    const flash = this.add.graphics();
-    flash.fillStyle(0xffd700, 0.4);
-    flash.fillCircle(x, y, 5);
-    flash.setDepth(55);
+    // "레벨 업!" text (larger, more prominent)
+    const text = this.add.text(x, y - 25, "\uB808\uBCA8 \uC5C5!", {
+      fontSize: "18px",
+      color: "#FFD700",
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 4,
+    });
+    text.setOrigin(0.5, 1);
+    text.setDepth(61);
 
     this.tweens.add({
-      targets: flash,
-      scaleX: 8,
-      scaleY: 8,
+      targets: text,
+      y: y - 55,
       alpha: 0,
-      duration: 600,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      duration: 2000,
       ease: "Power2",
-      onComplete: () => {
-        flash.destroy();
-      },
+      onComplete: () => text.destroy(),
     });
-
-    // "레벨 업!" text
-    this.showFloatingText(x, y - 20, "\uB808\uBCA8 \uC5C5!", "#ffd700", 2000);
   }
 
-  /** Show skill visual effect at position */
+  /** Show skill visual effect at position - type-specific visuals */
   private showSkillEffect(tileX: number, tileY: number, color: string): void {
     const ts = ClientConfig.TILE_SIZE;
     const x = tileX * ts + ts / 2;
     const y = tileY * ts + ts / 2;
-
     const colorNum = parseInt(color.replace("#", ""), 16) || 0xff6600;
 
-    const effect = this.add.graphics();
-    effect.fillStyle(colorNum, 0.6);
-    effect.fillCircle(x, y, 5);
-    effect.lineStyle(2, colorNum, 0.8);
-    effect.strokeCircle(x, y, 8);
-    effect.setDepth(40);
+    // Determine skill type from color
+    const isHeal =
+      colorNum === 0x44ff66 || colorNum === 0x00ff00 || color === "#44ff66";
+    const isFire =
+      colorNum === 0xff6600 || colorNum === 0xff4400 || colorNum === 0xff0000;
+    const isIce =
+      colorNum === 0x4488cc || colorNum === 0x66ccff || colorNum === 0x0088ff;
 
-    this.tweens.add({
-      targets: effect,
-      scaleX: 4,
-      scaleY: 4,
-      alpha: 0,
-      duration: 400,
-      ease: "Power2",
-      onComplete: () => {
-        effect.destroy();
+    if (isHeal) {
+      // Heal: green rising particles
+      for (let i = 0; i < 8; i++) {
+        const p = this.add.graphics();
+        p.fillStyle(0x44ff66, 0.7);
+        p.fillCircle(0, 0, 2);
+        p.setPosition(x + (Math.random() - 0.5) * 24, y + 5);
+        p.setDepth(40);
+
+        this.tweens.add({
+          targets: p,
+          y: p.y - 30 - Math.random() * 20,
+          alpha: 0,
+          duration: 700 + Math.random() * 400,
+          ease: "Power1",
+          onComplete: () => p.destroy(),
+        });
+      }
+    } else if (isFire || isIce) {
+      // Magic: expanding impact explosion
+      const explosion = this.add.graphics();
+      explosion.setDepth(40);
+
+      // Core
+      explosion.fillStyle(colorNum, 0.7);
+      explosion.fillCircle(x, y, 6);
+      // Outer ring
+      explosion.lineStyle(2.5, colorNum, 0.9);
+      explosion.strokeCircle(x, y, 10);
+
+      this.tweens.add({
+        targets: explosion,
+        scaleX: 3.5,
+        scaleY: 3.5,
+        alpha: 0,
+        duration: 350,
+        ease: "Power2",
+        onComplete: () => explosion.destroy(),
+      });
+
+      // Scatter particles
+      for (let i = 0; i < 6; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const p = this.add.graphics();
+        p.fillStyle(colorNum, 0.8);
+        p.fillCircle(0, 0, 2);
+        p.setPosition(x, y);
+        p.setDepth(41);
+
+        this.tweens.add({
+          targets: p,
+          x: x + Math.cos(angle) * (15 + Math.random() * 10),
+          y: y + Math.sin(angle) * (15 + Math.random() * 10),
+          alpha: 0,
+          duration: 300 + Math.random() * 200,
+          ease: "Power2",
+          onComplete: () => p.destroy(),
+        });
+      }
+    } else {
+      // Melee: slash arc + ground impact
+      const slash = this.add.graphics();
+      slash.setDepth(40);
+      slash.lineStyle(3, 0xffffff, 0.8);
+      slash.beginPath();
+      slash.arc(x, y - 5, 18, -1.5, 0.5, false);
+      slash.strokePath();
+      slash.lineStyle(2, colorNum, 0.6);
+      slash.beginPath();
+      slash.arc(x, y - 5, 14, -1.3, 0.3, false);
+      slash.strokePath();
+
+      this.tweens.add({
+        targets: slash,
+        alpha: 0,
+        scaleX: 1.5,
+        scaleY: 1.5,
+        duration: 300,
+        ease: "Power2",
+        onComplete: () => slash.destroy(),
+      });
+
+      // Ground impact circle
+      const ground = this.add.graphics();
+      ground.setDepth(39);
+      ground.lineStyle(1.5, colorNum, 0.5);
+      ground.strokeEllipse(x, y + ts * 0.25, 8, 4);
+
+      this.tweens.add({
+        targets: ground,
+        scaleX: 3,
+        scaleY: 2,
+        alpha: 0,
+        duration: 300,
+        ease: "Power2",
+        onComplete: () => ground.destroy(),
+      });
+    }
+  }
+
+  /** Update active combat effects */
+  private updateActiveEffects(time: number): void {
+    for (let i = this.activeEffects.length - 1; i >= 0; i--) {
+      const effect = this.activeEffects[i];
+      if (time - effect.startTime >= effect.duration) {
+        this.activeEffects.splice(i, 1);
+      }
+    }
+  }
+
+  // ================================================
+  // Ground Items (PK drops)
+  // ================================================
+
+  private updateGroundItems(): void {
+    const ts = ClientConfig.TILE_SIZE;
+    const groundItems = ui.getGroundItems();
+
+    // Remove sprites for items no longer on the ground
+    for (let [id, sprite] of this.groundItemSprites) {
+      if (!groundItems.has(id)) {
+        sprite.destroy();
+        this.groundItemSprites.delete(id);
+      }
+    }
+
+    // Add sprites for new ground items
+    for (let [id, item] of groundItems) {
+      if (!this.groundItemSprites.has(id)) {
+        this.createGroundItemSprite(id, item);
+      }
+    }
+
+    // Pulse/bob animation for ground items
+    const bobOffset = Math.sin(Date.now() * 0.003) * 2;
+    for (let [, sprite] of this.groundItemSprites) {
+      const ed = sprite.getData("baseY") as number;
+      if (ed !== undefined) {
+        sprite.y = ed + bobOffset;
+      }
+    }
+  }
+
+  private createGroundItemSprite(id: string, item: any): void {
+    const ts = ClientConfig.TILE_SIZE;
+    const px = item.x * ts + ts / 2;
+    const py = item.y * ts + ts / 2;
+
+    const container = this.add.container(px, py);
+    container.setDepth(5);
+
+    // Glow effect for enhanced items
+    let glowColor = 0xffffff;
+    if (item.enhancement && item.enhancement >= 7) {
+      glowColor = 0xffd700;
+    } else if (item.enhancement && item.enhancement >= 4) {
+      glowColor = 0x4488ff;
+    }
+
+    // Draw a small item bag icon
+    const g = this.add.graphics();
+    g.fillStyle(glowColor, 0.3);
+    g.fillCircle(0, 0, 8);
+    g.fillStyle(0xddaa44, 0.9);
+    g.fillRoundedRect(-5, -5, 10, 10, 2);
+    g.lineStyle(1, 0x886622);
+    g.strokeRoundedRect(-5, -5, 10, 10, 2);
+    container.add(g);
+
+    // Item name label
+    const label = this.add.text(
+      0,
+      -12,
+      item.enhancement ? `+${item.enhancement}` : "",
+      {
+        fontSize: "8px",
+        color: "#FFD700",
+        stroke: "#000",
+        strokeThickness: 2,
       },
+    );
+    label.setOrigin(0.5, 1);
+    container.add(label);
+
+    container.setData("baseY", py);
+    container.setData("groundItemId", id);
+
+    // Click to pickup
+    container.setSize(ts * 0.6, ts * 0.6);
+    container.setInteractive();
+    container.on("pointerdown", () => {
+      ui.pickupGroundItem(id);
     });
+
+    this.groundItemSprites.set(id, container);
   }
 
   // ================================================
@@ -2468,10 +3077,8 @@ export class GameScene extends Phaser.Scene {
     if (!this.mapData) return;
 
     const entities: { type: EntityType; x: number; y: number }[] = [];
-
     const ts = ClientConfig.TILE_SIZE;
 
-    // Collect nearby entities for minimap
     for (const [, container] of this.otherPlayers) {
       entities.push({
         type: EntityType.PLAYER,
@@ -2504,40 +3111,93 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ================================================
-  // Atmosphere & Ambient Effects
+  // Atmosphere & Ambient Effects (Zone-specific)
   // ================================================
 
-  /** Draw dark vignette overlay for atmospheric lighting */
+  /** Initialize ambient particles */
+  private initAmbientParticles(): void {
+    this.ambientParticles = [];
+    const atm = this.currentAtmosphere;
+    for (let i = 0; i < 40; i++) {
+      const useColor2 = atm.particleColor2 && Math.random() > 0.5;
+      this.ambientParticles.push({
+        x: Math.random() * 800 - 400,
+        y: Math.random() * 600 - 300,
+        vx:
+          atm.particleDirection.x * (3 + Math.random() * 5) +
+          (Math.random() - 0.5) * 4,
+        vy:
+          atm.particleDirection.y * (3 + Math.random() * 5) +
+          (Math.random() - 0.5) * 2,
+        alpha: Math.random() * 0.3 + 0.1,
+        size:
+          atm.particleShape === "snow"
+            ? Math.random() * 2 + 1
+            : atm.particleShape === "ember"
+              ? Math.random() * 1.5 + 0.5
+              : Math.random() * 1.5 + 0.5,
+        color: useColor2 ? atm.particleColor2 : atm.particleColor,
+      });
+    }
+  }
+
+  /** Detect zone change and update atmosphere */
+  private updateZoneAtmosphere(): void {
+    if (!this.mapData || !(this.mapData as any).zones) return;
+
+    const zones = (this.mapData as any).zones as any[];
+    let newZoneId = "town";
+    for (const zone of zones) {
+      if (
+        this.playerX >= zone.x &&
+        this.playerX < zone.x + zone.width &&
+        this.playerY >= zone.y &&
+        this.playerY < zone.y + zone.height
+      ) {
+        newZoneId = zone.id;
+        break;
+      }
+    }
+
+    if (newZoneId !== this.currentZoneId) {
+      this.currentZoneId = newZoneId;
+      this.currentAtmosphere =
+        ZONE_ATMOSPHERES[newZoneId] || ZONE_ATMOSPHERES.town;
+      this.initAmbientParticles();
+      this.drawVignette(); // Redraw vignette for new zone
+    }
+  }
+
+  /** Draw dark vignette overlay - zone-specific intensity/color */
   private drawVignette(): void {
     if (!this.vignetteOverlay) return;
     const w = this.cameras.main.width;
     const h = this.cameras.main.height;
+    const atm = this.currentAtmosphere;
 
     this.vignetteOverlay.clear();
 
     // Dark edges - gradient-like vignette using concentric rects
-    const steps = 8;
+    const steps = 10;
+    const strength = atm.vignetteStrength;
     for (let i = steps; i >= 0; i--) {
       const t = i / steps;
-      const alpha = t * t * 0.45; // Quadratic falloff, max 0.45
+      const alpha = t * t * strength;
       const inset = (1 - t) * Math.min(w, h) * 0.35;
-      this.vignetteOverlay.fillStyle(0x000000, alpha);
-      // Top edge
+      this.vignetteOverlay.fillStyle(atm.vignetteColor, alpha);
       this.vignetteOverlay.fillRect(0, 0, w, inset);
-      // Bottom edge
       this.vignetteOverlay.fillRect(0, h - inset, w, inset);
-      // Left edge
       this.vignetteOverlay.fillRect(0, inset, inset, h - inset * 2);
-      // Right edge
       this.vignetteOverlay.fillRect(w - inset, inset, inset, h - inset * 2);
     }
 
-    // Subtle overall darkness
-    this.vignetteOverlay.fillStyle(0x0a0a18, 0.15);
+    // Subtle overall tint
+    const overallAlpha = strength * 0.25;
+    this.vignetteOverlay.fillStyle(atm.vignetteColor, overallAlpha);
     this.vignetteOverlay.fillRect(0, 0, w, h);
   }
 
-  /** Update floating ambient particles (dust motes, fireflies) */
+  /** Update floating ambient particles - zone-specific rendering */
   private updateAmbientParticles(delta: number): void {
     if (!this.ambientLayer || !this.playerSprite) return;
 
@@ -2545,12 +3205,13 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const cx = cam.scrollX + cam.width / 2;
     const cy = cam.scrollY + cam.height / 2;
+    const atm = this.currentAtmosphere;
 
     for (const p of this.ambientParticles) {
       p.x += p.vx * (delta / 1000);
       p.y += p.vy * (delta / 1000);
       p.alpha += (Math.random() - 0.5) * 0.02;
-      p.alpha = Math.max(0.05, Math.min(0.35, p.alpha));
+      p.alpha = Math.max(0.05, Math.min(0.4, p.alpha));
 
       // Wrap around camera view
       if (p.x < -420) p.x = 420;
@@ -2560,9 +3221,51 @@ export class GameScene extends Phaser.Scene {
 
       const wx = cx + p.x;
       const wy = cy + p.y;
+      const color = p.color || atm.particleColor;
 
-      this.ambientLayer.fillStyle(0xccbb88, p.alpha);
-      this.ambientLayer.fillCircle(wx, wy, p.size);
+      if (atm.particleShape === "snow") {
+        // Snowflake: slight zigzag
+        const wobble = Math.sin(p.x * 0.1 + this.time.now * 0.002) * 1;
+        this.ambientLayer.fillStyle(color, p.alpha);
+        this.ambientLayer.fillCircle(wx + wobble, wy, p.size);
+        // Cross detail for larger flakes
+        if (p.size > 1.5) {
+          this.ambientLayer.fillRect(
+            wx + wobble - p.size * 0.5,
+            wy - 0.5,
+            p.size,
+            1,
+          );
+          this.ambientLayer.fillRect(
+            wx + wobble - 0.5,
+            wy - p.size * 0.5,
+            1,
+            p.size,
+          );
+        }
+      } else if (atm.particleShape === "ember") {
+        // Ember: bright core with flicker
+        const flicker = Math.sin(this.time.now * 0.01 + p.x) * 0.15;
+        this.ambientLayer.fillStyle(color, p.alpha + flicker);
+        this.ambientLayer.fillCircle(wx, wy, p.size);
+        // Bright center
+        this.ambientLayer.fillStyle(0xffcc00, (p.alpha + flicker) * 0.6);
+        this.ambientLayer.fillCircle(wx, wy, p.size * 0.4);
+      } else if (atm.particleShape === "leaf") {
+        // Leaf: small ellipse with rotation feel
+        this.ambientLayer.fillStyle(color, p.alpha);
+        const rot = Math.sin(this.time.now * 0.003 + p.y * 0.1);
+        this.ambientLayer.fillEllipse(
+          wx,
+          wy,
+          p.size * 2 * Math.abs(rot + 0.3),
+          p.size,
+        );
+      } else {
+        // Default circle (dust motes)
+        this.ambientLayer.fillStyle(color, p.alpha);
+        this.ambientLayer.fillCircle(wx, wy, p.size);
+      }
     }
   }
 }

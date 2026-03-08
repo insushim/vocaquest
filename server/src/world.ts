@@ -9,6 +9,7 @@ import type {
   MobData,
   EntityData,
   LootDrop,
+  GroundItemDrop,
 } from "../../shared/types";
 import {
   PacketType,
@@ -41,6 +42,7 @@ export class World {
   players: Map<string, Player>;
   mobs: Map<string, Mob>;
   itemDrops: Map<string, ItemDrop>;
+  groundItems: Map<string, GroundItemDrop>;
   private lastTickTime: number;
   private broadcastFn:
     | ((type: PacketType, data: unknown, exclude?: string) => void)
@@ -51,6 +53,7 @@ export class World {
     this.players = new Map();
     this.mobs = new Map();
     this.itemDrops = new Map();
+    this.groundItems = new Map();
     this.lastTickTime = Date.now();
     this.broadcastFn = null;
 
@@ -105,6 +108,14 @@ export class World {
     for (let [id, drop] of this.itemDrops) {
       if (now - drop.createdAt > ITEM_DROP_LIFETIME) {
         this.itemDrops.delete(id);
+      }
+    }
+
+    // Clean up old ground items (60 seconds)
+    for (let [id, item] of this.groundItems) {
+      if (now - item.createdAt > ITEM_DROP_LIFETIME) {
+        this.groundItems.delete(id);
+        this.broadcast(PacketType.GROUND_ITEM_REMOVED, { id });
       }
     }
   }
@@ -285,6 +296,64 @@ export class World {
       mobName: mob.definition.nameKo,
       mobId: mob.mobId,
     });
+  }
+
+  // Ground item drop system (PK drops)
+  addGroundItem(
+    itemId: string,
+    count: number,
+    x: number,
+    y: number,
+    droppedBy?: string,
+    enhancement?: number,
+  ): void {
+    let id = uuid();
+    let groundItem: GroundItemDrop = {
+      id,
+      itemId,
+      count,
+      x,
+      y,
+      droppedBy,
+      enhancement,
+      createdAt: Date.now(),
+    };
+    this.groundItems.set(id, groundItem);
+
+    // Broadcast to all players
+    this.broadcast(PacketType.GROUND_ITEM, { item: groundItem });
+  }
+
+  pickupGroundItem(player: Player, groundItemId: string): boolean {
+    let item = this.groundItems.get(groundItemId);
+    if (!item) return false;
+
+    // Must be within 2 tiles
+    let dist = Math.abs(player.x - item.x) + Math.abs(player.y - item.y);
+    if (dist > 2) return false;
+
+    // Add to player inventory
+    if (!player.addItem(item.itemId, item.count, item.enhancement)) {
+      return false;
+    }
+
+    // Remove from ground
+    this.groundItems.delete(groundItemId);
+    this.broadcast(PacketType.GROUND_ITEM_REMOVED, { id: groundItemId });
+
+    return true;
+  }
+
+  // Get ground items near a position (for initial sync)
+  getGroundItemsNear(x: number, y: number, range: number): GroundItemDrop[] {
+    let items: GroundItemDrop[] = [];
+    for (let [, item] of this.groundItems) {
+      let dist = Math.abs(item.x - x) + Math.abs(item.y - y);
+      if (dist <= range) {
+        items.push(item);
+      }
+    }
+    return items;
   }
 
   // Broadcast helpers
