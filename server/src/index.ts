@@ -64,7 +64,7 @@ async function connectDatabase(): Promise<void> {
       );
     }
 
-    // Define player schema
+    // Define player schema (strict: false allows saving any extra fields)
     let playerSchema = new mongoose.default.Schema(
       {
         name: { type: String, required: true, unique: true, index: true },
@@ -73,16 +73,27 @@ async function connectDatabase(): Promise<void> {
         level: { type: Number, default: 1 },
         exp: { type: Number, default: 0 },
         gold: { type: Number, default: 100 },
-        x: { type: Number, default: 100 },
-        y: { type: Number, default: 100 },
+        x: { type: Number, default: 250 },
+        y: { type: Number, default: 250 },
         karma: { type: Number, default: 0 },
         killStreak: { type: Number, default: 0 },
         totalKills: { type: Number, default: 0 },
         gradeLevel: { type: Number, default: 1 },
         inventory: { type: Array, default: [] },
         equipment: { type: Object, default: {} },
+        equipEnhancements: { type: Object, default: {} },
+        allocatedStats: { type: Object, default: {} },
+        statPoints: { type: Number, default: 0 },
+        quests: { type: Array, default: [] },
+        completedQuests: { type: Array, default: [] },
+        achievements: { type: Array, default: [] },
+        achievementProgress: { type: Object, default: {} },
+        title: { type: String, default: "" },
+        titleKo: { type: String, default: "" },
+        lastLoginDate: { type: String, default: "" },
+        loginStreak: { type: Number, default: 0 },
       },
-      { timestamps: true },
+      { timestamps: true, strict: false },
     );
 
     let PlayerModel = mongoose.default.model("Player", playerSchema);
@@ -93,66 +104,23 @@ async function connectDatabase(): Promise<void> {
           name: { $regex: new RegExp(`^${name}$`, "i") },
         }).lean();
         if (!doc) return null;
-        return {
-          name: doc.name as string,
-          passwordHash: doc.passwordHash as string,
-          playerClass: doc.playerClass as string,
-          level: doc.level as number,
-          exp: doc.exp as number,
-          gold: doc.gold as number,
-          x: doc.x as number,
-          y: doc.y as number,
-          karma: doc.karma as number,
-          killStreak: doc.killStreak as number,
-          totalKills: doc.totalKills as number,
-          gradeLevel: doc.gradeLevel as number,
-          inventory: (doc.inventory || []) as Array<{
-            itemId: string;
-            count: number;
-          }>,
-          equipment: (doc.equipment || {}) as Record<string, string | null>,
-        } as any;
+        // Return all fields - strict:false ensures everything is saved/loaded
+        let result: any = { ...doc };
+        // Rename _id field issues
+        delete result._id;
+        delete result.__v;
+        return result;
       },
       async savePlayer(data) {
+        let { name, ...updateData } = data as any;
         await PlayerModel.findOneAndUpdate(
-          { name: { $regex: new RegExp(`^${data.name}$`, "i") } },
-          {
-            $set: {
-              passwordHash: data.passwordHash,
-              playerClass: data.playerClass,
-              level: data.level,
-              exp: data.exp,
-              gold: data.gold,
-              x: data.x,
-              y: data.y,
-              karma: data.karma,
-              killStreak: data.killStreak,
-              totalKills: data.totalKills,
-              gradeLevel: data.gradeLevel,
-              inventory: data.inventory,
-              equipment: data.equipment,
-            },
-          },
+          { name: { $regex: new RegExp(`^${name}$`, "i") } },
+          { $set: updateData },
           { upsert: true },
         );
       },
       async createPlayer(data) {
-        await PlayerModel.create({
-          name: data.name,
-          passwordHash: data.passwordHash,
-          playerClass: data.playerClass,
-          level: data.level,
-          exp: data.exp,
-          gold: data.gold,
-          x: data.x,
-          y: data.y,
-          karma: data.karma,
-          killStreak: data.killStreak,
-          totalKills: data.totalKills,
-          gradeLevel: data.gradeLevel,
-          inventory: data.inventory,
-          equipment: data.equipment,
-        });
+        await PlayerModel.create(data);
       },
     });
   } catch (err) {
