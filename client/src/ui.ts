@@ -31,6 +31,7 @@ import type {
   GroundItemDrop,
 } from "@shared/types";
 import { socket } from "./network";
+import { soundEngine } from "./game/sound";
 
 // ---- Skill definitions for display ----
 interface SkillDisplay {
@@ -1205,9 +1206,11 @@ class UIManager {
   toggleInventory(): void {
     if (this.inventoryPanel.classList.contains("visible")) {
       this.inventoryPanel.classList.remove("visible");
+      soundEngine.playClose();
     } else {
       this.inventoryPanel.classList.add("visible");
       this.renderInventoryGrid();
+      soundEngine.playOpen();
     }
   }
 
@@ -1853,8 +1856,10 @@ class UIManager {
   toggleStatPanel(): void {
     if (this.statPanel.classList.contains("visible")) {
       this.statPanel.classList.remove("visible");
+      soundEngine.playClose();
     } else {
       this.statPanel.classList.add("visible");
+      soundEngine.playOpen();
     }
   }
 
@@ -1912,6 +1917,7 @@ class UIManager {
 
     this.enhanceBtn.addEventListener("click", () => {
       if (this.enhanceItemIndex >= 0 && this.enhanceScrollIndex >= 0) {
+        soundEngine.playEnhanceAttempt();
         socket.send(PacketType.ENHANCE_ITEM, {
           itemSlotIndex: this.enhanceItemIndex,
           scrollSlotIndex: this.enhanceScrollIndex,
@@ -1948,8 +1954,10 @@ class UIManager {
   toggleEnhancePanel(): void {
     if (this.enhancePanel.classList.contains("visible")) {
       this.closeEnhancePanel();
+      soundEngine.playClose();
     } else {
       this.openEnhancePanel();
+      soundEngine.playOpen();
     }
   }
 
@@ -2185,6 +2193,7 @@ class UIManager {
         this.enhanceResultText.style.textShadow = "";
       }
       this.showEnhanceResultAnimation("success", name, newLevel);
+      soundEngine.playEnhanceSuccess();
     } else if (destroyed) {
       this.enhanceResultText.textContent =
         "\uAC15\uD654 \uC2E4\uD328! \uC544\uC774\uD15C \uD30C\uAD34!";
@@ -2192,18 +2201,21 @@ class UIManager {
       this.enhanceResultText.style.color = "";
       this.enhanceResultText.style.textShadow = "";
       this.showEnhanceResultAnimation("destroy", name, newLevel);
+      soundEngine.playEnhanceDestroy();
     } else if (newLevel === 0) {
       this.enhanceResultText.textContent = `\uAC15\uD654 \uC2E4\uD328. +0\uC73C\uB85C \uCD08\uAE30\uD654`;
       this.enhanceResultText.className = "enhance-result fail";
       this.enhanceResultText.style.color = "";
       this.enhanceResultText.style.textShadow = "";
       this.showEnhanceResultAnimation("reset", name, newLevel);
+      soundEngine.playEnhanceFail();
     } else {
       this.enhanceResultText.textContent = `\uAC15\uD654 \uC2E4\uD328. +${newLevel}\uC73C\uB85C \uD558\uB77D`;
       this.enhanceResultText.className = "enhance-result fail";
       this.enhanceResultText.style.color = "";
       this.enhanceResultText.style.textShadow = "";
       this.showEnhanceResultAnimation("downgrade", name, newLevel);
+      soundEngine.playEnhanceFail();
     }
 
     // Reset selection
@@ -2785,6 +2797,7 @@ class UIManager {
         : this.findBestPotion("mpRestore");
     if (potionId >= 0) {
       socket.send(PacketType.USE_ITEM, { slotIndex: potionId });
+      soundEngine.playPotion();
     }
   }
 
@@ -2875,6 +2888,7 @@ class UIManager {
 
   pickupGroundItem(itemId: string): void {
     socket.send(PacketType.PICKUP_GROUND_ITEM, { itemId });
+    soundEngine.playPickup();
   }
 
   updateAutoPotion(enabled: boolean): void {
@@ -2977,9 +2991,11 @@ class UIManager {
     if (isVisible) {
       this.questPanel.classList.remove("visible");
       this.questPanel.style.display = "none";
+      soundEngine.playClose();
     } else {
       this.questPanel.classList.add("visible");
       this.questPanel.style.display = "flex";
+      soundEngine.playOpen();
       // Request latest quest data
       socket.send(PacketType.QUEST_LIST, {});
     }
@@ -3441,6 +3457,7 @@ class UIManager {
         streak: number;
       }) => {
         this.showDailyRewardPopup(data);
+        soundEngine.playNotification();
       },
     );
 
@@ -3455,6 +3472,7 @@ class UIManager {
         };
       }) => {
         this.showMilestoneReward(data.level, data.rewards);
+        soundEngine.playLevelUp();
       },
     );
 
@@ -3489,11 +3507,13 @@ class UIManager {
 
     socket.on(PacketType.QUEST_COMPLETE, (data: any) => {
       this.showNotification(`Quest reward received!`, "success");
+      soundEngine.playQuestComplete();
     });
 
     // Achievement unlock toast
     socket.on(PacketType.ACHIEVEMENT_UNLOCK, (data: any) => {
       this.showAchievementToast(data);
+      soundEngine.playAchievement();
     });
 
     // Achievement list response

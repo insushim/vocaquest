@@ -28,6 +28,7 @@ import {
   getTileTextureKey,
   getTileVariantCount,
 } from "../sprites";
+import { soundEngine } from "../sound";
 
 // ---- Tile color palette (dark medieval fantasy) ----
 const TILE_COLORS: Record<number, number> = {
@@ -305,6 +306,7 @@ export class GameScene extends Phaser.Scene {
   private walkAnimPhase: number = 0;
   private currentZoneId: string = "town";
   private currentAtmosphere: ZoneAtmosphere = ZONE_ATMOSPHERES.town;
+  private lastFootstepTime: number = 0;
 
   // ---- Player class (for skills) ----
   private playerClass: PlayerClass = PlayerClass.WARRIOR;
@@ -331,6 +333,10 @@ export class GameScene extends Phaser.Scene {
   // ================================================
 
   create(): void {
+    // Initialize sound engine on first user interaction
+    this.input.once("pointerdown", () => soundEngine.init());
+    this.input.keyboard?.once("keydown", () => soundEngine.init());
+
     // Pre-render all sprite textures
     generateAllTextures(this);
 
@@ -417,6 +423,11 @@ export class GameScene extends Phaser.Scene {
         // 3-frame walk cycle
         const walkCycle = Math.floor(this.walkAnimPhase * 2) % 3; // 0, 1, 2
         this.swapPlayerTexture(walkCycle);
+        // Footstep sound (throttled)
+        if (Date.now() - this.lastFootstepTime > 400) {
+          soundEngine.playFootstep();
+          this.lastFootstepTime = Date.now();
+        }
         // Flip sprite based on direction
         const ed = this.playerSprite.getData("entityData") as any;
         if (ed?.bodySprite) {
@@ -515,6 +526,7 @@ export class GameScene extends Phaser.Scene {
         const targetContainer = this.mobs.get(this.selectedTarget);
         if (targetContainer) {
           socket.send(PacketType.ATTACK, { targetId: this.selectedTarget });
+          this.playAttackSound();
         } else {
           // Target gone, find nearest mob
           this.autoSelectNearestMob();
@@ -789,11 +801,13 @@ export class GameScene extends Phaser.Scene {
       case EntityType.MOB:
         this.selectedTarget = entity.id;
         socket.send(PacketType.ATTACK, { targetId: entity.id });
+        this.playAttackSound();
         break;
       case EntityType.PLAYER:
         this.selectedTarget = entity.id;
         // Could attack in PvP or inspect
         socket.send(PacketType.ATTACK, { targetId: entity.id });
+        this.playAttackSound();
         break;
       case EntityType.NPC:
         this.selectedTarget = null;
@@ -802,6 +816,7 @@ export class GameScene extends Phaser.Scene {
       case EntityType.ITEM_DROP:
         this.selectedTarget = null;
         socket.send(PacketType.PICKUP_ITEM, { dropId: entity.id });
+        soundEngine.playPickup();
         break;
     }
   }
@@ -1072,6 +1087,7 @@ export class GameScene extends Phaser.Scene {
         // Check if the local player died
         if (data.id === this.playerId) {
           ui.showDeathScreen(data.expLost);
+          soundEngine.playPlayerDeath();
           if (this.playerSprite) {
             this.playerSprite.setAlpha(0.3);
           }
@@ -1081,6 +1097,7 @@ export class GameScene extends Phaser.Scene {
         // Mob/player died — if we killed it, add combo
         if (data.killerId === this.playerId) {
           ui.addCombo();
+          soundEngine.playMonsterDeath();
         }
 
         const container = this.findContainer(data.id);
@@ -1106,6 +1123,13 @@ export class GameScene extends Phaser.Scene {
       }) => {
         const container = this.findContainer(data.targetId);
         if (container) {
+          // Play hit sound
+          if (data.isCrit) {
+            soundEngine.playCriticalHit();
+          } else {
+            soundEngine.playHit();
+          }
+
           // Show damage number
           this.showDamageNumber(
             container.x,
@@ -1151,12 +1175,20 @@ export class GameScene extends Phaser.Scene {
       PacketType.SKILL_EFFECT,
       (data: { skillId: string; x: number; y: number; color?: string }) => {
         this.showSkillEffect(data.x, data.y, data.color || "#ff6600");
+        // Play appropriate sound based on skill color (heal=green, otherwise magic)
+        const c = (data.color || "").toLowerCase();
+        if (c.includes("00ff") || c.includes("44ff") || c === "#00ff00") {
+          soundEngine.playHeal();
+        } else {
+          soundEngine.playMagicHit();
+        }
       },
     );
 
     // LEVEL_UP: level up visual
     socket.on(PacketType.LEVEL_UP, (data: { level: number; id?: string }) => {
       if (!data.id || data.id === this.playerId) {
+        soundEngine.playLevelUp();
         if (this.playerSprite) {
           this.showLevelUpEffect(this.playerSprite.x, this.playerSprite.y);
         }
@@ -1226,9 +1258,25 @@ export class GameScene extends Phaser.Scene {
         }
 
         ui.hideDeathScreen();
+        soundEngine.playRespawn();
         this.selectedTarget = null;
       },
     );
+  }
+
+  /** Play attack sound based on player class */
+  private playAttackSound(): void {
+    switch (this.playerClass) {
+      case PlayerClass.MAGE:
+        soundEngine.playMagicCast();
+        break;
+      case PlayerClass.ARCHER:
+        soundEngine.playBowShot();
+        break;
+      default:
+        soundEngine.playSlash();
+        break;
+    }
   }
 
   /** Swap player sprite between idle and walk textures (3-frame cycle) */
@@ -3217,6 +3265,7 @@ export class GameScene extends Phaser.Scene {
         ZONE_ATMOSPHERES[newZoneId] || ZONE_ATMOSPHERES.town;
       this.initAmbientParticles();
       this.drawVignette(); // Redraw vignette for new zone
+      soundEngine.playBgm(newZoneId);
     }
   }
 
