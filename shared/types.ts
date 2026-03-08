@@ -82,9 +82,21 @@ export enum PacketType {
   STATUS_EFFECT = "status_effect",
   STATUS_REMOVE = "status_remove",
 
+  // Quest
+  QUEST_LIST = "quest_list",
+  QUEST_ACCEPT = "quest_accept",
+  QUEST_UPDATE = "quest_update",
+  QUEST_COMPLETE = "quest_complete",
+  QUEST_ABANDON = "quest_abandon",
+  QUEST_AVAILABLE = "quest_available",
+
   // Ping
   PING = "ping",
   PONG = "pong",
+
+  // Achievements
+  ACHIEVEMENT_UNLOCK = "achievement_unlock",
+  ACHIEVEMENT_LIST = "achievement_list",
 }
 
 // ---- Entities ----
@@ -210,6 +222,7 @@ export enum MobBehavior {
 export interface MobData extends EntityData {
   type: EntityType.MOB;
   mobId: string;
+  nameKo?: string;
   hp: number;
   maxHp: number;
   level: number;
@@ -325,6 +338,8 @@ export interface ItemDefinition {
   buffDuration?: number;
   buffValue?: number;
   teleportZone?: string;
+  // Set equipment
+  setId?: string;
 }
 
 export interface InventorySlot {
@@ -587,6 +602,59 @@ export interface SkillDefinition {
   statusValue?: number;
 }
 
+// ---- Quest System ----
+export enum QuestType {
+  KILL = "kill",
+  COLLECT = "collect",
+  VOCAB = "vocab",
+  EXPLORE = "explore",
+  BOSS = "boss",
+  TALK = "talk",
+}
+
+export enum QuestStatus {
+  AVAILABLE = "available",
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed",
+  TURNED_IN = "turned_in",
+}
+
+export interface QuestObjective {
+  type: QuestType;
+  target: string;
+  count: number;
+  current?: number;
+}
+
+export interface QuestReward {
+  exp?: number;
+  gold?: number;
+  items?: Array<{ itemId: string; count: number }>;
+  statPoints?: number;
+}
+
+export interface QuestDefinition {
+  id: string;
+  name: string;
+  nameKo: string;
+  description: string;
+  descriptionKo: string;
+  level: number;
+  npcId: string;
+  objectives: QuestObjective[];
+  rewards: QuestReward;
+  prerequisites?: string[];
+  repeatable?: boolean;
+  chainNext?: string;
+}
+
+export interface QuestProgress {
+  questId: string;
+  status: QuestStatus;
+  objectives: Array<{ current: number }>;
+  startedAt: number;
+}
+
 // ---- Constants ----
 export const TILE_SIZE = 32;
 export const TICK_RATE = 20;
@@ -622,3 +690,35 @@ export const STAT_EFFECTS = {
   [StatType.CON]: { hp: 8, defense: 0.5, magicDefense: 0.3 },
   [StatType.WIS]: { mp: 8, magicDefense: 0.8, healAmount: 0.02 },
 };
+
+// ---- Achievement System ----
+export enum AchievementCategory {
+  COMBAT = "combat",
+  VOCABULARY = "vocabulary",
+  EXPLORATION = "exploration",
+  COLLECTION = "collection",
+  SOCIAL = "social",
+  SPECIAL = "special",
+}
+
+export interface AchievementDefinition {
+  id: string;
+  name: string;
+  nameKo: string;
+  description: string;
+  descriptionKo: string;
+  category: AchievementCategory;
+  icon: string;
+  requirement: {
+    type: string;
+    target?: string;
+    count: number;
+  };
+  reward?: {
+    exp?: number;
+    gold?: number;
+    title?: string;
+    titleKo?: string;
+  };
+  hidden?: boolean;
+}

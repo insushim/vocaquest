@@ -16,6 +16,7 @@ import {
   SkillId,
   StatType,
   NpcType,
+  QuestType,
   MAX_CHAT_LENGTH,
   TICK_RATE,
   TICK_INTERVAL,
@@ -24,7 +25,13 @@ import { Config } from "./config";
 import { World } from "./world";
 import { Player } from "./player";
 import type { PlayerSaveData } from "./player";
-import { CombatSystem, QuizSystem, ShopSystem } from "./systems";
+import {
+  CombatSystem,
+  QuizSystem,
+  ShopSystem,
+  QuestSystem,
+  AchievementSystem,
+} from "./systems";
 import { NPCS } from "./data/npcs";
 import { SHOPS } from "./data/shops";
 import { ITEMS } from "./data/items";
@@ -150,6 +157,21 @@ export class Connection {
       case PacketType.RESPAWN:
         this.handleRespawn();
         break;
+      case PacketType.QUEST_LIST:
+        this.handleQuestList(data);
+        break;
+      case PacketType.QUEST_ACCEPT:
+        this.handleQuestAccept(data);
+        break;
+      case PacketType.QUEST_COMPLETE:
+        this.handleQuestComplete(data);
+        break;
+      case PacketType.QUEST_ABANDON:
+        this.handleQuestAbandon(data);
+        break;
+      case PacketType.ACHIEVEMENT_LIST:
+        this.handleAchievementList();
+        break;
       default:
         console.warn(`[Connection ${this.id}] Unknown packet type: ${type}`);
     }
@@ -217,6 +239,9 @@ export class Connection {
 
     this.server.world.addPlayer(this, player);
     this.sendWelcome(player);
+
+    // Achievement: early bird check
+    AchievementSystem.checkFirstLogin(player, this.server.world.players.size);
 
     console.log(`[Auth] Player logged in: ${name}`);
   }
@@ -343,6 +368,9 @@ export class Connection {
     this.send(PacketType.STATS_UPDATE, { stats: player.stats });
     this.send(PacketType.INVENTORY_UPDATE, { inventory: player.inventory });
     this.send(PacketType.EQUIPMENT_UPDATE, { equipment: player.equipment });
+
+    // Send quest data
+    QuestSystem.sendQuestUpdate(player);
   }
 
   private handleMove(data: Record<string, unknown>): void {
@@ -362,6 +390,37 @@ export class Connection {
     if (dx > 1 || dy > 1) return;
 
     this.player.move(x, y);
+
+    // Achievement: walk tiles
+    AchievementSystem.checkAchievement(this.player, "walk_tiles", 1);
+
+    // Check zone entry for EXPLORE quests and achievements
+    for (let zone of this.server.world.map.zones) {
+      if (
+        x >= zone.x &&
+        x < zone.x + zone.width &&
+        y >= zone.y &&
+        y < zone.y + zone.height
+      ) {
+        QuestSystem.updateProgress(this.player, QuestType.EXPLORE, zone.id, 1);
+        // Achievement: unique zone visits
+        let zoneKey = `zone_visited:${zone.id}`;
+        if (!this.player.achievementProgress[zoneKey]) {
+          this.player.achievementProgress[zoneKey] = 1;
+          let totalZones = 0;
+          for (let z of this.server.world.map.zones) {
+            if (this.player.achievementProgress[`zone_visited:${z.id}`])
+              totalZones++;
+          }
+          AchievementSystem.checkAchievement(
+            this.player,
+            "zone_visit",
+            totalZones,
+          );
+        }
+        break;
+      }
+    }
 
     this.server.broadcast(
       PacketType.ENTITY_MOVE,
@@ -398,6 +457,9 @@ export class Connection {
       message,
       system: false,
     });
+
+    // Achievement: chat messages
+    AchievementSystem.checkAchievement(this.player, "chat_send", 1);
   }
 
   private handleQuizAnswer(data: Record<string, unknown>): void {
@@ -421,6 +483,22 @@ export class Connection {
       }
 
       this.player.karma += 2;
+
+      // Update quest progress for vocab quests
+      QuestSystem.updateProgress(this.player, QuestType.VOCAB, "any", 1);
+
+      // Achievement: quiz correct, quiz streak, item pickup
+      AchievementSystem.checkAchievement(this.player, "quiz_correct", 1);
+      let streak = (this.player.achievementProgress["_quiz_streak"] || 0) + 1;
+      this.player.achievementProgress["_quiz_streak"] = streak;
+      AchievementSystem.checkAchievement(this.player, "quiz_streak", streak);
+      if (drops.length > 0) {
+        AchievementSystem.checkAchievement(this.player, "item_pickup", 1);
+        AchievementSystem.checkInventoryFull(this.player);
+      }
+      // Achievement: gold check
+      AchievementSystem.checkGold(this.player);
+
       this.player.quizPending = false;
       this.player.quizAnswer = null;
 
@@ -433,6 +511,10 @@ export class Connection {
         })),
       });
     } else {
+      // Reset quiz streak on wrong answer
+      if (this.player.achievementProgress["_quiz_streak"]) {
+        this.player.achievementProgress["_quiz_streak"] = 0;
+      }
       this.player.quizPending = false;
       this.player.quizAnswer = null;
 
@@ -467,7 +549,10 @@ export class Connection {
     let slotIndex = Number(data.slotIndex);
     if (isNaN(slotIndex)) return;
 
-    this.player.equipItem(slotIndex);
+    let equipped = this.player.equipItem(slotIndex);
+    if (equipped) {
+      AchievementSystem.checkFullEquip(this.player);
+    }
   }
 
   private handleUnequipItem(data: Record<string, unknown>): void {
@@ -519,6 +604,8 @@ export class Connection {
 
   private handleRespawn(): void {
     if (!this.player || !this.player.isDead) return;
+    // Achievement: death & respawn
+    AchievementSystem.checkAchievement(this.player, "death_count", 1);
     let spawn = this.server.world.map.playerSpawn;
     this.player.respawn(spawn.x, spawn.y);
   }
@@ -601,6 +688,13 @@ export class Connection {
       }
     }
 
+    // Update TALK quest progress
+    QuestSystem.updateProgress(this.player, QuestType.TALK, npcId, 1);
+
+    // Send available quests from this NPC
+    QuestSystem.sendAvailableQuests(this.player, npcId);
+    QuestSystem.sendQuestUpdate(this.player);
+
     // Send dialogue regardless
     if (npcDef.dialogue || npcDef.dialogueKo) {
       this.send(PacketType.NOTIFICATION, {
@@ -639,6 +733,13 @@ export class Connection {
     });
 
     if (result.success) {
+      // Achievement: enhance success and enhance level
+      AchievementSystem.checkAchievement(this.player, "enhance_success", 1);
+      AchievementSystem.checkAchievement(
+        this.player,
+        "enhance_level",
+        result.newLevel,
+      );
       this.send(PacketType.NOTIFICATION, {
         message: `Enhancement success! +${result.newLevel}`,
         messageKo: `강화 성공! +${result.newLevel}`,
@@ -663,6 +764,40 @@ export class Connection {
     if (!Object.values(StatType).includes(statType)) return;
 
     this.player.allocateStat(statType);
+  }
+
+  private handleQuestList(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let npcId = data.npcId ? String(data.npcId) : undefined;
+    QuestSystem.sendQuestUpdate(this.player);
+    QuestSystem.sendAvailableQuests(this.player, npcId);
+  }
+
+  private handleQuestAccept(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let questId = String(data.questId || "");
+    if (!questId) return;
+    QuestSystem.acceptQuest(this.player, questId);
+  }
+
+  private handleQuestComplete(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let questId = String(data.questId || "");
+    if (!questId) return;
+    QuestSystem.completeQuest(this.player, questId);
+  }
+
+  private handleQuestAbandon(data: Record<string, unknown>): void {
+    if (!this.player) return;
+    let questId = String(data.questId || "");
+    if (!questId) return;
+    QuestSystem.abandonQuest(this.player, questId);
+  }
+
+  private handleAchievementList(): void {
+    if (!this.player) return;
+    let data = AchievementSystem.getPlayerAchievements(this.player);
+    this.send(PacketType.ACHIEVEMENT_LIST, data);
   }
 
   private passwordHash: string = "";

@@ -13,6 +13,7 @@ import {
 } from "../../shared/types";
 import type { Player } from "./player";
 import type { World } from "./world";
+import { QuestType } from "../../shared/types";
 
 export type MobState =
   | "idle"
@@ -350,6 +351,11 @@ export class Mob {
 
     // Broadcast death
     world.broadcastEntityDeath(this.id, EntityType.MOB, killer.id);
+
+    // Update quest progress for kill/boss type
+    let { QuestSystem } = require("./systems");
+    let questType = this.definition.isBoss ? QuestType.BOSS : QuestType.KILL;
+    QuestSystem.updateProgress(killer, questType, this.mobId, 1);
 
     // Roll loot drops and start quiz
     let drops = this.rollDrops();

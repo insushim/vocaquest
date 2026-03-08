@@ -11,6 +11,9 @@ import type {
   SkillDefinition,
   LootDrop,
   StatusEffect,
+  QuestDefinition,
+  QuestProgress,
+  AchievementDefinition,
 } from "../../shared/types";
 import {
   PacketType,
@@ -18,6 +21,9 @@ import {
   SkillId,
   PlayerClass,
   StatusEffectType,
+  QuestType,
+  QuestStatus,
+  AchievementCategory,
   KARMA_LOSS_PER_KILL,
   KARMA_GAIN_PER_MOB,
   QUIZ_OPTIONS_COUNT,
@@ -26,6 +32,8 @@ import {
 import { ITEMS } from "./data/items";
 import { SHOPS } from "./data/shops";
 import { SKILLS } from "./data/skills";
+import { QUESTS } from "./data/quests";
+import { ACHIEVEMENTS, getAllAchievements } from "./data/achievements";
 import type { Player } from "./player";
 import type { Mob } from "./mob";
 import type { World } from "./world";
@@ -204,9 +212,25 @@ export let CombatSystem = {
         mob.definition.hp,
       );
 
+      // Achievement: critical hits
+      if (isCrit) {
+        AchievementSystem.checkAchievement(attacker, "critical_hit", 1);
+      }
+
       if (mob.hp <= 0) {
         mob.die(attacker, world);
         KarmaSystem.onMobKill(attacker);
+        // Achievement: mob kills, boss kills, level, gold
+        AchievementSystem.checkAchievement(attacker, "kill_total", 1);
+        if (mob.definition.isBoss) {
+          AchievementSystem.checkAchievement(attacker, "boss_kill", 1);
+        }
+        AchievementSystem.checkAchievement(
+          attacker,
+          "level_reach",
+          attacker.level,
+        );
+        AchievementSystem.checkGold(attacker);
       }
       return;
     }
@@ -252,6 +276,15 @@ export let CombatSystem = {
 
       if (targetPlayer.isDead) {
         KarmaSystem.onPlayerKill(attacker, targetPlayer, world);
+        // Achievement: PvP kills
+        AchievementSystem.checkAchievement(attacker, "pvp_kill", 1);
+        AchievementSystem.checkAchievement(
+          attacker,
+          "pvp_streak",
+          attacker.killStreak,
+        );
+        // Achievement: death for victim
+        AchievementSystem.checkAchievement(targetPlayer, "death_count", 1);
       }
     }
   },
@@ -282,6 +315,9 @@ export let CombatSystem = {
 
     let skill = SKILLS[skillId] as SkillDefinition;
     player.consumeMpForSkill(skillId);
+
+    // Achievement: skill use
+    AchievementSystem.checkAchievement(player, "skill_use", 1);
 
     // --- Self-buff skills ---
     if (skill.damage === 0 && skill.buffDuration && !skill.healAmount) {
@@ -467,6 +503,11 @@ export let CombatSystem = {
           if (mob.hp <= 0) {
             mob.die(player, world);
             KarmaSystem.onMobKill(player);
+            AchievementSystem.checkAchievement(player, "kill_total", 1);
+            if (mob.definition.isBoss) {
+              AchievementSystem.checkAchievement(player, "boss_kill", 1);
+            }
+            AchievementSystem.checkGold(player);
           }
         }
       }
@@ -550,6 +591,11 @@ export let CombatSystem = {
         if (mob.hp <= 0) {
           mob.die(player, world);
           KarmaSystem.onMobKill(player);
+          AchievementSystem.checkAchievement(player, "kill_total", 1);
+          if (mob.definition.isBoss) {
+            AchievementSystem.checkAchievement(player, "boss_kill", 1);
+          }
+          AchievementSystem.checkGold(player);
         }
 
         world.broadcast(PacketType.SKILL_EFFECT, {
@@ -832,9 +878,473 @@ export let KarmaSystem = {
       killStreak: player.killStreak,
       totalKills: player.totalKills,
     });
+
+    // Achievement: karma check
+    AchievementSystem.checkKarma(player);
   },
 
   getTitle(karma: number): { en: string; ko: string } {
     return getKarmaTitle(karma);
+  },
+};
+
+// ---- Quest System ----
+
+export let QuestSystem = {
+  getAvailableQuests(player: Player): QuestDefinition[] {
+    let available: QuestDefinition[] = [];
+    for (let quest of Object.values(QUESTS)) {
+      // Skip if already active
+      if (player.quests.find((q) => q.questId === quest.id)) continue;
+
+      // Skip if already completed (unless repeatable)
+      if (player.completedQuests.has(quest.id) && !quest.repeatable) continue;
+
+      // Check level requirement
+      if (player.level < quest.level) continue;
+
+      // Check prerequisites
+      if (quest.prerequisites) {
+        let metAll = quest.prerequisites.every((preId) =>
+          player.completedQuests.has(preId),
+        );
+        if (!metAll) continue;
+      }
+
+      available.push(quest);
+    }
+    return available;
+  },
+
+  acceptQuest(player: Player, questId: string): boolean {
+    let quest = QUESTS[questId];
+    if (!quest) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Quest not found.",
+        messageKo: "퀘스트를 찾을 수 없습니다.",
+      });
+      return false;
+    }
+
+    // Check if already active
+    if (player.quests.find((q) => q.questId === questId)) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Quest already in progress.",
+        messageKo: "이미 진행 중인 퀘스트입니다.",
+      });
+      return false;
+    }
+
+    // Check if already completed and not repeatable
+    if (player.completedQuests.has(questId) && !quest.repeatable) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Quest already completed.",
+        messageKo: "이미 완료한 퀘스트입니다.",
+      });
+      return false;
+    }
+
+    // Check level
+    if (player.level < quest.level) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: `Requires level ${quest.level}.`,
+        messageKo: `레벨 ${quest.level}이 필요합니다.`,
+      });
+      return false;
+    }
+
+    // Check prerequisites
+    if (quest.prerequisites) {
+      for (let preId of quest.prerequisites) {
+        if (!player.completedQuests.has(preId)) {
+          player.connection.send(PacketType.NOTIFICATION, {
+            message: "Prerequisites not met.",
+            messageKo: "선행 퀘스트를 먼저 완료해야 합니다.",
+          });
+          return false;
+        }
+      }
+    }
+
+    // Max 10 active quests
+    if (player.quests.length >= 10) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Too many active quests (max 10).",
+        messageKo: "진행 중인 퀘스트가 너무 많습니다 (최대 10개).",
+      });
+      return false;
+    }
+
+    let progress: QuestProgress = {
+      questId,
+      status: QuestStatus.IN_PROGRESS,
+      objectives: quest.objectives.map(() => ({ current: 0 })),
+      startedAt: Date.now(),
+    };
+
+    player.quests.push(progress);
+
+    player.connection.send(PacketType.NOTIFICATION, {
+      message: `Quest accepted: ${quest.name}`,
+      messageKo: `퀘스트 수락: ${quest.nameKo}`,
+    });
+
+    // Send updated quest list
+    this.sendQuestUpdate(player);
+    return true;
+  },
+
+  updateProgress(
+    player: Player,
+    type: QuestType,
+    target: string,
+    count: number = 1,
+  ): void {
+    let changed = false;
+
+    for (let progress of player.quests) {
+      if (progress.status !== QuestStatus.IN_PROGRESS) continue;
+
+      let quest = QUESTS[progress.questId];
+      if (!quest) continue;
+
+      for (let i = 0; i < quest.objectives.length; i++) {
+        let obj = quest.objectives[i];
+        if (obj.type !== type) continue;
+
+        // Match target: "any" matches all, or exact match
+        if (obj.target !== "any" && obj.target !== target) continue;
+
+        let prev = progress.objectives[i].current;
+        if (prev >= obj.count) continue; // already done
+
+        progress.objectives[i].current = Math.min(prev + count, obj.count);
+        changed = true;
+      }
+
+      // Check if all objectives completed
+      let allDone = quest.objectives.every(
+        (obj, idx) => progress.objectives[idx].current >= obj.count,
+      );
+      if (allDone && progress.status === QuestStatus.IN_PROGRESS) {
+        progress.status = QuestStatus.COMPLETED;
+        player.connection.send(PacketType.NOTIFICATION, {
+          message: `Quest completed: ${quest.name}! Return to the NPC.`,
+          messageKo: `퀘스트 완료: ${quest.nameKo}! NPC에게 돌아가세요.`,
+        });
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.sendQuestUpdate(player);
+    }
+  },
+
+  completeQuest(player: Player, questId: string): boolean {
+    let progressIdx = player.quests.findIndex((q) => q.questId === questId);
+    if (progressIdx === -1) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Quest not active.",
+        messageKo: "진행 중인 퀘스트가 아닙니다.",
+      });
+      return false;
+    }
+
+    let progress = player.quests[progressIdx];
+    if (progress.status !== QuestStatus.COMPLETED) {
+      player.connection.send(PacketType.NOTIFICATION, {
+        message: "Quest objectives not yet completed.",
+        messageKo: "퀘스트 목표가 아직 완료되지 않았습니다.",
+      });
+      return false;
+    }
+
+    let quest = QUESTS[questId];
+    if (!quest) return false;
+
+    // Give rewards
+    if (quest.rewards.exp) {
+      player.addExp(quest.rewards.exp);
+    }
+    if (quest.rewards.gold) {
+      player.stats.gold += quest.rewards.gold;
+    }
+    if (quest.rewards.statPoints) {
+      player.stats.statPoints += quest.rewards.statPoints;
+    }
+    if (quest.rewards.items) {
+      for (let item of quest.rewards.items) {
+        player.addItem(item.itemId, item.count);
+      }
+    }
+
+    // Remove from active, add to completed
+    player.quests.splice(progressIdx, 1);
+    player.completedQuests.add(questId);
+
+    player.connection.send(PacketType.STATS_UPDATE, { stats: player.stats });
+    player.connection.send(PacketType.QUEST_COMPLETE, {
+      questId,
+      rewards: quest.rewards,
+    });
+
+    let rewardMsg: string[] = [];
+    if (quest.rewards.exp) rewardMsg.push(`${quest.rewards.exp} EXP`);
+    if (quest.rewards.gold) rewardMsg.push(`${quest.rewards.gold} Gold`);
+    if (quest.rewards.statPoints)
+      rewardMsg.push(`${quest.rewards.statPoints} Stat Points`);
+
+    player.connection.send(PacketType.NOTIFICATION, {
+      message: `Quest turned in: ${quest.name}! Rewards: ${rewardMsg.join(", ")}`,
+      messageKo: `퀘스트 보상: ${quest.nameKo}! 보상: ${rewardMsg.join(", ")}`,
+    });
+
+    // Auto-accept chain next if available
+    if (quest.chainNext && QUESTS[quest.chainNext]) {
+      let nextQuest = QUESTS[quest.chainNext];
+      if (player.level >= nextQuest.level) {
+        this.acceptQuest(player, quest.chainNext);
+      }
+    }
+
+    this.sendQuestUpdate(player);
+    return true;
+  },
+
+  abandonQuest(player: Player, questId: string): void {
+    let idx = player.quests.findIndex((q) => q.questId === questId);
+    if (idx === -1) return;
+
+    let quest = QUESTS[questId];
+    player.quests.splice(idx, 1);
+
+    player.connection.send(PacketType.NOTIFICATION, {
+      message: `Quest abandoned: ${quest?.name || questId}`,
+      messageKo: `퀘스트 포기: ${quest?.nameKo || questId}`,
+    });
+
+    this.sendQuestUpdate(player);
+  },
+
+  sendQuestUpdate(player: Player): void {
+    let activeQuests = player.quests.map((progress) => {
+      let quest = QUESTS[progress.questId];
+      return {
+        ...progress,
+        quest: quest
+          ? {
+              id: quest.id,
+              name: quest.name,
+              nameKo: quest.nameKo,
+              description: quest.description,
+              descriptionKo: quest.descriptionKo,
+              level: quest.level,
+              npcId: quest.npcId,
+              objectives: quest.objectives,
+              rewards: quest.rewards,
+            }
+          : null,
+      };
+    });
+
+    player.connection.send(PacketType.QUEST_UPDATE, {
+      quests: activeQuests,
+    });
+  },
+
+  sendAvailableQuests(player: Player, npcId?: string): void {
+    let available = this.getAvailableQuests(player);
+    if (npcId) {
+      available = available.filter((q) => q.npcId === npcId);
+    }
+    player.connection.send(PacketType.QUEST_AVAILABLE, {
+      quests: available,
+    });
+  },
+
+  getQuestDef(questId: string): QuestDefinition | undefined {
+    return QUESTS[questId];
+  },
+};
+
+// ---- Achievement System ----
+
+export let AchievementSystem = {
+  // Increment progress and check if any achievement should unlock
+  checkAchievement(
+    player: Player,
+    type: string,
+    value: number = 1,
+    target?: string,
+  ): void {
+    for (let achievement of getAllAchievements()) {
+      if (player.achievements.has(achievement.id)) continue;
+      if (achievement.requirement.type !== type) continue;
+
+      // If achievement requires a specific target, check it
+      if (
+        achievement.requirement.target &&
+        achievement.requirement.target !== target
+      )
+        continue;
+
+      // Get current progress
+      let progressKey = target ? `${type}:${target}` : type;
+      let currentProgress = player.achievementProgress[progressKey] || 0;
+
+      // For "reach" type achievements, use the value directly
+      let isReachType =
+        type === "level_reach" ||
+        type === "karma_reach" ||
+        type === "karma_negative" ||
+        type === "combo_reach" ||
+        type === "pvp_streak" ||
+        type === "enhance_level" ||
+        type === "gold_accumulate" ||
+        type === "full_equip" ||
+        type === "play_time";
+
+      if (isReachType) {
+        currentProgress = Math.max(currentProgress, value);
+      } else {
+        currentProgress += value;
+      }
+      player.achievementProgress[progressKey] = currentProgress;
+
+      // Check if requirement is met
+      if (currentProgress >= achievement.requirement.count) {
+        this.unlockAchievement(player, achievement);
+      }
+    }
+  },
+
+  // Unlock an achievement and send rewards
+  unlockAchievement(player: Player, achievement: AchievementDefinition): void {
+    if (player.achievements.has(achievement.id)) return;
+
+    player.achievements.add(achievement.id);
+
+    // Apply rewards
+    if (achievement.reward) {
+      if (achievement.reward.exp) {
+        player.addExp(achievement.reward.exp);
+      }
+      if (achievement.reward.gold) {
+        player.stats.gold += achievement.reward.gold;
+        player.connection.send(PacketType.STATS_UPDATE, {
+          stats: player.stats,
+        });
+      }
+    }
+
+    // Send unlock notification to player
+    player.connection.send(PacketType.ACHIEVEMENT_UNLOCK, {
+      id: achievement.id,
+      name: achievement.name,
+      nameKo: achievement.nameKo,
+      description: achievement.description,
+      descriptionKo: achievement.descriptionKo,
+      icon: achievement.icon,
+      category: achievement.category,
+      reward: achievement.reward,
+    });
+
+    console.log(
+      `[Achievement] ${player.name} unlocked: ${achievement.nameKo} (${achievement.id})`,
+    );
+  },
+
+  // Get player's achievement status for the UI
+  getPlayerAchievements(player: Player): {
+    achievements: Array<{
+      id: string;
+      name: string;
+      nameKo: string;
+      description: string;
+      descriptionKo: string;
+      category: string;
+      icon: string;
+      requirement: { type: string; target?: string; count: number };
+      reward?: {
+        exp?: number;
+        gold?: number;
+        title?: string;
+        titleKo?: string;
+      };
+      hidden?: boolean;
+      unlocked: boolean;
+      progress: number;
+    }>;
+  } {
+    let all = getAllAchievements();
+    let result = all.map((a) => {
+      let unlocked = player.achievements.has(a.id);
+      let progressKey = a.requirement.target
+        ? `${a.requirement.type}:${a.requirement.target}`
+        : a.requirement.type;
+      let progress = player.achievementProgress[progressKey] || 0;
+
+      return {
+        id: a.id,
+        name: a.name,
+        nameKo: a.nameKo,
+        description: a.description,
+        descriptionKo: a.descriptionKo,
+        category: a.category,
+        icon: a.icon,
+        requirement: a.requirement,
+        reward: a.reward,
+        hidden: a.hidden,
+        unlocked,
+        progress: Math.min(progress, a.requirement.count),
+      };
+    });
+
+    return { achievements: result };
+  },
+
+  // Check play time achievement
+  checkPlayTime(player: Player): void {
+    let playTimeSeconds = Math.floor((Date.now() - player.loginTime) / 1000);
+    this.checkAchievement(player, "play_time", playTimeSeconds);
+  },
+
+  // Check early bird (first login)
+  checkFirstLogin(player: Player, totalPlayers: number): void {
+    if (totalPlayers === 1) {
+      this.checkAchievement(player, "first_login", 1);
+    }
+  },
+
+  // Check full equip
+  checkFullEquip(player: Player): void {
+    let equippedCount = 0;
+    for (let slot of Object.values(player.equipment)) {
+      if (slot !== null) equippedCount++;
+    }
+    this.checkAchievement(player, "full_equip", equippedCount);
+  },
+
+  // Check inventory full
+  checkInventoryFull(player: Player): void {
+    if (player.inventory.length >= 28) {
+      this.checkAchievement(player, "inventory_full", 1);
+    }
+  },
+
+  // Check gold accumulation
+  checkGold(player: Player): void {
+    this.checkAchievement(player, "gold_accumulate", player.stats.gold);
+  },
+
+  // Check karma achievements
+  checkKarma(player: Player): void {
+    if (player.karma >= 0) {
+      this.checkAchievement(player, "karma_reach", player.karma);
+    }
+    if (player.karma < 0) {
+      this.checkAchievement(player, "karma_negative", Math.abs(player.karma));
+    }
   },
 };

@@ -22,7 +22,7 @@ import { MONSTERS } from "./data/monsters";
 import { NPCS } from "./data/npcs";
 import { Player } from "./player";
 import { Mob } from "./mob";
-import { QuizSystem } from "./systems";
+import { QuizSystem, AchievementSystem } from "./systems";
 import type { Connection } from "./network";
 
 export interface ItemDrop {
@@ -83,6 +83,13 @@ export class World {
     // Update all players
     for (let [, player] of this.players) {
       player.update();
+    }
+
+    // Periodic achievement checks (every ~60 seconds)
+    if (now % 60000 < TICK_INTERVAL) {
+      for (let [, player] of this.players) {
+        AchievementSystem.checkPlayTime(player);
+      }
     }
 
     // Clean up old item drops

@@ -12,6 +12,7 @@ import type {
   AllocatedStats,
   LootDrop,
   SkillDefinition,
+  QuestProgress,
 } from "../../shared/types";
 import {
   EntityType,
@@ -175,6 +176,12 @@ export interface PlayerSaveData {
   equipEnhancements?: EquipmentEnhancements;
   allocatedStats?: AllocatedStats;
   statPoints?: number;
+  quests?: QuestProgress[];
+  completedQuests?: string[];
+  achievements?: string[];
+  achievementProgress?: Record<string, number>;
+  title?: string;
+  titleKo?: string;
 }
 
 function defaultAllocatedStats(): AllocatedStats {
@@ -234,6 +241,16 @@ export class Player {
 
   buffs: Map<string, { endsAt: number; effect: Record<string, number> }>;
 
+  quests: QuestProgress[];
+  completedQuests: Set<string>;
+
+  // Achievement system
+  achievements: Set<string>;
+  achievementProgress: Record<string, number>;
+  title?: string;
+  titleKo?: string;
+  loginTime: number;
+
   isDead: boolean;
   respawnTimer: number | null;
 
@@ -282,6 +299,11 @@ export class Player {
     this.usedWords = new Set();
 
     this.buffs = new Map();
+    this.quests = [];
+    this.completedQuests = new Set();
+    this.achievements = new Set();
+    this.achievementProgress = {};
+    this.loginTime = Date.now();
     this.isDead = false;
     this.respawnTimer = null;
 
@@ -312,6 +334,12 @@ export class Player {
     player.equipEnhancements =
       data.equipEnhancements || defaultEquipEnhancements();
     player.allocatedStats = data.allocatedStats || defaultAllocatedStats();
+    player.quests = data.quests || [];
+    player.completedQuests = new Set(data.completedQuests || []);
+    player.achievements = new Set(data.achievements || []);
+    player.achievementProgress = data.achievementProgress || {};
+    player.title = data.title;
+    player.titleKo = data.titleKo;
 
     player.stats = player.calculateStats();
     player.stats.hp = player.stats.maxHp;
@@ -1237,6 +1265,12 @@ export class Player {
       equipEnhancements: this.equipEnhancements,
       allocatedStats: this.allocatedStats,
       statPoints: this.stats.statPoints,
+      quests: this.quests,
+      completedQuests: [...this.completedQuests],
+      achievements: [...this.achievements],
+      achievementProgress: { ...this.achievementProgress },
+      title: this.title,
+      titleKo: this.titleKo,
     };
   }
 }

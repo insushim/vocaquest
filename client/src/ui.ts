@@ -13,6 +13,7 @@ import {
   QuizQuestion,
   SkillId,
   ItemType,
+  QuestStatus,
   MAX_CHAT_LENGTH,
   MAX_INVENTORY_SLOTS,
   MapData,
@@ -20,6 +21,7 @@ import {
   EntityData,
   Position,
 } from "@shared/types";
+import type { QuestDefinition, QuestProgress } from "@shared/types";
 import { socket } from "./network";
 
 // ---- Skill definitions for display ----
@@ -352,6 +354,30 @@ class UIManager {
   private creationPointsTotal: number = 10;
   private isRegisterMode: boolean = false;
 
+  // Quest system
+  private questPanel!: HTMLElement;
+  private questClose!: HTMLElement;
+  private questActiveList!: HTMLElement;
+  private questAvailableList!: HTMLElement;
+  private questDialog!: HTMLElement;
+  private questDialogTitle!: HTMLElement;
+  private questDialogDesc!: HTMLElement;
+  private questDialogObjectives!: HTMLElement;
+  private questDialogRewards!: HTMLElement;
+  private questDialogClose!: HTMLElement;
+  private questDialogAccept!: HTMLElement;
+  private questDialogComplete!: HTMLElement;
+  private questDialogAbandon!: HTMLElement;
+  private hudQuestBtn!: HTMLElement;
+  private activeQuests: Array<{
+    questId: string;
+    status: string;
+    objectives: Array<{ current: number }>;
+    quest: any;
+  }> = [];
+  private availableQuests: QuestDefinition[] = [];
+  private selectedQuestId: string = "";
+
   // Auto-attack
   private autoAttackEnabled: boolean = false;
   private autoAttackBtn!: HTMLElement;
@@ -399,6 +425,22 @@ class UIManager {
   private playerX: number = 0;
   private playerY: number = 0;
 
+  // Achievement system
+  private achievementPanel!: HTMLElement;
+  private achievementList!: HTMLElement;
+  private achievementCount!: HTMLElement;
+  private achievementClose!: HTMLElement;
+  private achievementTabs!: HTMLElement;
+  private achievementToast!: HTMLElement;
+  private toastIcon!: HTMLElement;
+  private toastName!: HTMLElement;
+  private toastDesc!: HTMLElement;
+  private toastReward!: HTMLElement;
+  private hudAchBtn!: HTMLElement;
+  private achievementData: any[] = [];
+  private achievementCategory: string = "all";
+  private toastTimer: number | null = null;
+
   constructor() {
     // Wait for DOM
     if (document.readyState === "loading") {
@@ -423,6 +465,8 @@ class UIManager {
     this.setupAutoAttack();
     this.setupDeathScreen();
     this.setupPotionQuickslot();
+    this.setupQuestPanel();
+    this.setupAchievementPanel();
     this.setupSocketListeners();
   }
 
@@ -534,6 +578,39 @@ class UIManager {
     this.potionQuickslot = document.getElementById("potion-quickslot")!;
     this.potionHpCount = document.getElementById("potion-hp-count")!;
     this.potionMpCount = document.getElementById("potion-mp-count")!;
+
+    // Quest elements
+    this.questPanel = document.getElementById("quest-panel")!;
+    this.questClose = document.getElementById("quest-close")!;
+    this.questActiveList = document.getElementById("quest-active-list")!;
+    this.questAvailableList = document.getElementById("quest-available-list")!;
+    this.questDialog = document.getElementById("quest-dialog")!;
+    this.questDialogTitle = document.getElementById("quest-dialog-title")!;
+    this.questDialogDesc = document.getElementById("quest-dialog-desc")!;
+    this.questDialogObjectives = document.getElementById(
+      "quest-dialog-objectives",
+    )!;
+    this.questDialogRewards = document.getElementById("quest-dialog-rewards")!;
+    this.questDialogClose = document.getElementById("quest-dialog-close")!;
+    this.questDialogAccept = document.getElementById("quest-dialog-accept")!;
+    this.questDialogComplete = document.getElementById(
+      "quest-dialog-complete",
+    )!;
+    this.questDialogAbandon = document.getElementById("quest-dialog-abandon")!;
+    this.hudQuestBtn = document.getElementById("hud-quest-btn")!;
+
+    // Achievement elements
+    this.achievementPanel = document.getElementById("achievement-panel")!;
+    this.achievementList = document.getElementById("ach-list")!;
+    this.achievementCount = document.getElementById("ach-count")!;
+    this.achievementClose = document.getElementById("ach-close")!;
+    this.achievementTabs = document.getElementById("ach-tabs")!;
+    this.achievementToast = document.getElementById("achievement-toast")!;
+    this.toastIcon = document.getElementById("toast-icon")!;
+    this.toastName = document.getElementById("toast-name")!;
+    this.toastDesc = document.getElementById("toast-desc")!;
+    this.toastReward = document.getElementById("toast-reward")!;
+    this.hudAchBtn = document.getElementById("hud-ach-btn")!;
   }
 
   // ================================================
@@ -2043,6 +2120,429 @@ class UIManager {
   // Socket Event Listeners
   // ================================================
 
+  // ================================================
+  // Quest System
+  // ================================================
+
+  private setupQuestPanel(): void {
+    // Toggle quest panel
+    this.hudQuestBtn.addEventListener("click", () => {
+      this.toggleQuestPanel();
+    });
+
+    // Close quest panel
+    this.questClose.addEventListener("click", () => {
+      this.questPanel.classList.remove("visible");
+      this.questPanel.style.display = "none";
+    });
+
+    // Tab switching
+    let tabs = this.questPanel.querySelectorAll(".quest-tab");
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        let tabId = (tab as HTMLElement).dataset.tab;
+        if (tabId === "active") {
+          this.questActiveList.style.display = "";
+          this.questAvailableList.style.display = "none";
+        } else {
+          this.questActiveList.style.display = "none";
+          this.questAvailableList.style.display = "";
+          // Request available quests
+          socket.send(PacketType.QUEST_LIST, {});
+        }
+      });
+    });
+
+    // Dialog close
+    this.questDialogClose.addEventListener("click", () => {
+      this.questDialog.classList.remove("visible");
+      this.questDialog.style.display = "none";
+    });
+
+    // Accept quest
+    this.questDialogAccept.addEventListener("click", () => {
+      if (this.selectedQuestId) {
+        socket.send(PacketType.QUEST_ACCEPT, { questId: this.selectedQuestId });
+        this.questDialog.classList.remove("visible");
+        this.questDialog.style.display = "none";
+      }
+    });
+
+    // Complete/turn-in quest
+    this.questDialogComplete.addEventListener("click", () => {
+      if (this.selectedQuestId) {
+        socket.send(PacketType.QUEST_COMPLETE, {
+          questId: this.selectedQuestId,
+        });
+        this.questDialog.classList.remove("visible");
+        this.questDialog.style.display = "none";
+      }
+    });
+
+    // Abandon quest
+    this.questDialogAbandon.addEventListener("click", () => {
+      if (this.selectedQuestId) {
+        socket.send(PacketType.QUEST_ABANDON, {
+          questId: this.selectedQuestId,
+        });
+        this.questDialog.classList.remove("visible");
+        this.questDialog.style.display = "none";
+      }
+    });
+
+    // Keyboard shortcut J
+    document.addEventListener("keydown", (e) => {
+      if (this.chatFocused) return;
+      if (e.key === "j" || e.key === "J") {
+        this.toggleQuestPanel();
+      }
+    });
+  }
+
+  private toggleQuestPanel(): void {
+    let isVisible = this.questPanel.classList.contains("visible");
+    if (isVisible) {
+      this.questPanel.classList.remove("visible");
+      this.questPanel.style.display = "none";
+    } else {
+      this.questPanel.classList.add("visible");
+      this.questPanel.style.display = "flex";
+      // Request latest quest data
+      socket.send(PacketType.QUEST_LIST, {});
+    }
+  }
+
+  private renderActiveQuests(): void {
+    if (!this.questActiveList) return;
+
+    if (this.activeQuests.length === 0) {
+      this.questActiveList.innerHTML =
+        '<div class="quest-empty">No active quests. Talk to NPCs to find quests!</div>';
+      return;
+    }
+
+    let html = "";
+    for (let aq of this.activeQuests) {
+      let q = aq.quest;
+      if (!q) continue;
+
+      let isCompleted = aq.status === "completed";
+      let totalProgress = 0;
+      let totalRequired = 0;
+
+      for (let i = 0; i < q.objectives.length; i++) {
+        let obj = q.objectives[i];
+        let cur = aq.objectives[i]?.current || 0;
+        totalProgress += Math.min(cur, obj.count);
+        totalRequired += obj.count;
+      }
+
+      let pct =
+        totalRequired > 0
+          ? Math.floor((totalProgress / totalRequired) * 100)
+          : 0;
+      let progressText = q.objectives
+        .map((obj: any, i: number) => {
+          let cur = aq.objectives[i]?.current || 0;
+          return `${this.getObjectiveLabel(obj)}: ${Math.min(cur, obj.count)}/${obj.count}`;
+        })
+        .join(" | ");
+
+      html += `
+        <div class="quest-item ${isCompleted ? "completed" : ""}" data-quest-id="${aq.questId}" data-quest-mode="active">
+          <div class="quest-item-header">
+            <span class="quest-item-name">${isCompleted ? "[DONE] " : ""}${q.nameKo}</span>
+            <span class="quest-item-level">Lv.${q.level}</span>
+          </div>
+          <div class="quest-item-desc">${progressText}</div>
+          <div class="quest-progress-bar">
+            <div class="quest-progress-fill ${isCompleted ? "complete" : ""}" style="width:${pct}%"></div>
+          </div>
+        </div>`;
+    }
+
+    this.questActiveList.innerHTML = html;
+
+    // Click handlers
+    this.questActiveList.querySelectorAll(".quest-item").forEach((el) => {
+      el.addEventListener("click", () => {
+        let questId = (el as HTMLElement).dataset.questId!;
+        this.showQuestDialog(questId, "active");
+      });
+    });
+  }
+
+  private renderAvailableQuests(): void {
+    if (!this.questAvailableList) return;
+
+    if (this.availableQuests.length === 0) {
+      this.questAvailableList.innerHTML =
+        '<div class="quest-empty">No new quests available. Level up or complete current quests!</div>';
+      return;
+    }
+
+    let html = "";
+    for (let q of this.availableQuests) {
+      html += `
+        <div class="quest-item" data-quest-id="${q.id}" data-quest-mode="available">
+          <div class="quest-item-header">
+            <span class="quest-item-name">${q.nameKo}</span>
+            <span class="quest-item-level">Lv.${q.level}</span>
+          </div>
+          <div class="quest-item-desc">${q.descriptionKo}</div>
+        </div>`;
+    }
+
+    this.questAvailableList.innerHTML = html;
+
+    this.questAvailableList.querySelectorAll(".quest-item").forEach((el) => {
+      el.addEventListener("click", () => {
+        let questId = (el as HTMLElement).dataset.questId!;
+        this.showQuestDialog(questId, "available");
+      });
+    });
+  }
+
+  private showQuestDialog(questId: string, mode: "active" | "available"): void {
+    this.selectedQuestId = questId;
+
+    let quest: any = null;
+    let progress: any = null;
+
+    if (mode === "active") {
+      let aq = this.activeQuests.find((a) => a.questId === questId);
+      if (!aq || !aq.quest) return;
+      quest = aq.quest;
+      progress = aq;
+    } else {
+      quest = this.availableQuests.find((q) => q.id === questId);
+      if (!quest) return;
+    }
+
+    this.questDialogTitle.textContent = quest.nameKo;
+    this.questDialogDesc.textContent = quest.descriptionKo;
+
+    // Objectives
+    let objHtml = '<div class="quest-obj-title">Objectives</div>';
+    for (let i = 0; i < quest.objectives.length; i++) {
+      let obj = quest.objectives[i];
+      let cur = progress ? progress.objectives[i]?.current || 0 : 0;
+      let isDone = cur >= obj.count;
+      objHtml += `
+        <div class="quest-obj-item">
+          <span class="quest-obj-check ${isDone ? "done" : ""}">${isDone ? "V" : ""}</span>
+          <span>${this.getObjectiveLabel(obj)}: ${cur}/${obj.count}</span>
+        </div>`;
+    }
+    this.questDialogObjectives.innerHTML = objHtml;
+
+    // Rewards
+    let rewHtml = '<div class="quest-reward-title">Rewards</div>';
+    if (quest.rewards.exp) {
+      rewHtml += `<div class="quest-reward-item">EXP: ${quest.rewards.exp}</div>`;
+    }
+    if (quest.rewards.gold) {
+      rewHtml += `<div class="quest-reward-item">Gold: ${quest.rewards.gold}</div>`;
+    }
+    if (quest.rewards.statPoints) {
+      rewHtml += `<div class="quest-reward-item">Stat Points: ${quest.rewards.statPoints}</div>`;
+    }
+    if (quest.rewards.items) {
+      for (let item of quest.rewards.items) {
+        rewHtml += `<div class="quest-reward-item">Item: ${item.itemId} x${item.count}</div>`;
+      }
+    }
+    this.questDialogRewards.innerHTML = rewHtml;
+
+    // Show/hide buttons based on mode
+    if (mode === "available") {
+      this.questDialogAccept.style.display = "";
+      this.questDialogComplete.style.display = "none";
+      this.questDialogAbandon.style.display = "none";
+    } else {
+      this.questDialogAccept.style.display = "none";
+      let isCompleted = progress?.status === "completed";
+      this.questDialogComplete.style.display = isCompleted ? "" : "none";
+      this.questDialogAbandon.style.display = "";
+    }
+
+    this.questDialog.style.display = "flex";
+    this.questDialog.classList.add("visible");
+  }
+
+  private getObjectiveLabel(obj: any): string {
+    switch (obj.type) {
+      case "kill":
+        return `Defeat ${obj.target}`;
+      case "boss":
+        return `Defeat Boss ${obj.target}`;
+      case "collect":
+        return `Collect ${obj.target}`;
+      case "vocab":
+        return `Answer quiz correctly`;
+      case "explore":
+        return `Visit ${obj.target}`;
+      case "talk":
+        return `Talk to NPC`;
+      default:
+        return obj.type;
+    }
+  }
+
+  // ================================================
+  // Achievement System
+  // ================================================
+
+  private setupAchievementPanel(): void {
+    // Close button
+    this.achievementClose?.addEventListener("click", () => {
+      this.achievementPanel.classList.remove("visible");
+    });
+
+    // HUD button
+    this.hudAchBtn?.addEventListener("click", () => {
+      this.toggleAchievementPanel();
+    });
+
+    // Tab buttons
+    this.achievementTabs?.addEventListener("click", (e) => {
+      let target = e.target as HTMLElement;
+      if (target.classList.contains("ach-tab")) {
+        this.achievementCategory = target.dataset.category || "all";
+        this.achievementTabs
+          .querySelectorAll(".ach-tab")
+          .forEach((t) => t.classList.remove("active"));
+        target.classList.add("active");
+        this.renderAchievements();
+      }
+    });
+
+    // Keyboard shortcut Y
+    document.addEventListener("keydown", (e) => {
+      if (this.chatFocused) return;
+      if (e.key === "y" || e.key === "Y") {
+        this.toggleAchievementPanel();
+      }
+    });
+  }
+
+  private toggleAchievementPanel(): void {
+    let isVisible = this.achievementPanel.classList.contains("visible");
+    if (isVisible) {
+      this.achievementPanel.classList.remove("visible");
+    } else {
+      this.achievementPanel.classList.add("visible");
+      // Request latest achievement data
+      socket.send(PacketType.ACHIEVEMENT_LIST, {});
+    }
+  }
+
+  private renderAchievements(): void {
+    if (!this.achievementList) return;
+
+    let filtered =
+      this.achievementCategory === "all"
+        ? this.achievementData
+        : this.achievementData.filter(
+            (a: any) => a.category === this.achievementCategory,
+          );
+
+    // Sort: unlocked first, then by progress percentage
+    filtered.sort((a: any, b: any) => {
+      if (a.unlocked && !b.unlocked) return -1;
+      if (!a.unlocked && b.unlocked) return 1;
+      let aPct = a.requirement.count > 0 ? a.progress / a.requirement.count : 0;
+      let bPct = b.requirement.count > 0 ? b.progress / b.requirement.count : 0;
+      return bPct - aPct;
+    });
+
+    let unlockedCount = this.achievementData.filter(
+      (a: any) => a.unlocked,
+    ).length;
+    this.achievementCount.textContent = `${unlockedCount} / ${this.achievementData.length}`;
+
+    let html = "";
+    for (let ach of filtered) {
+      let isHidden = ach.hidden && !ach.unlocked;
+      let pct =
+        ach.requirement.count > 0
+          ? Math.floor((ach.progress / ach.requirement.count) * 100)
+          : 0;
+      pct = Math.min(pct, 100);
+
+      let icon = isHidden ? "?" : ach.icon;
+      let name = isHidden ? "???" : ach.nameKo;
+      let desc = isHidden ? "Hidden achievement" : ach.descriptionKo;
+
+      let rewardText = "";
+      if (ach.reward) {
+        if (ach.reward.exp) rewardText += `+${ach.reward.exp} EXP`;
+        if (ach.reward.gold) rewardText += ` +${ach.reward.gold}G`;
+        if (ach.reward.titleKo)
+          rewardText += `<span class="ach-title-reward">"${ach.reward.titleKo}"</span>`;
+      }
+
+      html += `
+        <div class="ach-item ${ach.unlocked ? "unlocked" : ""} ${isHidden ? "hidden-locked" : ""}">
+          <div class="ach-icon">${icon}</div>
+          <div class="ach-info">
+            <div class="ach-name">${name}</div>
+            <div class="ach-desc">${desc}</div>
+            ${
+              !ach.unlocked && !isHidden
+                ? `<div class="ach-progress">
+                    <div class="ach-progress-bar">
+                      <div class="ach-progress-fill" style="width:${pct}%"></div>
+                    </div>
+                    <div class="ach-progress-text">${ach.progress} / ${ach.requirement.count}</div>
+                  </div>`
+                : ach.unlocked
+                  ? `<div class="ach-progress">
+                      <div class="ach-progress-bar">
+                        <div class="ach-progress-fill" style="width:100%"></div>
+                      </div>
+                    </div>`
+                  : ""
+            }
+          </div>
+          <div class="ach-reward">${rewardText}</div>
+        </div>`;
+    }
+
+    this.achievementList.innerHTML =
+      html ||
+      '<div style="text-align:center;color:var(--text-dim);padding:20px;">No achievements in this category</div>';
+  }
+
+  private showAchievementToast(data: any): void {
+    // Clear existing timer
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+      this.achievementToast.classList.remove("visible");
+    }
+
+    this.toastIcon.textContent = data.icon || "";
+    this.toastName.textContent = data.nameKo || data.name;
+    this.toastDesc.textContent = data.descriptionKo || data.description;
+
+    let rewardParts: string[] = [];
+    if (data.reward?.exp) rewardParts.push(`+${data.reward.exp} EXP`);
+    if (data.reward?.gold) rewardParts.push(`+${data.reward.gold} Gold`);
+    if (data.reward?.titleKo) rewardParts.push(`"${data.reward.titleKo}"`);
+    this.toastReward.textContent = rewardParts.join(" ");
+
+    // Trigger animation
+    void this.achievementToast.offsetHeight;
+    this.achievementToast.classList.add("visible");
+
+    this.toastTimer = window.setTimeout(() => {
+      this.achievementToast.classList.remove("visible");
+      this.toastTimer = null;
+    }, 4000);
+  }
+
   private setupSocketListeners(): void {
     // Auth
     socket.on(PacketType.AUTH_ERROR, (data: { message: string }) => {
@@ -2152,6 +2652,32 @@ class UIManager {
         const mobName = data.mob.name || "Boss";
         this.showBossAnnouncement(mobName, "");
       }
+    });
+
+    // Quest updates
+    socket.on(PacketType.QUEST_UPDATE, (data: any) => {
+      this.activeQuests = data.quests || [];
+      this.renderActiveQuests();
+    });
+
+    socket.on(PacketType.QUEST_AVAILABLE, (data: any) => {
+      this.availableQuests = data.quests || [];
+      this.renderAvailableQuests();
+    });
+
+    socket.on(PacketType.QUEST_COMPLETE, (data: any) => {
+      this.showNotification(`Quest reward received!`, "success");
+    });
+
+    // Achievement unlock toast
+    socket.on(PacketType.ACHIEVEMENT_UNLOCK, (data: any) => {
+      this.showAchievementToast(data);
+    });
+
+    // Achievement list response
+    socket.on(PacketType.ACHIEVEMENT_LIST, (data: any) => {
+      this.achievementData = data.achievements || [];
+      this.renderAchievements();
     });
 
     // Respawn

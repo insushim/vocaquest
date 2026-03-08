@@ -1475,6 +1475,360 @@
       transform: scale(0.95);
     }
 
+    /* --- Quest Panel --- */
+    #quest-panel {
+      position: fixed;
+      top: 50%;
+      right: 20px;
+      transform: translateY(-50%);
+      width: 380px;
+      max-width: 90vw;
+      max-height: 70vh;
+      background: var(--bg-darker);
+      border: 2px solid var(--accent-cyan);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow), 0 0 30px rgba(64,200,200,0.15);
+      z-index: 420;
+      display: none;
+      flex-direction: column;
+      backdrop-filter: blur(8px);
+      overflow: hidden;
+    }
+
+    #quest-panel.visible {
+      display: flex;
+    }
+
+    .quest-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-inner);
+    }
+
+    .quest-panel-header h3 {
+      font-family: var(--font-title);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      margin: 0;
+      letter-spacing: 1px;
+    }
+
+    .quest-panel-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .quest-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    .quest-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-inner);
+    }
+
+    .quest-tab {
+      flex: 1;
+      padding: 10px;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+
+    .quest-tab.active {
+      color: var(--accent-cyan);
+      border-bottom: 2px solid var(--accent-cyan);
+    }
+
+    .quest-tab:hover {
+      color: var(--text-warm);
+    }
+
+    .quest-list {
+      padding: 8px;
+    }
+
+    .quest-item {
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-inner);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .quest-item:hover {
+      border-color: var(--accent-cyan);
+      background: var(--bg-panel-light);
+    }
+
+    .quest-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .quest-item-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    .quest-item-level {
+      font-size: 10px;
+      color: var(--text-dim);
+      background: rgba(255,255,255,0.05);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .quest-item-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .quest-progress-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .quest-progress-fill {
+      height: 100%;
+      background: var(--accent-cyan);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .quest-progress-fill.complete {
+      background: var(--accent-green);
+    }
+
+    .quest-progress-text {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 3px;
+      text-align: right;
+    }
+
+    .quest-item.completed {
+      border-color: rgba(92, 184, 92, 0.3);
+    }
+
+    .quest-item.completed .quest-item-name {
+      color: var(--accent-green);
+    }
+
+    .quest-empty {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+
+    /* --- Quest Dialog --- */
+    #quest-dialog {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 420px;
+      max-width: 92vw;
+      background: var(--bg-darker);
+      border: 2px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow), 0 0 40px rgba(200,168,78,0.15);
+      z-index: 500;
+      display: none;
+      flex-direction: column;
+      backdrop-filter: blur(10px);
+    }
+
+    #quest-dialog.visible {
+      display: flex;
+    }
+
+    .quest-dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border-inner);
+    }
+
+    .quest-dialog-header h3 {
+      font-family: var(--font-title);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--border-gold-bright);
+      margin: 0;
+    }
+
+    .quest-dialog-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .quest-dialog-body {
+      padding: 16px 18px;
+    }
+
+    .quest-dialog-desc {
+      font-size: 13px;
+      color: var(--text-warm);
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
+    .quest-dialog-objectives {
+      margin-bottom: 14px;
+    }
+
+    .quest-obj-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .quest-obj-item {
+      font-size: 12px;
+      color: var(--text-warm);
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .quest-obj-check {
+      width: 14px;
+      height: 14px;
+      border: 1px solid var(--text-dim);
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+
+    .quest-obj-check.done {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    .quest-dialog-rewards {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-inner);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+    }
+
+    .quest-reward-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--exp-gold);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .quest-reward-item {
+      font-size: 12px;
+      color: var(--text-warm);
+      padding: 2px 0;
+    }
+
+    .quest-dialog-footer {
+      display: flex;
+      gap: 8px;
+      padding: 12px 18px;
+      border-top: 1px solid var(--border-inner);
+      justify-content: flex-end;
+    }
+
+    .quest-dialog-btn {
+      padding: 8px 20px;
+      border: 1px solid var(--border-gold-dim);
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .quest-dialog-accept {
+      background: rgba(64, 200, 200, 0.15);
+      color: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+    }
+
+    .quest-dialog-accept:hover {
+      background: rgba(64, 200, 200, 0.25);
+    }
+
+    .quest-dialog-complete {
+      background: rgba(92, 184, 92, 0.15);
+      color: var(--accent-green);
+      border-color: var(--accent-green);
+    }
+
+    .quest-dialog-complete:hover {
+      background: rgba(92, 184, 92, 0.25);
+    }
+
+    .quest-dialog-abandon {
+      background: rgba(232, 64, 64, 0.1);
+      color: var(--accent-red);
+      border-color: rgba(232, 64, 64, 0.3);
+    }
+
+    .quest-dialog-abandon:hover {
+      background: rgba(232, 64, 64, 0.2);
+    }
+
+    /* --- Quest notification badge --- */
+    .quest-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      min-width: 16px;
+      height: 16px;
+      background: var(--accent-red);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+    }
+
     /* --- Enhance Panel --- */
     #enhance-panel {
       position: fixed;
@@ -2030,6 +2384,293 @@
     .login-card {
       width: 430px;
     }
+
+    /* --- Achievement Panel --- */
+    #achievement-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 520px;
+      max-width: 96vw;
+      max-height: 80vh;
+      background: var(--bg-darker);
+      border: 2px solid var(--border-gold);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow), var(--shadow-glow-strong);
+      z-index: 500;
+      display: none;
+      flex-direction: column;
+      backdrop-filter: blur(8px);
+    }
+
+    #achievement-panel.visible {
+      display: flex;
+    }
+
+    .ach-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-inner);
+    }
+
+    .ach-header h3 {
+      font-family: var(--font-title);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--border-gold);
+      margin: 0;
+      letter-spacing: 1px;
+    }
+
+    .ach-header .ach-count {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .ach-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 20px;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .ach-close:hover {
+      color: var(--text-bright);
+    }
+
+    .ach-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border-inner);
+      overflow-x: auto;
+    }
+
+    .ach-tab {
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: var(--transition-fast);
+      white-space: nowrap;
+    }
+
+    .ach-tab:hover {
+      color: var(--text-warm);
+    }
+
+    .ach-tab.active {
+      color: var(--border-gold);
+      border-bottom-color: var(--border-gold);
+    }
+
+    .ach-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+      max-height: 55vh;
+    }
+
+    .ach-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      margin-bottom: 4px;
+      border-radius: 6px;
+      background: var(--bg-panel);
+      border: 1px solid transparent;
+      transition: var(--transition-fast);
+    }
+
+    .ach-item.unlocked {
+      border-color: rgba(212, 168, 67, 0.3);
+      background: rgba(212, 168, 67, 0.06);
+    }
+
+    .ach-item.hidden-locked {
+      opacity: 0.5;
+    }
+
+    .ach-icon {
+      font-size: 24px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      background: var(--bg-panel-light);
+      flex-shrink: 0;
+    }
+
+    .ach-item.unlocked .ach-icon {
+      background: rgba(212, 168, 67, 0.12);
+      box-shadow: 0 0 8px rgba(212, 168, 67, 0.2);
+    }
+
+    .ach-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ach-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 2px;
+    }
+
+    .ach-item.unlocked .ach-name {
+      color: var(--border-gold-bright);
+    }
+
+    .ach-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.3;
+    }
+
+    .ach-progress {
+      margin-top: 4px;
+    }
+
+    .ach-progress-bar {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .ach-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--border-gold-dim), var(--border-gold));
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .ach-item.unlocked .ach-progress-fill {
+      background: linear-gradient(90deg, var(--accent-green), #81c784);
+    }
+
+    .ach-progress-text {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    .ach-reward {
+      font-size: 10px;
+      color: var(--accent-orange);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .ach-reward .ach-title-reward {
+      color: var(--accent-purple);
+      display: block;
+    }
+
+    /* Achievement HUD button */
+    .hud-ach-btn {
+      margin-top: 0;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--border-gold);
+      background: rgba(212, 168, 67, 0.08);
+      border: 1px solid rgba(212, 168, 67, 0.2);
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: var(--transition-fast);
+      letter-spacing: 0.3px;
+    }
+
+    .hud-ach-btn:hover {
+      background: rgba(212, 168, 67, 0.18);
+      border-color: var(--border-gold);
+      box-shadow: 0 0 8px rgba(212, 168, 67, 0.2);
+    }
+
+    /* Achievement unlock toast */
+    #achievement-toast {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: linear-gradient(180deg, rgba(40, 32, 20, 0.98), rgba(25, 18, 10, 0.98));
+      border: 2px solid var(--border-gold);
+      border-radius: 10px;
+      padding: 14px 24px;
+      display: none;
+      align-items: center;
+      gap: 14px;
+      z-index: 900;
+      box-shadow: 0 4px 30px rgba(212, 168, 67, 0.3), 0 0 60px rgba(212, 168, 67, 0.1);
+      opacity: 0;
+      pointer-events: none;
+      min-width: 280px;
+    }
+
+    #achievement-toast.visible {
+      display: flex;
+      animation: achievementToastIn 0.5s ease forwards, achievementToastOut 0.5s ease 3.5s forwards;
+    }
+
+    @keyframes achievementToastIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(-30px) scale(0.9); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    }
+
+    @keyframes achievementToastOut {
+      from { opacity: 1; transform: translateX(-50%) translateY(0); }
+      to { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    }
+
+    .toast-icon {
+      font-size: 32px;
+      filter: drop-shadow(0 0 8px rgba(212, 168, 67, 0.5));
+    }
+
+    .toast-info {
+      flex: 1;
+    }
+
+    .toast-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--border-gold);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 2px;
+    }
+
+    .toast-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-bright);
+    }
+
+    .toast-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    .toast-reward {
+      font-size: 11px;
+      color: var(--accent-orange);
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -2135,6 +2776,8 @@
     <div class="hud-gold" id="hud-gold">0 Gold</div>
     <div style="display: flex; gap: 6px; margin-top: 2px;">
       <button class="hud-stat-btn" id="hud-stat-btn">CHARACTER (T)</button>
+      <button class="hud-stat-btn" id="hud-quest-btn">QUEST (J)</button>
+      <button class="hud-ach-btn" id="hud-ach-btn">ACHIEVE (Y)</button>
       <button class="hud-auto-attack" id="hud-auto-attack">AUTO (A): OFF</button>
     </div>
   </div>
@@ -2385,6 +3028,40 @@
     </div>
   </div>
 
+  <!-- Quest Log Panel -->
+  <div id="quest-panel" style="display:none;">
+    <div class="quest-panel-header">
+      <h3>Quest Log</h3>
+      <button class="quest-panel-close" id="quest-close">&times;</button>
+    </div>
+    <div class="quest-panel-body">
+      <div class="quest-tabs">
+        <button class="quest-tab active" data-tab="active">Active</button>
+        <button class="quest-tab" data-tab="available">Available</button>
+      </div>
+      <div class="quest-list" id="quest-active-list"></div>
+      <div class="quest-list" id="quest-available-list" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Quest Dialog (Accept/Complete) -->
+  <div id="quest-dialog" style="display:none;">
+    <div class="quest-dialog-header">
+      <h3 id="quest-dialog-title"></h3>
+      <button class="quest-dialog-close" id="quest-dialog-close">&times;</button>
+    </div>
+    <div class="quest-dialog-body">
+      <div class="quest-dialog-desc" id="quest-dialog-desc"></div>
+      <div class="quest-dialog-objectives" id="quest-dialog-objectives"></div>
+      <div class="quest-dialog-rewards" id="quest-dialog-rewards"></div>
+    </div>
+    <div class="quest-dialog-footer">
+      <button class="quest-dialog-btn quest-dialog-accept" id="quest-dialog-accept">Accept</button>
+      <button class="quest-dialog-btn quest-dialog-complete" id="quest-dialog-complete" style="display:none;">Turn In</button>
+      <button class="quest-dialog-btn quest-dialog-abandon" id="quest-dialog-abandon" style="display:none;">Abandon</button>
+    </div>
+  </div>
+
   <!-- Enhance Panel -->
   <div id="enhance-panel">
     <div class="enhance-header">
@@ -2416,6 +3093,35 @@
       <option value="5">5학년</option>
       <option value="6">6학년</option>
     </select>
+  </div>
+
+  <!-- Achievement Panel -->
+  <div id="achievement-panel">
+    <div class="ach-header">
+      <h3>ACHIEVEMENTS</h3>
+      <span class="ach-count" id="ach-count">0 / 0</span>
+      <button class="ach-close" id="ach-close">&times;</button>
+    </div>
+    <div class="ach-tabs" id="ach-tabs">
+      <button class="ach-tab active" data-category="all">All</button>
+      <button class="ach-tab" data-category="combat">Combat</button>
+      <button class="ach-tab" data-category="vocabulary">Vocabulary</button>
+      <button class="ach-tab" data-category="exploration">Exploration</button>
+      <button class="ach-tab" data-category="collection">Collection</button>
+      <button class="ach-tab" data-category="social">Social</button>
+    </div>
+    <div class="ach-list" id="ach-list"></div>
+  </div>
+
+  <!-- Achievement Unlock Toast -->
+  <div id="achievement-toast">
+    <div class="toast-icon" id="toast-icon"></div>
+    <div class="toast-info">
+      <div class="toast-label">ACHIEVEMENT UNLOCKED</div>
+      <div class="toast-name" id="toast-name"></div>
+      <div class="toast-desc" id="toast-desc"></div>
+      <div class="toast-reward" id="toast-reward"></div>
+    </div>
   </div>
 
   <!-- Item Tooltip (shared) -->
