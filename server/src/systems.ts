@@ -200,6 +200,8 @@ export let CombatSystem = {
         EntityType.MOB,
         actualDamage,
         isCrit,
+        mob.hp,
+        mob.definition.hp,
       );
 
       if (mob.hp <= 0) {
@@ -244,6 +246,8 @@ export let CombatSystem = {
         EntityType.PLAYER,
         actualDamage,
         isCrit,
+        targetPlayer.stats.hp,
+        targetPlayer.stats.maxHp,
       );
 
       if (targetPlayer.isDead) {
@@ -451,6 +455,8 @@ export let CombatSystem = {
             EntityType.MOB,
             actualDamage,
             isCrit,
+            mob.hp,
+            mob.definition.hp,
           );
 
           // Apply status effect
@@ -486,6 +492,8 @@ export let CombatSystem = {
             EntityType.PLAYER,
             actualDamage,
             isCrit,
+            target.stats.hp,
+            target.stats.maxHp,
           );
 
           if (skill.statusEffect) {
@@ -531,6 +539,8 @@ export let CombatSystem = {
           EntityType.MOB,
           actualDamage,
           isCrit,
+          mob.hp,
+          mob.definition.hp,
         );
 
         if (skill.statusEffect) {
@@ -575,6 +585,8 @@ export let CombatSystem = {
             EntityType.PLAYER,
             actualDamage,
             isCrit,
+            targetPlayer.stats.hp,
+            targetPlayer.stats.maxHp,
           );
 
           if (skill.statusEffect) {

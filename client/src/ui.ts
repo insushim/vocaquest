@@ -316,6 +316,7 @@ class UIManager {
   private enhanceResultText!: HTMLElement;
 
   // ---- State ----
+  private currentPlayerName: string = "";
   private currentPlayerClass: PlayerClass = PlayerClass.WARRIOR;
   private currentSkills: SkillDisplay[] = [];
   private skillCooldowns: Map<number, number> = new Map();
@@ -1295,6 +1296,12 @@ class UIManager {
     this.currentPlayerClass = playerClass;
     this.currentSkills = CLASS_SKILLS[playerClass] || [];
 
+    // Store player name from login form
+    this.currentPlayerName = this.loginUsername.value.trim();
+
+    // Update character info in stat panel
+    this.updateCharacterInfo();
+
     for (let i = 0; i < 6; i++) {
       const skill = this.currentSkills[i];
       const iconEl = document.getElementById(`skill-icon-${i}`);
@@ -1309,6 +1316,34 @@ class UIManager {
           nameEl.textContent = "";
         }
       }
+    }
+  }
+
+  private updateCharacterInfo(): void {
+    const nameEl = document.getElementById("stat-char-name");
+    const classEl = document.getElementById("stat-char-class");
+    const iconEl = document.getElementById("stat-char-icon");
+
+    const CLASS_NAMES: Record<string, string> = {
+      [PlayerClass.WARRIOR]: "Warrior",
+      [PlayerClass.KNIGHT]: "Knight",
+      [PlayerClass.MAGE]: "Mage",
+      [PlayerClass.ARCHER]: "Archer",
+    };
+
+    const CLASS_COLORS: Record<string, string> = {
+      [PlayerClass.WARRIOR]: "#e53935",
+      [PlayerClass.KNIGHT]: "#1e88e5",
+      [PlayerClass.MAGE]: "#ab47bc",
+      [PlayerClass.ARCHER]: "#66bb6a",
+    };
+
+    if (nameEl) nameEl.textContent = this.currentPlayerName || "-";
+    if (classEl)
+      classEl.textContent = CLASS_NAMES[this.currentPlayerClass] || "-";
+    if (iconEl) {
+      iconEl.style.backgroundColor =
+        CLASS_COLORS[this.currentPlayerClass] || "#888";
     }
   }
 
@@ -1592,6 +1627,30 @@ class UIManager {
       if (conEl) conEl.textContent = String(as.con || 0);
       if (wisEl) wisEl.textContent = String(as.wis || 0);
     }
+    // Combat stats
+    const setEl = (id: string, val: string) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+    if (stats.attack !== undefined) setEl("stat-attack", String(stats.attack));
+    if (stats.magicAttack !== undefined)
+      setEl("stat-magicAttack", String(stats.magicAttack));
+    if (stats.defense !== undefined)
+      setEl("stat-defense", String(stats.defense));
+    if (stats.magicDefense !== undefined)
+      setEl("stat-magicDefense", String(stats.magicDefense));
+    if (stats.hp !== undefined && stats.maxHp !== undefined) {
+      setEl("stat-hp-detail", `${stats.hp} / ${stats.maxHp}`);
+    }
+    if (stats.mp !== undefined && stats.maxMp !== undefined) {
+      setEl("stat-mp-detail", `${stats.mp} / ${stats.maxMp}`);
+    }
+    if (stats.critRate !== undefined)
+      setEl("stat-critRate", `${Number(stats.critRate).toFixed(1)}%`);
+    if (stats.attackSpeed !== undefined)
+      setEl("stat-attackSpeed", String(Number(stats.attackSpeed).toFixed(2)));
+    if (stats.dodgeRate !== undefined)
+      setEl("stat-dodgeRate", `${Number(stats.dodgeRate).toFixed(1)}%`);
   }
 
   // ================================================
@@ -1772,7 +1831,7 @@ class UIManager {
 
   toggleAutoAttack(): void {
     this.autoAttackEnabled = !this.autoAttackEnabled;
-    this.autoAttackBtn.textContent = `자동공격(A): ${this.autoAttackEnabled ? "ON" : "OFF"}`;
+    this.autoAttackBtn.textContent = `AUTO (A): ${this.autoAttackEnabled ? "ON" : "OFF"}`;
     this.autoAttackBtn.classList.toggle("active", this.autoAttackEnabled);
   }
 

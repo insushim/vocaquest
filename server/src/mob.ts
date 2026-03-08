@@ -265,6 +265,8 @@ export class Mob {
         EntityType.PLAYER,
         actualDamage,
         false,
+        this.target.stats.hp,
+        this.target.stats.maxHp,
       );
 
       // Apply mob status effects

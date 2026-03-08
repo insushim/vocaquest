@@ -302,6 +302,8 @@ export class World {
     targetType: EntityType,
     damage: number,
     isCrit: boolean = false,
+    hp?: number,
+    maxHp?: number,
   ): void {
     this.broadcast(PacketType.COMBAT_HIT, {
       attackerId,
@@ -310,6 +312,8 @@ export class World {
       targetType,
       damage,
       isCrit,
+      hp,
+      maxHp,
     });
   }
 
