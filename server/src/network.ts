@@ -300,6 +300,24 @@ export class Connection {
     this.player = player;
     this.passwordHash = savedData.passwordHash;
 
+    // Validate spawn position - if outside map or in invalid zone, reset to town
+    let spawn = this.server.world.map.playerSpawn;
+    let mapW = this.server.world.map.width;
+    let mapH = this.server.world.map.height;
+    if (
+      player.x < 0 ||
+      player.x >= mapW ||
+      player.y < 0 ||
+      player.y >= mapH ||
+      this.server.world.map.collisions[player.y]?.[player.x]
+    ) {
+      console.log(
+        `[Auth] Resetting ${name} position from (${player.x},${player.y}) to spawn (${spawn.x},${spawn.y})`,
+      );
+      player.x = spawn.x;
+      player.y = spawn.y;
+    }
+
     this.server.world.addPlayer(this, player);
     this.sendWelcome(player);
 

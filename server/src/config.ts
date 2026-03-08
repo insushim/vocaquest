@@ -13,6 +13,6 @@ export const Config = {
   SKIP_DATABASE: process.env.SKIP_DATABASE !== "false",
   CLIENT_DIR: process.env.CLIENT_DIR || "../client/dist",
   TICK_RATE: 20,
-  MAP_WIDTH: 200,
-  MAP_HEIGHT: 200,
+  MAP_WIDTH: 500,
+  MAP_HEIGHT: 500,
 };
