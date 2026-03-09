@@ -70,15 +70,15 @@ export class Connection {
     this.player = null;
     this.server = server;
 
-    this.ws.on("message", (raw) => {
+    this.ws.on("message", async (raw) => {
       try {
         let str = typeof raw === "string" ? raw : raw.toString();
         let packet = JSON.parse(str);
         if (packet && packet.type) {
-          this.handleMessage(packet.type, packet.data || {});
+          await this.handleMessage(packet.type, packet.data || {});
         }
       } catch (err) {
-        console.error(`[Connection ${this.id}] Invalid message:`, err);
+        console.error(`[Connection ${this.id}] Message error:`, err);
       }
     });
 
@@ -419,7 +419,13 @@ export class Connection {
     };
 
     if (db) {
-      await db.createPlayer(saveData);
+      try {
+        await db.createPlayer(saveData);
+        console.log(`[Auth] Player saved to DB: ${name}`);
+      } catch (err) {
+        console.error(`[Auth] DB createPlayer failed for ${name}:`, err);
+        // Still let player enter game - will retry save on disconnect
+      }
     } else {
       accounts.set(name.toLowerCase(), saveData);
     }

@@ -1,13 +1,12 @@
 // ============================================
-// VocaQuest Online - Pixel Art Sprite Generator v2
-// 32x32 sprites with 4-direction support,
-// 3-frame walk cycles, visible weapons, and
-// unique mob silhouettes
+// VocaQuest Online - Premium Pixel Art Sprite Generator v3
+// 32x44 player sprites, HD mob sprites, rich tiles
+// 3-tone shading, detailed weapons/gear, unique silhouettes
 // ============================================
 
 import Phaser from "phaser";
 
-const PX = 2; // Each art pixel = 2x2 screen pixels
+const PX = 1; // Each art pixel = 1x1 screen pixel (HD mode)
 
 // ---- Helper: render pixel art string array to a Phaser CanvasTexture ----
 function renderPixelArt(
@@ -93,802 +92,1665 @@ function renderWithOutline(
 }
 
 // ================================================================
-// PLAYER SPRITES (16x22 pixel art, kept for compatibility)
-// Now with 3-frame walk cycle (idle, step-L, step-R)
+// PLAYER SPRITES (32x44 pixel art, PX=1 for HD detail)
+// Chibi RPG proportions: large head (1/3), defined torso, short legs
+// 3-tone shading: highlight, mid, shadow per color area
 // ================================================================
 
+// ---- WARRIOR: Red/crimson plate, broadsword, cape, gold trim ----
 const WARRIOR_PALETTE: Record<string, string> = {
-  h: "#8B4513",
-  H: "#6B3410", // hair
+  // Hair (brown)
+  h: "#8B5E3C",
+  H: "#6B4428",
+  J: "#A87650",
+  // Skin
   s: "#FFD5B4",
-  S: "#D4A880", // skin
-  e: "#1a1a1a", // eyes
-  m: "#C47A6A", // mouth
-  a: "#CC3333",
-  A: "#991818", // armor
-  g: "#FFD700", // gold trim
+  S: "#E8B898",
+  T: "#D4A480",
+  // Eyes/mouth
+  e: "#1a1a1a",
+  E: "#FFFFFF",
+  m: "#C47A6A",
+  // Armor (crimson, 3-tone)
+  a: "#DD3838",
+  A: "#B81E1E",
+  R: "#8E1010",
+  // Gold trim
+  g: "#FFD700",
+  G: "#DAA520",
+  Y: "#B8860B",
+  // Cape
+  c: "#BB2222",
+  C: "#881515",
+  K: "#661010",
+  // Boots/pants
   b: "#5C3A1E",
-  B: "#3A2210", // boots
+  B: "#3A2210",
   p: "#4A3728",
-  P: "#382818", // pants
-  w: "#C8C8C8",
-  W: "#888888", // weapon (sword)
-  G: "#AA8800", // guard
-  c: "#AA2222", // cape
+  P: "#382818",
+  Q: "#2A1A10",
+  // Weapon (silver sword)
+  w: "#E8E8EC",
+  W: "#B8B8C0",
+  v: "#888890",
+  // Sword guard
+  u: "#DAA520",
+  U: "#B8860B",
 };
 const WARRIOR_ART = [
-  "......hhhh......",
-  ".....Hhhhhh.....",
-  ".....hhHhhh.....",
-  ".....ssssss.....",
-  ".....se.ses.....",
-  ".....sSmSss.....",
-  "......ssss......",
-  "......gaag......",
-  ".....AaaaAA.....",
-  "....AaaaaAAw....",
-  "...sAaaaaAAw....",
-  "...sAaaaaAAWw...",
-  "....gaaaaaGWw...",
-  "....AaaaaAA.....",
-  "....AaaaaAA.....",
-  "....pppppppp....",
-  "....pp....pp....",
-  "....pp....pp....",
-  "....pP....pP....",
-  "....bB....bB....",
-  "....BB....BB....",
-  "................",
+  "................................",
+  "..........JJhhhhJJ..............",
+  ".........JhhhhhhhJ..............",
+  "........JhhhJJhhhJ.............",
+  "........HhhhhhhhhhH............",
+  "........HHhJhhJhHH.............",
+  ".......HHhhhhhhhhHH............",
+  "........ssssssssss..............",
+  "........sEe.sEess...............",
+  "........sSSmSSsss...............",
+  ".........sTTTTss................",
+  "..........ssss..................",
+  ".........ggaagg.................",
+  "........GaaaaaaGw...............",
+  ".......RAAaaaaAAWw..............",
+  "......cRAaaaaAAaWw..............",
+  "......cRAAaaaAAAWw..............",
+  ".....CCSAaggaAAAvw..............",
+  ".....KCSAaaaaAAAuU..............",
+  "......CRAAaaaAAA................",
+  ".......RAAaaaAA.................",
+  "........AaaaaAA.................",
+  "........ggaaaaagg...............",
+  "........RAAAAaAR................",
+  ".........AAAAAA.................",
+  ".........pppppppp...............",
+  ".........pp....pp...............",
+  ".........pp....pp...............",
+  ".........pp....pp...............",
+  ".........pP....pP...............",
+  ".........pQ....pQ...............",
+  "........bBB...bBB...............",
+  "........BBB...BBB...............",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
 ];
 
+// ---- KNIGHT: Royal blue plate, gold accents, shield+lance, helmet ----
 const KNIGHT_PALETTE: Record<string, string> = {
-  h: "#2F2F2F",
-  H: "#1a1a1a",
-  s: "#FFD5B4",
-  S: "#D4A880",
+  // Helmet (silver)
+  h: "#C8C8D0",
+  H: "#A0A0AA",
+  J: "#787880",
+  // Visor slit
   e: "#1a1a1a",
-  m: "#C47A6A",
-  a: "#4169E1",
-  A: "#2A4A9A",
+  E: "#333340",
+  // Skin (visible chin)
+  s: "#FFD5B4",
+  S: "#E8B898",
+  // Armor (royal blue, 3-tone)
+  a: "#4A7AE8",
+  A: "#3060CC",
+  R: "#1E48AA",
+  // Gold accents
   g: "#FFD700",
+  G: "#DAA520",
+  Y: "#B8860B",
+  // Shield (blue+gold)
+  d: "#3A6AD0",
+  D: "#2850A8",
+  F: "#1E3888",
+  // Lance/spear
+  w: "#C8C8D0",
+  W: "#A0A0AA",
+  v: "#787880",
+  // Cape (blue)
+  c: "#4060BB",
+  C: "#304888",
+  K: "#203468",
+  // Boots/pants
   b: "#4A4A5A",
   B: "#333340",
   p: "#3A3A4A",
   P: "#2A2A38",
-  d: "#4A69A1",
-  D: "#3A5A8A",
-  l: "#888888",
-  L: "#666666",
-  c: "#6688BB",
+  Q: "#1E1E28",
+  // Plume
+  t: "#DD3838",
+  T: "#BB2020",
+  m: "#C47A6A",
 };
 const KNIGHT_ART = [
-  "......hhhh......",
-  ".....Hhhhhh.....",
-  ".....hHhHhh.....",
-  ".....ssssss.....",
-  ".....se.ses.....",
-  ".....sSmSss.....",
-  "......ssss......",
-  "......gaag......",
-  "....dAaaaaAL....",
-  "...dDAaaaaALL...",
-  "...dDAaaaaALL...",
-  "...dgAaaaaALL...",
-  "...dDgaaaagL....",
-  "....dAaaaaA.....",
-  "....AaaaaAA.....",
-  "....pppppppp....",
-  "....pp....pp....",
-  "....pp....pp....",
-  "....pP....pP....",
-  "....bB....bB....",
-  "....BB....BB....",
-  "................",
+  "................................",
+  "...........tTT..................",
+  "..........thhhT.................",
+  ".........JhhhhhJ................",
+  "........JHhhhhhHJ...............",
+  "........HHhhhhhHH...............",
+  "........HHeeeEeHH...............",
+  ".........HhhhhhH................",
+  "..........ssss..................",
+  "..........sSms..................",
+  "...........ss...................",
+  "..........gaag..................",
+  ".........GaaaaGw................",
+  "........RAAaaaAWw...............",
+  "......dDRAAaaaAAWw..............",
+  ".....dDDRAAAAaAAWw..............",
+  "....dDDFRAAgaAAAWw..............",
+  "....dDgFRAAaaAAAvw..............",
+  "....dDDFRAAAAAAAAAv..............",
+  ".....DDFRAAAAaAA................",
+  "......DRAAaaaAA.................",
+  ".........AaaaAA.................",
+  ".........ggaagg.................",
+  ".........RAAAAR.................",
+  "..........AAAA..................",
+  ".........pppppppp...............",
+  ".........pp....pp...............",
+  ".........pp....pp...............",
+  ".........pp....pp...............",
+  ".........pP....pP...............",
+  ".........pQ....pQ...............",
+  "........bBB...bBB...............",
+  "........BBB...BBB...............",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
 ];
 
+// ---- MAGE: Purple robes, pointed hat with stars, glowing staff ----
 const MAGE_PALETTE: Record<string, string> = {
-  h: "#C0C0C0",
-  H: "#909090",
+  // Hair (silver/white)
+  h: "#D8D8E0",
+  H: "#B0B0BB",
+  J: "#E8E8F0",
+  // Skin
   s: "#FFD5B4",
-  S: "#D4A880",
+  S: "#E8B898",
+  T: "#D4A480",
+  // Eyes/mouth
   e: "#1a1a1a",
+  E: "#FFFFFF",
   m: "#C47A6A",
-  a: "#7E57C2",
-  A: "#5A3A9A",
+  // Hat (deep purple, 3-tone)
+  t: "#6A3AAA",
+  O: "#5028A0",
+  V: "#3A1880",
+  // Hat stars/decoration
+  k: "#FFE066",
+  K: "#FFD700",
+  // Robes (purple, 3-tone)
+  a: "#8B5CC8",
+  A: "#6E42A8",
+  R: "#5A3090",
+  // Gold arcane trim
   g: "#FFD700",
+  G: "#DAA520",
+  Y: "#B8860B",
+  // Staff (wood)
+  w: "#8B6940",
+  W: "#6B4A28",
+  // Staff crystal orb
+  c: "#66DDFF",
+  C: "#44BBEE",
+  q: "#AAEEFF",
+  // Boots
   b: "#5A3A9A",
   B: "#3A2270",
   p: "#6A48AA",
   P: "#5A3A9A",
-  t: "#4A148C",
-  T: "#2A0860",
-  c: "#9B59B6",
-  C: "#C77DFF",
-  w: "#8B4513",
+  Q: "#4A2A88",
 };
 const MAGE_ART = [
-  ".......Tg.......",
-  "......TTT.......",
-  ".....TTTTT......",
-  ".....hhhhh......",
-  ".....ssssss.....",
-  ".....se.ses.....",
-  ".....sSmSss.....",
-  "......ssss......",
-  "......gaag......",
-  "....AaaaaAw.....",
-  "...sAaaaaAwC....",
-  "...sAaaaaAwc....",
-  "....gaaaaaAw....",
-  "....AaaaaAA.....",
-  "....AAAAAAA.....",
-  "...AAAAAAAAA....",
-  "...AAp..pAAA....",
-  "....pp....pp....",
-  "....pP....pP....",
-  "....bB....bB....",
-  "....BB....BB....",
-  "................",
+  "................................",
+  "............kV..................",
+  "...........VVV..................",
+  "..........VVVVV.................",
+  ".........VVOVVVV................",
+  "........VOOkOOVV................",
+  ".......VVOOOOOOVk...............",
+  ".......tOOOtOOOt................",
+  ".......hhJHhHhHh................",
+  ".......JhhJhhhhJ................",
+  "........ssssssss................",
+  "........sEe.sEes................",
+  "........sSSmSSss................",
+  ".........sTTTTs..................",
+  "..........ssss..................",
+  "..........gaag..................",
+  ".........GaaaaGw................",
+  "........RAaaaaaWw...............",
+  ".......SRAAaaAAAWc..............",
+  ".......SRAAaaAAAWC..............",
+  "........RAgaaaAAWq..............",
+  "........RAAaaAAAW...............",
+  ".........AAaaAA.................",
+  ".........ggaagg.................",
+  ".........RAAAAR.................",
+  "........RRAAAARR................",
+  "........RRp..pRR................",
+  ".........pp..pp.................",
+  ".........pp..pp.................",
+  ".........pp..pp.................",
+  ".........pP..pP.................",
+  "........bBB..bBB................",
+  "........BBB..BBB................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
 ];
 
+// ---- ARCHER: Forest green leather, hood, longbow, quiver ----
 const ARCHER_PALETTE: Record<string, string> = {
-  h: "#228B22",
-  H: "#186818",
+  // Hood/hair (brown-green)
+  h: "#5A7A38",
+  H: "#4A6A28",
+  J: "#3A5A1A",
+  // Skin
   s: "#FFD5B4",
-  S: "#D4A880",
+  S: "#E8B898",
+  T: "#D4A480",
+  // Eyes/mouth
   e: "#1a1a1a",
+  E: "#FFFFFF",
   m: "#C47A6A",
-  a: "#4CAF50",
-  A: "#2E7D32",
+  // Leather armor (green, 3-tone)
+  a: "#5AAA55",
+  A: "#3D8A3A",
+  R: "#2A6A28",
+  // Leather details (brown)
   g: "#8B6914",
+  G: "#6B5010",
+  Y: "#B8860B",
+  // Cloak (brown-green)
+  c: "#5A7040",
+  C: "#4A5A30",
+  K: "#3A4A22",
+  // Bow (wood)
+  w: "#8B5E3C",
+  W: "#6B4428",
+  // Bowstring
+  v: "#C8C8C8",
+  // Quiver + arrows
+  q: "#8B5E3C",
+  Q: "#6B4428",
+  r: "#C0C0C0",
+  // Boots/pants
   b: "#5C3A1E",
   B: "#3A2210",
   p: "#4A6A28",
   P: "#3A5A18",
-  w: "#8B4513",
-  W: "#6B3410",
-  q: "#8B4513",
-  r: "#C0C0C0",
+  Z: "#2A4A10",
 };
 const ARCHER_ART = [
-  "......hhhh......",
-  ".....Hhhhhh.....",
-  ".....hhHhhh.....",
-  ".....ssssss.....",
-  ".....se.ses.....",
-  ".....sSmSss.....",
-  "......ssss......",
-  "......gaag......",
-  "....AaaaaAqr....",
-  "..W.AaaaaAqr....",
-  "..W.AaaaaAqr....",
-  "..WsAaaaaAq.....",
-  "..W.gaaaaaA.....",
-  "....AaaaaAA.....",
-  "....AaaaaAA.....",
-  "....pppppppp....",
-  "....pp....pp....",
-  "....pp....pp....",
-  "....pP....pP....",
-  "....bB....bB....",
-  "....BB....BB....",
-  "................",
+  "................................",
+  ".........JJJJJJJ...............",
+  "........JHhhhhhHJ..............",
+  ".......JHhhhhhhHHJ.............",
+  ".......JHhhhhhhhHJ.............",
+  "........HHhhhhhHH..............",
+  "........HHhhJhhHH..............",
+  "........ssssssssss..............",
+  "........sEe.sEess...............",
+  "........sSSmSSsss...............",
+  ".........sTTTTss................",
+  "..........ssss..................",
+  ".........ggaagg.................",
+  "........GaaaaagGqr..............",
+  ".......RAAaaaaAAqr..............",
+  "....Wv.RAAaaaaAAqr..............",
+  "....Wv.RAAAAaAAAq...............",
+  "...Wv.CRAgaaAAA.................",
+  "...Wv.CRAAaaAAA.................",
+  "....WvCRAAAAaAA.................",
+  ".....WRAAAAAAA..................",
+  "........AaaaAA..................",
+  "........ggaagg..................",
+  "........RAAAAR..................",
+  ".........AAAA...................",
+  ".........pppppppp...............",
+  ".........pp....pp...............",
+  ".........pp....pp...............",
+  ".........pp....pp...............",
+  ".........pP....pP...............",
+  ".........pZ....pZ...............",
+  "........bBB...bBB...............",
+  "........BBB...BBB...............",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
 ];
 
-// Walk frame 1 (step left): left leg forward, right leg back
-function makeWalkFrame1(base: string[]): string[] {
+// Walk frame generators for 32x44 sprites
+function makeWalkFrame1_32(base: string[]): string[] {
   const walk = [...base];
-  walk[16] = "...pp......pp...";
-  walk[17] = "...pp......pp...";
-  walk[18] = "...pP......pP...";
-  walk[19] = "...bB......bB...";
-  walk[20] = "...BB......BB...";
+  // Legs spread: left forward, right back
+  walk[25] = "........pppppppp...............";
+  walk[26] = ".......pp......pp..............";
+  walk[27] = ".......pp......pp..............";
+  walk[28] = ".......pp......pp..............";
+  walk[29] = ".......pP......pP..............";
+  walk[30] = ".......pQ......pQ..............";
+  walk[31] = "......bBB.....bBB..............";
+  walk[32] = "......BBB.....BBB..............";
   return walk;
 }
 
-// Walk frame 2 (step right): right leg forward, left leg back
-function makeWalkFrame2(base: string[]): string[] {
+function makeWalkFrame2_32(base: string[]): string[] {
   const walk = [...base];
-  walk[16] = ".....pp..pp.....";
-  walk[17] = ".....pp..pp.....";
-  walk[18] = ".....pP..pP.....";
-  walk[19] = ".....bB..bB.....";
-  walk[20] = ".....BB..BB.....";
+  // Legs closer together
+  walk[25] = "..........pppppp...............";
+  walk[26] = "..........pp..pp...............";
+  walk[27] = "..........pp..pp...............";
+  walk[28] = "..........pp..pp...............";
+  walk[29] = "..........pP..pP...............";
+  walk[30] = "..........pQ..pQ...............";
+  walk[31] = ".........bBB.bBB...............";
+  walk[32] = ".........BBB.BBB...............";
   return walk;
 }
 
-const WARRIOR_WALK1 = makeWalkFrame1(WARRIOR_ART);
-const WARRIOR_WALK2 = makeWalkFrame2(WARRIOR_ART);
-const KNIGHT_WALK1 = makeWalkFrame1(KNIGHT_ART);
-const KNIGHT_WALK2 = makeWalkFrame2(KNIGHT_ART);
+// Knight walk needs Q -> Q mapping fix
+function makeKnightWalk1(base: string[]): string[] {
+  const walk = [...base];
+  walk[25] = "........pppppppp...............";
+  walk[26] = ".......pp......pp..............";
+  walk[27] = ".......pp......pp..............";
+  walk[28] = ".......pp......pp..............";
+  walk[29] = ".......pP......pP..............";
+  walk[30] = ".......pQ......pQ..............";
+  walk[31] = "......bBB.....bBB..............";
+  walk[32] = "......BBB.....BBB..............";
+  return walk;
+}
 
-const MAGE_WALK1 = (() => {
-  const w = [...MAGE_ART];
-  w[17] = "...pp......pp...";
-  w[18] = "...pP......pP...";
-  w[19] = "...bB......bB...";
-  w[20] = "...BB......BB...";
-  return w;
-})();
-const MAGE_WALK2 = (() => {
-  const w = [...MAGE_ART];
-  w[17] = ".....pp..pp.....";
-  w[18] = ".....pP..pP.....";
-  w[19] = ".....bB..bB.....";
-  w[20] = ".....BB..BB.....";
-  return w;
-})();
+function makeKnightWalk2(base: string[]): string[] {
+  const walk = [...base];
+  walk[25] = "..........pppppp...............";
+  walk[26] = "..........pp..pp...............";
+  walk[27] = "..........pp..pp...............";
+  walk[28] = "..........pp..pp...............";
+  walk[29] = "..........pP..pP...............";
+  walk[30] = "..........pQ..pQ...............";
+  walk[31] = ".........bBB.bBB...............";
+  walk[32] = ".........BBB.BBB...............";
+  return walk;
+}
 
-const ARCHER_WALK1 = makeWalkFrame1(ARCHER_ART);
-const ARCHER_WALK2 = makeWalkFrame2(ARCHER_ART);
+// Mage walk frames (robe sways)
+function makeMageWalk1(base: string[]): string[] {
+  const walk = [...base];
+  walk[26] = "........RRp..pRR...............";
+  walk[27] = ".......pp......pp..............";
+  walk[28] = ".......pp......pp..............";
+  walk[29] = ".......pp......pp..............";
+  walk[30] = ".......pP......pP..............";
+  walk[31] = "......bBB.....bBB..............";
+  walk[32] = "......BBB.....BBB..............";
+  return walk;
+}
+
+function makeMageWalk2(base: string[]): string[] {
+  const walk = [...base];
+  walk[26] = "........RRp..pRR...............";
+  walk[27] = "..........pp..pp...............";
+  walk[28] = "..........pp..pp...............";
+  walk[29] = "..........pp..pp...............";
+  walk[30] = "..........pP..pP...............";
+  walk[31] = ".........bBB.bBB...............";
+  walk[32] = ".........BBB.BBB...............";
+  return walk;
+}
+
+const WARRIOR_WALK1 = makeWalkFrame1_32(WARRIOR_ART);
+const WARRIOR_WALK2 = makeWalkFrame2_32(WARRIOR_ART);
+const KNIGHT_WALK1 = makeKnightWalk1(KNIGHT_ART);
+const KNIGHT_WALK2 = makeKnightWalk2(KNIGHT_ART);
+const MAGE_WALK1 = makeMageWalk1(MAGE_ART);
+const MAGE_WALK2 = makeMageWalk2(MAGE_ART);
+const ARCHER_WALK1 = makeWalkFrame1_32(ARCHER_ART);
+const ARCHER_WALK2 = makeWalkFrame2_32(ARCHER_ART);
 
 // ================================================================
-// MOB SPRITES - Unique silhouettes for each mob type
+// MOB SPRITES - Unique silhouettes, 3-tone shading, doubled detail
 // ================================================================
 
-// ---- Slime (14x12) ----
+// ---- Slime (28x24) - Gelatinous blob with transparency, floating eyes ----
 const SLIME_PALETTE: Record<string, string> = {
+  // Body (green, 3-tone)
   g: "#44CC66",
   G: "#2AAA48",
+  d: "#1A8838",
+  // Highlight/transparency
   l: "#66EE88",
   L: "#88FFAA",
+  q: "#AAFFCC",
+  // Eyes
   w: "#FFFFFF",
   e: "#222222",
-  d: "#1A8838",
+  p: "#111111",
+  // Specular
+  k: "#CCFFDD",
 };
 const SLIME_ART = [
-  "..............",
-  "......gg......",
-  "....ggllgg....",
-  "...glLllLlg...",
-  "..gglwegwelg..",
-  "..gggggggggg..",
-  ".gGggggggggGg.",
-  ".gGGgggggGGGg.",
-  ".gGGGGgGGGGGg.",
-  "..GGGGGGGGGg..",
-  "...dGGGGGGd...",
-  "..............",
+  "............................",
+  "............................",
+  "..........gggggg............",
+  "........gglllllgg...........",
+  ".......glLLLLLLLlg..........",
+  "......glLLqqqLLLLlg.........",
+  ".....gglLLqkqLLLLlgg.......",
+  ".....gglLLLLLLLLLLlgg......",
+  "....ggllwwe.llwwe.llgg.....",
+  "....gglllll.lllll.llgg.....",
+  "....ggggggllllllgggggg.....",
+  "...gGGggggggggggggGGGgg....",
+  "...gGGGggggggggggGGGGg.....",
+  "...gGGGGggggggggGGGGGg.....",
+  "...gGGGGGGggggGGGGGGGg.....",
+  "....GGGGGGGGGGGGGGGGg.....",
+  ".....dGGGGGGGGGGGGGd......",
+  "......ddGGGGGGGGGdd........",
+  ".........ddddddd...........",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
 ];
 
-// ---- Wolf (18x14) ----
+// ---- Wolf (36x28) - Muscular quadruped, fangs, bushy tail ----
 const WOLF_PALETTE: Record<string, string> = {
-  b: "#8B7355",
-  B: "#6B5535",
-  d: "#5A4A30",
-  D: "#4A3A22",
-  e: "#FF3333",
-  n: "#444444",
+  // Fur (brown, 3-tone)
+  b: "#9B8565",
+  B: "#7B6545",
+  D: "#5B4A30",
+  // Dark undercoat
+  d: "#4A3A22",
+  // Belly/light fur
   w: "#CCBB99",
-  t: "#AA9977",
+  W: "#BBAA88",
+  // Highlight
+  l: "#B8A878",
+  // Eyes
+  e: "#FF3333",
+  E: "#CC1111",
+  // Nose
+  n: "#333333",
+  N: "#222222",
+  // Teeth
+  t: "#FFFFFF",
+  // Tail tip
+  T: "#AA9977",
 };
 const WOLF_ART = [
-  "..................",
-  "..bd.............",
-  ".bBbd............",
-  ".BBBb...bbbbbb...",
-  "..nBb..bbbbbbbbt.",
-  "..eBb.bbBBBBBbb..",
-  "..bBbbbbBBBBBbb..",
-  "...bbbbbBBBBbb...",
-  "....bbbbBBBBb....",
-  "....bD.bB.bDb....",
-  "....bD.bB.bDb....",
-  "....DD.BB.bDD....",
-  "....DD..B..DD....",
-  "..................",
+  "....................................",
+  "....................................",
+  "...bbd..............................",
+  "..bBBbd.............................",
+  ".bBBBBb.....bbbbbbbbb..............",
+  ".bBBBBb...bbbBBBBBBBbb.............",
+  "..nBBBb..bbBBBBBBBBBBbb.Tbb.......",
+  "..teBb..bBBBBBBBBBBBBBbbTTbb......",
+  "..teBb.bbBBBBBBBBBBBBBBbTTTb......",
+  "...bBb.bBBBBwwwBBBBBBBBbBTbb......",
+  "...bBbbbbBBwwWWwBBBBBBBbbbb.......",
+  "....bbbbbBBwwWWwBBBBBBBbb.........",
+  ".....bbbbbBBwwwBBBBBBBBb..........",
+  "......bbbbbBBBBBBBBBBBbb..........",
+  "......bbbbbbBBBBBBBBBbb...........",
+  ".......bbbbbBBBBBBBBbb............",
+  "........bbbbbBBBBBBb..............",
+  ".........bD..bBB.bDb..............",
+  ".........bD..bBB.bDb..............",
+  ".........bD..bBB.bDb..............",
+  ".........DD..BBB..DD..............",
+  ".........DD..BBB..DD..............",
+  "........dDD..dBB..DDd.............",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
 ];
 
-// ---- Goblin (14x18) ----
+// ---- Goblin (28x36) - Hunched, big ears, crude weapon, yellow eyes ----
 const GOBLIN_PALETTE: Record<string, string> = {
-  g: "#6B8E23",
-  G: "#4A6A12",
+  // Skin (olive green, 3-tone)
+  g: "#7BA833",
+  G: "#5A8818",
+  d: "#3A6808",
+  // Ear inner
   s: "#8BAA33",
-  S: "#5A7A1A",
+  S: "#AABB55",
+  // Eyes
   y: "#FFFF00",
+  Y: "#CCCC00",
   e: "#222222",
-  c: "#8B4513",
-  C: "#6B3410",
-  p: "#4A3A28",
-  b: "#3A2A18",
+  // Mouth
+  m: "#553322",
+  // Teeth
+  t: "#EEEECC",
+  // Cloth/loincloth
+  c: "#8B6940",
+  C: "#6B4A28",
+  // Crude weapon (club)
+  w: "#6B4A28",
+  W: "#4A3018",
+  // Boots
+  b: "#4A3A28",
+  B: "#3A2A18",
 };
 const GOBLIN_ART = [
-  "..............",
-  ".....gggg.....",
-  "....gggggg....",
-  "..g.gggggg.g..",
-  "..Gg.yeye.gG..",
-  "...ggggggg.g..",
-  "....ggssgg....",
-  ".....gggg.....",
-  "....GgggGc....",
-  "...gGggggGCc..",
-  "...sGggggGCc..",
-  "...sGggggGc...",
-  "....GgGGgG....",
-  "....pp..pp....",
-  "....pp..pp....",
-  "....pp..pp....",
-  "....bb..bb....",
-  "..............",
+  "............................",
+  "............................",
+  ".........gggggg.............",
+  "........gggggggG............",
+  ".......ggggggggg............",
+  "....sg.ggggggggg.gs........",
+  "...sSg.ggggggggg.gSs......",
+  "....dg..yeggyeg..gd........",
+  ".......gggggggggg...........",
+  "........ggtmmtgg............",
+  ".........gggggg.............",
+  "..........gggg..............",
+  "..........Gggg..............",
+  ".........GGggGGw............",
+  "........dGGggGGWw...........",
+  "........dGGggGGWw...........",
+  ".......ggGGggGGGWw..........",
+  ".......ggGGGgGGGW...........",
+  "........GGGggGG.............",
+  "........cccccccc............",
+  "........CCccccCC............",
+  ".........cc..cc.............",
+  ".........cc..cc.............",
+  ".........cc..cc.............",
+  ".........cc..cc.............",
+  ".........bb..bb.............",
+  ".........bB..bB.............",
+  ".........BB..BB.............",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
 ];
 
-// ---- Skeleton (14x20) ----
-const SKEL_PALETTE: Record<string, string> = {
-  w: "#E8E8D5",
-  W: "#C8C8B5",
-  d: "#AAAAAA",
-  r: "#FF2222",
+// ---- Orc (28x38) - Bigger than goblin, tusks, armored ----
+const ORC_PALETTE: Record<string, string> = {
+  // Skin (darker olive, 3-tone)
+  g: "#5A7830",
+  G: "#3A5818",
+  d: "#2A4808",
+  // Eyes
+  y: "#FF8800",
+  Y: "#CC6600",
   e: "#222222",
-  b: "#888888",
-  g: "#666666",
+  // Mouth/tusks
+  m: "#443322",
+  t: "#EEEEDD",
+  s: "#6B8A3A",
+  S: "#4A6A22",
+  // Armor (crude metal)
+  a: "#777778",
+  A: "#555558",
+  R: "#3A3A40",
+  // Weapon (axe)
+  w: "#888890",
+  W: "#6B4A28",
+  // Boots
+  b: "#4A3A28",
+  B: "#3A2A18",
+  // Belt
+  c: "#8B6940",
+  C: "#6B4A28",
+};
+const ORC_ART = [
+  "............................",
+  "............................",
+  "........gggggggg............",
+  ".......gggggggggg...........",
+  "......ggggggggggg...........",
+  "....sg.ggggggggg.gs........",
+  "...sSg.ggggggggg.gSs......",
+  "....dg..yeggyeg..gd........",
+  ".......gggggggggg...........",
+  ".......ggtmmmmtgg...........",
+  "........ggggggggg...........",
+  ".........ggggggg............",
+  ".........aaaaaaa............",
+  "........AAAaaaaAw...........",
+  ".......RAAAAaaAAWw..........",
+  ".......RAAAAaaAAWw..........",
+  "......ggRAAAAaAAAWw.........",
+  "......ggRAAAAaAAAW..........",
+  ".......RAAAAaaAA............",
+  ".......cccccccccc...........",
+  ".......CCccccccCC...........",
+  "........cc....cc............",
+  "........cc....cc............",
+  "........cc....cc............",
+  "........cc....cc............",
+  "........bb....bb............",
+  "........bB....bB............",
+  "........BB....BB............",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+];
+
+// ---- Skeleton (28x40) - Ribcage, sword+shield, glowing eyes ----
+const SKEL_PALETTE: Record<string, string> = {
+  // Bone (3-tone)
+  w: "#F0F0DD",
+  W: "#D8D8C5",
+  d: "#B8B8A5",
+  // Dark joints
+  D: "#888878",
+  // Eye glow
+  r: "#FF2222",
+  R: "#CC0000",
+  e: "#FF6644",
+  // Teeth
+  t: "#E8E8D5",
+  // Sword
+  s: "#C8C8D0",
+  S: "#A0A0AA",
+  // Shield (tattered)
+  h: "#6B4A28",
+  H: "#4A3018",
+  // Tattered cloth
+  c: "#555548",
+  C: "#3A3A30",
 };
 const SKEL_ART = [
-  "..............",
-  ".....wwww.....",
-  "....wwwwww....",
-  "....wrewrew...",
-  "....wwwwwww...",
-  ".....wddww....",
-  "......ww......",
-  ".....wwwww....",
-  "....wwwwwww...",
-  "..wwwwewwwww..",
-  "..ww.www.ww...",
-  ".....wwwww....",
-  "....wwwwwww...",
-  ".....wwwww....",
-  ".....ww.ww....",
-  ".....ww.ww....",
-  ".....ww.ww....",
-  ".....gg.gg....",
-  ".....gg.gg....",
-  "..............",
+  "............................",
+  "............................",
+  "..........wwwwww............",
+  ".........wwwwwwww...........",
+  "........wwwwwwwwww..........",
+  "........wrRwwrRwww..........",
+  "........weeWWeeWw...........",
+  "........wwwwwwwww...........",
+  ".........wdttdww............",
+  "..........wwwww..............",
+  "...........ww................",
+  ".........wwwwww..............",
+  "........wwwwwwww.............",
+  ".......wwwwDDwwww............",
+  "......swWwDDDDwWww...........",
+  "......sww.wwww.wwh..........",
+  ".......S..wwww..hH..........",
+  "..........wwwwww............",
+  ".........wwwwwwww...........",
+  "..........wwwwww............",
+  "...........wwww..............",
+  "...........ww.ww............",
+  "...........ww.ww............",
+  "...........ww.ww............",
+  "...........ww.ww............",
+  "...........Dw.wD............",
+  "..........DD..DD............",
+  "..........DD..DD............",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
 ];
 
-// ---- Spider (16x12) ----
+// ---- Zombie (28x40) - Shambling corpse, tattered clothes, green skin ----
+const ZOMBIE_PALETTE: Record<string, string> = {
+  // Rotting skin (3-tone)
+  w: "#6B8B3A",
+  W: "#556B2F",
+  d: "#3A4A1A",
+  // Dark
+  D: "#2A3A10",
+  // Eyes
+  r: "#882222",
+  R: "#661111",
+  e: "#993333",
+  // Teeth
+  t: "#AABB88",
+  // Tattered cloth
+  c: "#4A4A3A",
+  C: "#333328",
+  s: "#555548",
+  S: "#3A3A30",
+  h: "#444438",
+  H: "#333328",
+};
+const ZOMBIE_ART = [
+  "............................",
+  "............................",
+  "..........wwwwww............",
+  ".........wwWwwwww...........",
+  "........wwWWwwwwww..........",
+  "........wrRwwrRwww..........",
+  "........weeWWeeWw...........",
+  "........wwwwwwwww...........",
+  ".........wdttdww............",
+  "..........wwwww..............",
+  "...........ww................",
+  ".........cccccc..............",
+  "........cCCcccCc.............",
+  ".......cCCCCCCCCc............",
+  "......wwCCCCCCCCcw...........",
+  "......ww.cCCCc.cw...........",
+  ".......w..cCCc..w...........",
+  "..........cccccc............",
+  ".........cccccccc...........",
+  "..........cccccc............",
+  "...........cccc..............",
+  "...........cc.cc............",
+  "...........cc.cc............",
+  "...........ww.ww............",
+  "...........ww.ww............",
+  "...........Dw.wD............",
+  "..........DD..DD............",
+  "..........DD..DD............",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+];
+
+// ---- Spider (32x24) - 8 legs, large abdomen, multiple eyes ----
 const SPIDER_PALETTE: Record<string, string> = {
-  b: "#2F2F2F",
-  B: "#1A1A1A",
+  // Body (dark, 3-tone)
+  b: "#3A3A3A",
+  B: "#2A2A2A",
+  D: "#1A1A1A",
+  // Abdomen pattern
+  d: "#4A4A4A",
+  // Eyes (multiple red dots)
   r: "#FF2222",
-  d: "#444444",
-  l: "#3A3A3A",
+  R: "#CC0000",
+  // Legs
+  l: "#333333",
+  L: "#222222",
+  // Highlight
+  h: "#555555",
+  // Fangs
+  t: "#CCCCAA",
 };
 const SPIDER_ART = [
-  "................",
-  "..l..bbbb..l....",
-  ".l..bBBBBb..l...",
-  "l..bBBBBBBb..l..",
-  "..bBBrBrBBBb....",
-  ".bBBBBBBBBBBb...",
-  "l.bBBBBBBBBb.l..",
-  ".l.bBBBBBBb.l...",
-  "..l.bbbbbb.l....",
-  "...l......l.....",
-  "..l........l....",
-  "................",
+  "................................",
+  ".......l..........l.............",
+  "......l............l............",
+  ".....l..bbbbbbb.....l...........",
+  "....l..bBBBBBBBb.....l..........",
+  "...l..bBBBBBBBBBb.....l.........",
+  "..l..bBBrBrBrBBBBb.....l.......",
+  ".l..bBBBBBBBBBBBBBb.....l......",
+  "l..bBBBBtBBtBBBBBBBb.....l.....",
+  "....bBBBBBBBBBBBBBbb............",
+  ".l..bBBBBBBBBBBBBbb.....l......",
+  "..l..bBBddBBddBBb.....l........",
+  "...l..bBBdddddBb.....l.........",
+  "....l..bBBBBBBb.....l..........",
+  ".....l..bbbbbb.....l...........",
+  "......l..........l.............",
+  ".......l........l..............",
+  "........l......l...............",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
 ];
 
-// ---- Dragon (20x20, boss) ----
+// ---- Dragon (40x40) - Wings spread, horns, scaled body, fire ----
 const DRAGON_PALETTE: Record<string, string> = {
-  r: "#CC2200",
-  R: "#881500",
-  d: "#660E00",
-  y: "#FFCC00",
+  // Scales (red, 3-tone)
+  r: "#DD3322",
+  R: "#AA1A10",
+  D: "#771008",
+  // Belly/underbelly
+  y: "#FFCC44",
+  Y: "#DDAA22",
+  // Eyes
   e: "#FFE066",
-  b: "#222222",
-  o: "#FF6600",
-  w: "#AA1800",
-  g: "#CCAA44",
+  E: "#FFD700",
+  // Horns
+  h: "#8B6940",
+  H: "#6B4A28",
+  // Wings (dark red membrane)
+  w: "#BB2218",
+  W: "#881510",
+  M: "#660E08",
+  // Teeth/claws
+  t: "#F0F0DD",
+  // Fire breath
   f: "#FF8800",
-  F: "#FF4400",
+  F: "#FFCC00",
+  // Wing bone
+  b: "#AA8855",
+  // Tail spikes
+  k: "#CC4422",
 };
 const DRAGON_ART = [
-  "....................",
-  "..g.........g......",
-  "..gr........rg.....",
-  "...rr..rrrr.rr.....",
-  "...rr.rrrrrrrr.....",
-  "....rrryeyrrrr.....",
-  "....rrrrrrrrrr.....",
-  "..w.rrRRRRRrrr.w...",
-  ".ww.rRRRRRRRrr.ww..",
-  ".wwrrrRRRRRRrrr.ww.",
-  "..wrrrRRoRRRrrrrw..",
-  "..wrrrRRRRRRrrrw...",
-  "...rrrRRRRRRrrr....",
-  "....rrRRRRRrrr.....",
-  ".....rrRRRrrr......",
-  ".....brr.rrb.......",
-  ".....brr.rrb.......",
-  ".....bb...bb.......",
-  ".....bb...bb.......",
-  "....................",
+  "........................................",
+  "..hH...................Hh.............",
+  "..hhr..................rhh............",
+  "...hrr...rrrrrrr...rrh...............",
+  "...hrrr.rrrrrrrrrr.rrrh..............",
+  "....rrrrrrrrrrrrrrrrrr...............",
+  "....rrrreErrreErrrrr.................",
+  ".....rrrrrrrrrrrrrrrr................",
+  ".....rrrtrrrrrrrtrrr.................",
+  "......rrrrrRRRrrrrrr................",
+  "..W...rrrRRRRRRrrrr...W............",
+  ".WW..rrrrRRYYRRRrrr...WW...........",
+  ".WW.rrrrrRYYYYRRRrrrr..WW..........",
+  "..WbrrrrRRYYYYYRRrrrrrb.W...........",
+  "..WbrrrRRRYYYYRRRrrrrrbW............",
+  "...brrrrRRRYYRRRRrrrrb..............",
+  "...brrrrrRRRRRRRrrrrrrb.............",
+  "....rrrrrrRRRRRrrrrrr...............",
+  ".....rrrrrRRRRRrrrrr................",
+  "......rrrrrRRRrrrrkk................",
+  ".......rrrrRRRrrrkk.................",
+  "........rrrRRrrrk...................",
+  ".........rrr.rrr....................",
+  ".........rrr.rrr....................",
+  ".........rDr.rDr....................",
+  ".........DDr.rDD....................",
+  "........DDD..DDD...................",
+  "........DDD..DDD...................",
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
 ];
 
-// ---- Ghost (14x16) ----
+// ---- Ghost (28x32) - Ethereal, fading bottom, tattered cloak ----
 const GHOST_PALETTE: Record<string, string> = {
-  p: "#8866CC",
-  P: "#6644AA",
-  d: "#5533AA",
+  // Spectral body (purple, 3-tone)
+  p: "#9977DD",
+  P: "#7755BB",
+  D: "#5533AA",
+  // Highlight
+  l: "#BB99FF",
+  L: "#DDBBFF",
+  // Eyes (glowing)
   w: "#FFFFFF",
   e: "#222222",
-  l: "#AA88EE",
+  E: "#44FFFF",
+  // Mouth
+  m: "#333355",
+  // Fade effect (increasingly transparent-looking)
+  f: "#7755BB",
+  F: "#5533AA",
+  g: "#4422AA",
+  G: "#332299",
 };
 const GHOST_ART = [
-  "..............",
-  "......pp......",
-  "....pppppp....",
-  "...pppppppp...",
-  "...pwepwepp...",
-  "...pppppppp...",
-  "...pppeeppp...",
-  "...pppppppp...",
-  "....pppppp....",
-  "....PPppPP....",
-  "...PPPppPPP...",
-  "...PPP..PPP...",
-  "..dPPd..dPPd..",
-  "..dPd....dPd..",
-  "...d......d...",
-  "..............",
+  "............................",
+  "............................",
+  ".........pppppp.............",
+  "........ppllllpp............",
+  ".......ppllLLllpp...........",
+  "......ppplLLLlpppp..........",
+  "......ppplllllpppp..........",
+  "......ppwEppwEpppp..........",
+  "......pppppppppppp..........",
+  ".......pppmmmpppp...........",
+  ".......pppppppppp...........",
+  "........pppppppp............",
+  "........PPppppPP............",
+  ".......PPPppppPPP...........",
+  "......PPPPppPPPPP...........",
+  "......PPPPppPPPPP...........",
+  ".......PPP..PPPP............",
+  ".......DPP..PPD.............",
+  "......DDP....PDD............",
+  "......DDP....PDD............",
+  ".......DD....DD.............",
+  "........ff..ff..............",
+  ".........f..f...............",
+  "..........FF..................",
+  "...........g................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
 ];
 
-// ---- Demon (18x22, boss) ----
+// ---- Demon (36x44) - Horns, bat wings, muscular, tail ----
 const DEMON_PALETTE: Record<string, string> = {
-  r: "#AA2222",
-  R: "#771111",
-  d: "#551111",
-  h: "#333333",
-  H: "#222222",
+  // Skin (red, 3-tone)
+  r: "#CC3333",
+  R: "#AA1818",
+  D: "#881010",
+  // Horns
+  h: "#444444",
+  H: "#2A2A2A",
+  // Eyes (fire)
   e: "#FF0000",
-  g: "#FF6600",
-  s: "#882222",
-  S: "#661111",
-  w: "#881818",
-  W: "#551010",
-  b: "#442222",
-  B: "#331111",
-  c: "#222222",
+  E: "#FFCC00",
+  // Fangs
+  t: "#F0F0DD",
+  // Wings (dark membrane)
+  w: "#991818",
+  W: "#661010",
+  M: "#440808",
+  // Wing bone
+  b: "#772222",
+  // Hooves
+  c: "#333333",
+  C: "#222222",
+  // Body dark accent
+  s: "#992222",
+  S: "#771515",
+  // Tail
+  T: "#AA2222",
+  k: "#662222",
+  // Belt/loincloth
+  p: "#444444",
+  P: "#333333",
 };
 const DEMON_ART = [
-  "..................",
-  "..H..........H...",
-  "..Hh........hH...",
-  "...hh.rrrr.hh....",
-  "....hrrrrrrrh....",
-  "....rrerrrerr....",
-  "....rrrrrrrr.....",
-  ".....rrrrrrr.....",
-  ".W..RrrrrrrR..W..",
-  ".WW.RrrrrrRR.WW..",
-  "..WWRRrrrrRRWW...",
-  "..WSRRrrrrRRSW...",
-  "...SRRrrrrRRS....",
-  "....RRrrrrRR.....",
-  "....RRrrrrRR.....",
-  ".....rr.rrr......",
-  ".....rr..rr......",
-  ".....SS..SS......",
-  ".....SS..SS......",
-  ".....bb..bb......",
-  ".....bB..bB......",
-  "..................",
+  "....................................",
+  "...H.........................H.....",
+  "..HHh.......................hHH....",
+  "..HHhh.....................hhHH....",
+  "...Hhh....rrrrrrrr....hhH.........",
+  "....hh...rrrrrrrrrr...hh..........",
+  ".........rrrrrrrrrrrr..............",
+  ".........rreErrreErrrr.............",
+  ".........rrrrrrrrrrrr..............",
+  "..........rrrtttrrrrr..............",
+  "..........rrrrrrrrrr...............",
+  "...........rrrrrrrr................",
+  "..W......RRrrrrrrRR......W........",
+  ".WW.....RRRrrrrrrRRR.....WW.......",
+  ".WW....RRRRrrrrRRRRR.....WW.......",
+  "..Wb...RRRRrrrrRRRRR...bW.........",
+  "..Wb..SRRRRrrrRRRRRS..bW..........",
+  "...b..SRRRRrrrRRRRRS..b...........",
+  "...b..SRRRRrrrRRRRRS..b...........",
+  "......SRRRRrrrRRRRRS..............",
+  ".......RRRRrrrRRRR................",
+  "........RRrrrrRRR.................",
+  ".........rrrrrr....................",
+  ".........pppppp....................",
+  "........PPppppPP..................",
+  ".........rr..rr....................",
+  ".........rr..rr....................",
+  ".........rr..rr.......Tk..........",
+  ".........RR..RR......Tkk..........",
+  ".........RR..RR.....Tk............",
+  "........cCC..CCc.....................",
+  "........CCC..CCC....................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
 ];
 
-// ---- Bear (18x14) ----
+// ---- Bear (36x28) - Massive, detailed fur, standing ----
 const BEAR_PALETTE: Record<string, string> = {
-  b: "#6B4423",
-  B: "#4A2A12",
-  d: "#3A1A08",
+  // Fur (brown, 3-tone)
+  b: "#7B5533",
+  B: "#5A3A1E",
+  D: "#3A2210",
+  // Light belly
+  l: "#9B7553",
+  L: "#8B6543",
+  // Muzzle
+  s: "#AB8563",
+  S: "#9B7553",
+  // Nose
   n: "#333333",
+  N: "#222222",
+  // Eyes
   e: "#222222",
-  s: "#8B6443",
-  l: "#5A3418",
-  D: "#4A3A22",
+  // Ears
+  E: "#6B4A28",
+  // Claws
+  c: "#CCCCBB",
 };
 const BEAR_ART = [
-  "..................",
-  "..ss.............",
-  ".sBBs............",
-  ".eBBe..bbbbbbb...",
-  "..nBb.bbBBBBBbb..",
-  "..bBbbbbBBBBBBb..",
-  "...bbbbbBBBBBbb..",
-  "....bbbbBBBBBb...",
-  "....bbbbBBBBbb...",
-  "....bD.bBB.bDb..",
-  "....bD.bBB.bDb..",
-  "....DD.BBB.bDD..",
-  "....DD..BB..DD..",
-  "..................",
+  "....................................",
+  "...EE.............................",
+  "..EBBe.............................",
+  "..eBBe....bbbbbbbbb...............",
+  "...bBb..bbbBBBBBBBbb..............",
+  "...nBb.bbBBBBBBBBBBbb.............",
+  "...bBbbbbBBBBBBBBBBBb.............",
+  "....bbbbBBBBBBBBBBBBb.............",
+  ".....bbbBBBBllBBBBBBb.............",
+  "......bbbBBllLLlBBBBb.............",
+  ".......bbbBllLLlBBBbb.............",
+  "........bbbBlllBBBbb..............",
+  ".........bbbBBBBBBb...............",
+  "..........bbBBBBBbb...............",
+  "..........bD.bBB.bDb..............",
+  "..........bD.bBB.bDb..............",
+  "..........bD.bBB.bDb..............",
+  "..........DD.BBB..DD..............",
+  "..........DD.BBB..DD..............",
+  ".........DDD.dBB..DDD.............",
+  ".........cDD..BB..DDc.............",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
 ];
 
-// ---- Enemy Mage (14x20) ----
+// ---- Enemy Mage (28x40) - Dark robes, skull staff, shadowy aura ----
 const EMAGE_PALETTE: Record<string, string> = {
+  // Hood/robes (dark blue, 3-tone)
   r: "#333366",
   R: "#222255",
-  d: "#111144",
+  D: "#111144",
+  // Skin (pale)
+  s: "#DDCCBB",
+  S: "#CCBBAA",
+  // Eyes (fire)
   e: "#FF4400",
-  g: "#FF8800",
-  s: "#9B59B6",
-  S: "#7B39A6",
-  w: "#8B4513",
-  W: "#6B3410",
-  h: "#222244",
-  H: "#111133",
+  E: "#FF8800",
+  // Mouth
+  m: "#886666",
+  // Staff (dark wood)
+  w: "#4A3018",
+  W: "#3A2010",
+  // Skull on staff
+  k: "#F0F0DD",
+  K: "#D8D8C5",
+  // Aura particles
+  a: "#6644AA",
+  A: "#4422AA",
+  // Boots
+  b: "#222244",
+  B: "#111133",
 };
 const EMAGE_ART = [
-  "..............",
-  "......Hh......",
-  ".....HHhh.....",
-  "....HHhhhh....",
-  "...HHeehHhh...",
-  "...HHhhhHH....",
-  "....rrrrrr....",
-  "...rrrrrrr.w..",
-  "..Rrrrrrrrww..",
-  "..RrrrrrrrwS..",
-  "..RrrrrrrrwS..",
-  "..Rrrrrrrrw...",
-  "...rrrrrrrr...",
-  "...rrrrrrrr...",
-  "..RRrrrrrRR...",
-  "..RRRr.rRRR...",
-  "...RRr.rRR....",
-  "....rr.rr.....",
-  "....dd.dd.....",
-  "..............",
+  "............................",
+  "............................",
+  "..........kk................",
+  ".........kKKk...............",
+  ".........kKKk...............",
+  "..........kk................",
+  "..........ww................",
+  ".........DDDD...............",
+  "........DDDDDDw.............",
+  ".......DDrrrrDDw............",
+  "......DDrrsrrsrDw...........",
+  "......DDrrEsEsrDw...........",
+  ".......DrrssmssrDw..........",
+  "........rrsssrrDw...........",
+  ".........rrrrrr.w...........",
+  "........rrrrrrrr............",
+  ".......RRRrrrrRRw...........",
+  "......DRRRrrrrRRRw..........",
+  "......DRRRrrrrRRRw..........",
+  "......DRRRrrrrRRRw..........",
+  ".......RRRrrrrRRR...........",
+  ".......RRRrrrrRR............",
+  "........RRrrrrRR............",
+  "......RRRRrrrrRRRR..........",
+  ".....RRRRRrrrrRRRRR.........",
+  "....RRRRRRr..rRRRRRR........",
+  ".....RRRRr....rRRRR.........",
+  "..........rr..rr............",
+  "..........rr..rr............",
+  "..........rr..rr............",
+  "..........bB..bB............",
+  "..........BB..BB............",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
 ];
 
-// ---- NEW: Scorpion (18x14) ----
+// ---- Scorpion (36x28) - Large pincers, curved stinger tail ----
 const SCORPION_PALETTE: Record<string, string> = {
-  b: "#8B4513",
-  B: "#6B3410",
-  d: "#4A2A0A",
-  r: "#CC2200",
-  c: "#222222",
-  p: "#FF4400",
-  t: "#AA3311",
+  // Exoskeleton (brown, 3-tone)
+  b: "#9B6633",
+  B: "#7B4A22",
+  D: "#5A3010",
+  // Belly
+  d: "#AA7744",
+  // Stinger
+  r: "#DD3322",
+  R: "#AA1A10",
+  p: "#FF4433",
+  // Eyes
+  e: "#222222",
+  // Pincers
+  c: "#8B5A28",
+  C: "#6B3A18",
+  // Legs
+  l: "#7B4A22",
+  L: "#5A3010",
 };
 const SCORPION_ART = [
-  "..................",
-  "....cc............",
-  "...cp.cc..........",
-  "...cc...c.........",
-  ".......cbbbb......",
-  "..t...bBBBBBb.....",
-  "..t..bBBBBBBBb....",
-  "..t.bBBBBBBBBBb...",
-  "....bBBBBBBBBBb...",
-  "...bb.bBB.bBB.bb..",
-  "..bb..bBB..BB..bb.",
-  "..b....BB..BB...b.",
-  "........B...B.....",
-  "..................",
+  "....................................",
+  ".......rr...........................",
+  "......rRp...........................",
+  ".....rRR............................",
+  "....rRR.............................",
+  "....RR..............................",
+  "....Rb..............................",
+  ".cc..bbbbbbb........................",
+  "cCCc.bBBBBBBb......................",
+  ".cc.bBBBBBBBBb.....................",
+  "....bBBBeBeBBBb....................",
+  "....bBBBBBBBBBBb...................",
+  "....bBBBBBBBBBBBb..................",
+  ".cc..bBBBBBBBBBb...................",
+  "cCCc..bBBBBBBBb....................",
+  ".cc....bBBBBBb.....................",
+  "........bBBBb......................",
+  ".......ll.ll.ll.ll..................",
+  "......ll..ll..ll..ll................",
+  ".....LL...LL...LL...LL..............",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
+  "....................................",
 ];
 
-// ---- NEW: Treant (16x22) ----
+// ---- Treant (32x44) - Bark texture, branch arms, leaf crown ----
 const TREANT_PALETTE: Record<string, string> = {
-  t: "#3A2812",
-  T: "#2A1808", // trunk
-  l: "#2A6A12",
-  L: "#1A5A08", // leaves
-  g: "#44AA22",
-  G: "#338A18", // bright leaves
-  e: "#FFCC00", // eyes
-  r: "#5A3818", // roots
-  R: "#4A2A08",
+  // Trunk/bark (3-tone)
+  t: "#5A3818",
+  T: "#3A2210",
+  V: "#2A1808",
+  // Leaves (3-tone)
+  l: "#3AAA22",
+  L: "#2A8818",
+  G: "#1A6610",
+  // Bright leaves
+  g: "#55CC33",
+  // Eyes (amber)
+  e: "#FFCC00",
+  E: "#FFE066",
+  // Roots
+  r: "#4A2A10",
+  R: "#3A1A08",
+  // Moss
+  m: "#558833",
+  M: "#447722",
+  // Bark cracks
+  c: "#2A1808",
 };
 const TREANT_ART = [
-  "................",
-  "....lllggg......",
-  "...lLLgGGgl.....",
-  "..lLLLgGGGgl....",
-  "..lLLLGGGGgl....",
-  "...lLLGGGgl.....",
-  "....llgGgl......",
-  ".....tttt.......",
-  "....tTeTet......",
-  "....tTTTTt......",
-  "...ttTTTTtt.....",
-  "..rttTTTTttr....",
-  "..rtTTTTTTtr....",
-  "...tTTTTTTt.....",
-  "....tTTTTt......",
-  "....tTTTTt......",
-  "....tT..Tt......",
-  "....tt..tt......",
-  "...rRr..rRr.....",
-  "..rRRr..rRRr....",
-  "..RRR....RRR....",
-  "................",
+  "................................",
+  "........lllggggll...............",
+  ".......lLLgGGGGgll..............",
+  "......lLLLgGGGGGgll.............",
+  ".....lLLLLGGGGGGGll.............",
+  ".....lLLLLGGGGGGgll.............",
+  "......lLLLGGGGGgll..............",
+  ".......lllgGGGgl................",
+  "..........tttttt................",
+  ".........tTtTtTtt...............",
+  "........ttTeTeTtt...............",
+  "........ttTTTTTTt...............",
+  ".......tttTTTTTttt..............",
+  "......ttTTTcTTTTttt.............",
+  ".....rtttTTTTTTTtttr............",
+  "....rrtTTTTTTTTTTtrr............",
+  ".....rtTTTmTTTTTtr..............",
+  "......tTTTMTTTTTt...............",
+  "......tTTTTTTTTTt...............",
+  ".......tTTTTTTTt................",
+  "........tTTTTTt.................",
+  "........tTTTTTt.................",
+  "........tT...Tt.................",
+  "........tt...tt.................",
+  ".......rRr...rRr................",
+  "......rRRr...rRRr...............",
+  ".....rRRR.....RRRr..............",
+  "......RRR.....RRR...............",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
 ];
 
-// ---- NEW: Golem (16x20) ----
+// ---- Golem (32x40) - Cracked stone, glowing runes, massive fists ----
 const GOLEM_PALETTE: Record<string, string> = {
-  s: "#808080",
-  S: "#606060", // stone
-  d: "#505050",
-  D: "#404040", // dark stone
-  c: "#333333", // cracks
-  e: "#66CCFF", // eyes (magic glow)
-  g: "#4488CC", // glow
-  r: "#555555", // rough
+  // Stone (3-tone)
+  s: "#909090",
+  S: "#707070",
+  D: "#505050",
+  // Dark cracks
+  c: "#383838",
+  C: "#282828",
+  // Glowing runes
+  e: "#66CCFF",
+  E: "#88EEFF",
+  g: "#44AADD",
+  // Rough surface
+  r: "#606060",
+  R: "#4A4A4A",
+  // Fists
+  f: "#808080",
+  F: "#606060",
 };
 const GOLEM_ART = [
-  "................",
-  ".....ssss.......",
-  "....sSSSSs......",
-  "...sSSeSeSs.....",
-  "...sSSSSSSSs....",
-  "....sSSSSSs.....",
-  "......ss........",
-  "...ssssSSSss....",
-  "..sSSSSSSSSSs...",
-  ".rSSSSSSSSSSS...",
-  ".rSSSSSSSSSSSr..",
-  "..sSSSSSSSSSr...",
-  "...ssSSSSSss....",
-  "....sSSSSSs.....",
-  "....sS..SSs.....",
-  "...sSD..DSs.....",
-  "..sSSD..DSSs....",
-  "..sSD....DSs....",
-  "..dDD....DDd....",
-  "................",
+  "................................",
+  "...........sssssss..............",
+  "..........sSSSSSSSs.............",
+  ".........sSSSSSSSSs.............",
+  "........sSSeSSeSSSs.............",
+  "........sSSSSSSSSSs.............",
+  ".........sSSSSSSSSs.............",
+  "..........sSSSSss...............",
+  "............ss..................",
+  "..........ssssssss..............",
+  ".........sSSSSSSSSs.............",
+  "........sSSSSSSSSSS.............",
+  ".......fSSSScSSSSSSf............",
+  "......ffSSScCSSSSSSff...........",
+  ".....fffSSSSSSSSSSSfff..........",
+  ".....ffFSSeSSSSeSSSFff..........",
+  "......fFSSSSSSSSSSFf............",
+  ".......SSSSSSSSSSSf.............",
+  "........SSScSSSSS...............",
+  ".........SSSSSSS................",
+  "..........SSSSS.................",
+  "..........SS.SS.................",
+  "..........SS.SS.................",
+  ".........sSS.SSs................",
+  "........sSSS.SSSs...............",
+  "........sSSD.DSS................",
+  ".......sSSD...DSSs..............",
+  ".......rDDD...DDDr..............",
+  "........DDD...DDD...............",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
 ];
 
-// ---- NEW: Mushroom Monster (14x16) ----
+// ---- Mushroom Monster (28x32) - Spotted cap, stubby legs, menacing face ----
 const MUSHROOM_PALETTE: Record<string, string> = {
-  c: "#CC4444",
-  C: "#AA2222", // cap
-  s: "#FF6666", // spots
-  t: "#DDBB88",
-  T: "#BB9966", // stem
-  e: "#222222", // eyes
-  w: "#FFFFFF", // whites
-  d: "#664422", // dark
+  // Cap (red, 3-tone)
+  c: "#DD4444",
+  C: "#BB2222",
+  V: "#991111",
+  // Spots
+  s: "#FF8888",
+  S: "#FFAAAA",
+  // Stem (3-tone)
+  t: "#EEDD99",
+  T: "#CCBB77",
+  U: "#AA9955",
+  // Eyes
+  e: "#222222",
+  E: "#111111",
+  // Whites
+  w: "#FFFFFF",
+  // Mouth
+  m: "#664422",
+  // Roots
+  r: "#886644",
+  R: "#664422",
+  // Dark
+  d: "#553311",
 };
 const MUSHROOM_ART = [
-  "..............",
-  "....cccccc....",
-  "...cCsCsCCc...",
-  "..cCCCsCCCCc..",
-  "..cCCCCCCCCc..",
-  "...ccCCCCcc...",
-  "....cccccc....",
-  ".....tTTt.....",
-  "....tTweTt....",
-  "....tTweTt....",
-  "....tTTTTt....",
-  ".....tTTt.....",
-  ".....tTTt.....",
-  "....dttttd....",
-  "...dd....dd...",
-  "..............",
+  "............................",
+  "............................",
+  ".........cccccccc...........",
+  "........cCCsCCsCCc..........",
+  ".......cCCCsCCsCCCc.........",
+  "......cCCCCCCCCCCCCc........",
+  ".....cCCsCCCCCCsCCCCc.......",
+  ".....cCCCCsCCCCCCCCCc.......",
+  "......cCCCCCCCCCCCCc........",
+  ".......ccCCCCCCCCcc.........",
+  "........VcccccccV...........",
+  "..........tttttt............",
+  ".........tTTTTTTt...........",
+  "........tTTweTTTTt..........",
+  "........tTTweTTTTt..........",
+  "........tTTTmmTTTt..........",
+  ".........tTTTTTt............",
+  ".........tTTTTTt............",
+  "..........tTTt...............",
+  "..........tTTt...............",
+  ".........rtttttr.............",
+  "........rR....Rr............",
+  "........RR....RR............",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
+  "............................",
 ];
 
-// ---- NPC Merchant (16x22) ----
+// ================================================================
+// NPC SPRITES (32x44, matching player proportions)
+// ================================================================
+
+// ---- NPC Merchant (32x44) - Brown merchant robes, coin pouch ----
 const NPC_PALETTE: Record<string, string> = {
-  h: "#8B4513",
-  H: "#6B3410",
+  // Hair
+  h: "#8B5E3C",
+  H: "#6B4428",
+  J: "#A87650",
+  // Skin
   s: "#FFD5B4",
-  S: "#D4A880",
-  e: "#222222",
+  S: "#E8B898",
+  T: "#D4A480",
+  // Eyes/mouth
+  e: "#1a1a1a",
+  E: "#FFFFFF",
   m: "#C47A6A",
-  a: "#6B4423",
-  A: "#4A2A12",
+  // Outfit (brown merchant)
+  a: "#7B5A33",
+  A: "#5A3A1E",
+  R: "#3A2210",
+  // Gold/coin
   g: "#FFD700",
-  G: "#CCAA00",
+  G: "#DAA520",
+  Y: "#B8860B",
+  // Boots
   b: "#5C3A1E",
   B: "#3A2210",
   p: "#4A3728",
-  q: "#FFD700",
-  Q: "#CCAA00",
+  P: "#382818",
+  Q: "#2A1A10",
+  // Apron
+  c: "#DDCC99",
+  C: "#BBAA77",
 };
 const NPC_MERCHANT_ART = [
-  "......Qg........",
-  "......QQ........",
-  ".....HHHH.......",
-  "....HhhhHH......",
-  "...HHHHHHHH.....",
-  ".....ssssss.....",
-  ".....se.ses.....",
-  ".....sSmSss.....",
-  "......ssss......",
-  ".....gaaag......",
-  "....AaaaaAA.....",
-  "...sAaaaaAAs....",
-  "...sAaaaaAAs....",
-  "....gaaaaaAg....",
-  "....AaaaaAAA....",
-  "...AAAAAAAAAA...",
-  "...AAp...pAAA...",
-  "....pp...pp.....",
-  "....pp...pp.....",
-  "....bB...bB.....",
-  "....BB...BB.....",
-  "................",
+  "................................",
+  "...........Ygg..................",
+  "...........YGG..................",
+  "..........HHHHHH................",
+  ".........HhhhhhHH...............",
+  "........HHhJhhJhHH..............",
+  "........HHhhhhhhHH..............",
+  "........ssssssssss...............",
+  "........sEe.sEess...............",
+  "........sSSmSSsss...............",
+  ".........sTTTTss................",
+  "..........ssss..................",
+  ".........ggaagg.................",
+  "........GaaaaagG................",
+  ".......RAAcccaAAR...............",
+  "......sRAAcccaAARs..............",
+  "......sRAAcCcaAARs..............",
+  ".......RAAcccaAAR...............",
+  ".......RAAaaaAAR................",
+  "........RAAAAaAR................",
+  "........ggaaaaagg...............",
+  "........RAAAAAAAR...............",
+  ".........AAAAAA.................",
+  ".........pppppppp...............",
+  ".........pp....pp...............",
+  ".........pp....pp...............",
+  ".........pp....pp...............",
+  ".........pP....pP...............",
+  ".........pQ....pQ...............",
+  "........bBB...bBB...............",
+  "........BBB...BBB...............",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
 ];
 
-// ---- NPC Guide (16x22) ----
+// ---- NPC Guide - Blue outfit variant ----
 const NPC_GUIDE_PALETTE: Record<string, string> = {
   ...NPC_PALETTE,
-  a: "#2196F3",
-  A: "#1565C0",
-  h: "#1565C0",
-  H: "#0D47A1",
+  a: "#3A88CC",
+  A: "#2A68AA",
+  R: "#1A4888",
+  h: "#3A68AA",
+  H: "#2A4888",
+  J: "#4A88CC",
+  c: "#DDCC99",
+  C: "#BBAA77",
 };
 const NPC_GUIDE_ART = [...NPC_MERCHANT_ART];
 
-// ---- NEW: NPC Blacksmith (16x22) - muscular, apron ----
+// ---- NPC Blacksmith (weapon) - Muscular, dark apron, hammer ----
 const NPC_BLACKSMITH_PALETTE: Record<string, string> = {
   ...NPC_PALETTE,
   a: "#555555",
-  A: "#333333", // dark apron/clothes
+  A: "#3A3A3A",
+  R: "#222222",
   h: "#333333",
   H: "#222222",
-  n: "#AA4400", // anvil color
+  J: "#444444",
+  c: "#444444",
+  C: "#333333",
 };
 const NPC_BLACKSMITH_ART = [
-  "......Qg........",
-  "......QQ........",
-  "......hhhh......",
-  ".....Hhhhhh.....",
-  ".....ssssss.....",
-  ".....se.ses.....",
-  ".....sSmSss.....",
-  "......ssss......",
-  ".....gaaag......",
-  "...ssAaaaAAs....",
-  "...ssAaaaAAs....",
-  "...ssAaaaAAs....",
-  "....gaaaaaAg....",
-  "....AaaaaAAA....",
-  "....AaaaaAAA....",
-  "....pppppppp....",
-  "....pp....pp....",
-  "....pp....pp....",
-  "....pP....pP....",
-  "....bB....bB....",
-  "....BB....BB....",
-  "................",
+  "................................",
+  "...........Ygg..................",
+  "...........YGG..................",
+  "..........hhhhhh................",
+  ".........Hhhhhhhh...............",
+  "........HHhhJhJhHH..............",
+  "........ssssssssss...............",
+  "........sEe.sEess...............",
+  "........sSSmSSsss...............",
+  ".........sTTTTss................",
+  "..........ssss..................",
+  ".........ggaagg.................",
+  "........GaaaaagG................",
+  ".......RAAcccaAAR...............",
+  ".....ssRAAcccaAARss.............",
+  ".....sSRAAcCcaAARsS.............",
+  "......SRAAcccaAAR...............",
+  ".......RAAaaaAAR................",
+  ".......RAAaaaAAR................",
+  "........RAAAAaAR................",
+  "........ggaaaaagg...............",
+  "........RAAAAAAAR...............",
+  ".........AAAAAA.................",
+  ".........pppppppp...............",
+  ".........pp....pp...............",
+  ".........pp....pp...............",
+  ".........pp....pp...............",
+  ".........pP....pP...............",
+  ".........pQ....pQ...............",
+  "........bBB...bBB...............",
+  "........BBB...BBB...............",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
 ];
 
-// ---- NEW: NPC Witch/Potion (16x22) ----
+// ---- NPC Potion/Witch - Purple robes, potion glow ----
 const NPC_POTION_PALETTE: Record<string, string> = {
   ...NPC_PALETTE,
-  a: "#6B2FA0",
-  A: "#4A148C",
-  h: "#4A148C",
-  H: "#2A0860",
+  a: "#7B3AAA",
+  A: "#5A2288",
+  R: "#3A1068",
+  h: "#5A2288",
+  H: "#3A1068",
+  J: "#7B3AAA",
   c: "#44FF44",
-  C: "#22CC22", // potion glow
+  C: "#22CC22",
 };
 const NPC_POTION_ART = [
-  "......Qg........",
-  "......QQ........",
-  ".....HHHH.......",
-  "....HhhhHH......",
-  "...HHHHhHHH.....",
-  ".....ssssss.....",
-  ".....se.ses.....",
-  ".....sSmSss.....",
-  "......ssss......",
-  ".....gaaag......",
-  "....AaaaaAA.....",
-  "...sAaaaaAAs....",
-  "...sAaaaaAAs....",
-  "....gaaaaaAg....",
-  "....AaaaaAAA....",
-  "...AAAAAAAAAA...",
-  "...AAp...pAAA...",
-  "....pp...pp.....",
-  "....pp...pp.....",
-  "....bB...bB.....",
-  "....BB...BB.....",
-  "................",
+  "................................",
+  "...........Ygg..................",
+  "...........YGG..................",
+  "..........HHHHHH................",
+  ".........HhhhhhHH...............",
+  "........HHhJhhJhHH..............",
+  "........HHhhhhhhHH..............",
+  "........ssssssssss...............",
+  "........sEe.sEess...............",
+  "........sSSmSSsss...............",
+  ".........sTTTTss................",
+  "..........ssss..................",
+  ".........ggaagg.................",
+  "........GaaaaagG................",
+  ".......RAAaaaaAAR...............",
+  "......sRAAaaaaAARs..............",
+  "......sRAAaaaaAARs..............",
+  ".......RAAaaaaAAR...............",
+  ".......RAAaaaAAR................",
+  "........RAAAAaAR................",
+  "........ggaaaaagg...............",
+  "........RAAAAAAAR...............",
+  ".......RRAAAAAARRR..............",
+  "......RRRpp..ppRRR..............",
+  ".........pp..pp.................",
+  ".........pp..pp.................",
+  ".........pp..pp.................",
+  ".........pP..pP.................",
+  ".........pQ..pQ.................",
+  "........bBB..bBB................",
+  "........BBB..BBB................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
+  "................................",
 ];
 
 // ================================================================
@@ -959,117 +1821,128 @@ export function generateAllTextures(scene: Phaser.Scene): void {
   renderWithOutline(scene, "mob_treant", TREANT_ART, TREANT_PALETTE);
   renderWithOutline(scene, "mob_golem", GOLEM_ART, GOLEM_PALETTE);
   renderWithOutline(scene, "mob_mushroom", MUSHROOM_ART, MUSHROOM_PALETTE);
+  renderWithOutline(scene, "mob_zombie", ZOMBIE_ART, ZOMBIE_PALETTE);
+  renderWithOutline(scene, "mob_orc", ORC_ART, ORC_PALETTE);
 
   // Color variants for slime
-  const fireSlimePalette = {
+  const fireSlimePalette: Record<string, string> = {
     ...SLIME_PALETTE,
     g: "#FF6633",
     G: "#CC4420",
+    d: "#AA3318",
     l: "#FF8855",
     L: "#FFAA77",
-    d: "#AA3318",
+    q: "#FFCCAA",
+    k: "#FFDDBB",
   };
-  const iceSlimePalette = {
+  const iceSlimePalette: Record<string, string> = {
     ...SLIME_PALETTE,
     g: "#66CCFF",
     G: "#4499DD",
+    d: "#3377AA",
     l: "#88DDFF",
     L: "#AAEEFF",
-    d: "#3377AA",
+    q: "#CCEFFF",
+    k: "#DDEEFF",
   };
-  const poisonSlimePalette = {
+  const poisonSlimePalette: Record<string, string> = {
     ...SLIME_PALETTE,
     g: "#66CC44",
     G: "#44AA22",
+    d: "#338818",
     l: "#88EE66",
     L: "#AAFF88",
-    d: "#338818",
+    q: "#CCFFAA",
+    k: "#DDFFCC",
   };
   renderWithOutline(scene, "mob_fire_slime", SLIME_ART, fireSlimePalette);
   renderWithOutline(scene, "mob_ice_slime", SLIME_ART, iceSlimePalette);
   renderWithOutline(scene, "mob_poison_slime", SLIME_ART, poisonSlimePalette);
 
   // Color variants for wolf
-  const direWolfPalette = {
+  const direWolfPalette: Record<string, string> = {
     ...WOLF_PALETTE,
-    b: "#444455",
-    B: "#333344",
-    d: "#222233",
-    w: "#999988",
+    b: "#555566",
+    B: "#3A3A4A",
+    D: "#222233",
+    d: "#1A1A28",
+    w: "#888899",
+    W: "#777788",
+    l: "#666677",
   };
-  const shadowWolfPalette = {
+  const shadowWolfPalette: Record<string, string> = {
     ...WOLF_PALETTE,
-    b: "#333355",
-    B: "#222244",
-    d: "#111133",
+    b: "#3A3A55",
+    B: "#2A2A44",
+    D: "#1A1A33",
+    d: "#111128",
     e: "#CC33FF",
+    E: "#AA22DD",
+    w: "#555566",
+    W: "#444455",
   };
   renderWithOutline(scene, "mob_dire_wolf", WOLF_ART, direWolfPalette);
   renderWithOutline(scene, "mob_shadow_wolf", WOLF_ART, shadowWolfPalette);
 
-  // Zombie variant of skeleton
-  const zombiePalette = {
-    ...SKEL_PALETTE,
-    w: "#556B2F",
-    W: "#3A4A1A",
-    d: "#445522",
-    r: "#882222",
-  };
-  renderWithOutline(scene, "mob_zombie", SKEL_ART, zombiePalette);
-
-  // Orc variant of goblin
-  const orcPalette = {
-    ...GOBLIN_PALETTE,
-    g: "#556B2F",
-    G: "#3A4A1A",
-    s: "#6B8A3A",
-    y: "#FF8800",
-  };
-  renderWithOutline(scene, "mob_orc", GOBLIN_ART, orcPalette);
-
   // Magma golem
-  const magmaGolemPalette = {
+  const magmaGolemPalette: Record<string, string> = {
     ...GOLEM_PALETTE,
     s: "#AA4400",
     S: "#883300",
-    d: "#662200",
-    D: "#441100",
+    D: "#662200",
+    c: "#441100",
+    C: "#330800",
     e: "#FF6600",
+    E: "#FF8800",
     g: "#FF4400",
+    r: "#552200",
+    R: "#441100",
   };
   renderWithOutline(scene, "mob_magma_golem", GOLEM_ART, magmaGolemPalette);
 
   // Ice golem
-  const iceGolemPalette = {
+  const iceGolemPalette: Record<string, string> = {
     ...GOLEM_PALETTE,
     s: "#88BBCC",
     S: "#6699AA",
-    d: "#447788",
-    D: "#335566",
+    D: "#447788",
+    c: "#335566",
+    C: "#224455",
     e: "#AAEEFF",
+    E: "#CCFFFF",
     g: "#88DDFF",
+    r: "#446688",
+    R: "#335577",
   };
   renderWithOutline(scene, "mob_ice_golem", GOLEM_ART, iceGolemPalette);
 
   // Dark treant
-  const darkTreantPalette = {
+  const darkTreantPalette: Record<string, string> = {
     ...TREANT_PALETTE,
-    t: "#1A1A1A",
-    T: "#111111",
+    t: "#2A2A2A",
+    T: "#1A1A1A",
+    V: "#111111",
     l: "#2A2A3A",
     L: "#1A1A2A",
+    G: "#111122",
     g: "#3A3A5A",
-    G: "#2A2A4A",
     e: "#FF0000",
+    E: "#FF4444",
+    r: "#1A1A1A",
+    R: "#111111",
+    m: "#222233",
+    M: "#1A1A28",
   };
   renderWithOutline(scene, "mob_dark_treant", TREANT_ART, darkTreantPalette);
 
   // Poison mushroom
-  const poisonMushroomPalette = {
+  const poisonMushroomPalette: Record<string, string> = {
     ...MUSHROOM_PALETTE,
-    c: "#44AA22",
+    c: "#44BB22",
     C: "#338818",
+    V: "#226610",
     s: "#88FF44",
+    S: "#AAFF66",
   };
   renderWithOutline(
     scene,
@@ -1088,23 +1961,31 @@ export function generateAllTextures(scene: Phaser.Scene): void {
     NPC_BLACKSMITH_PALETTE,
   );
 
-  const armorNpcPalette = {
+  const armorNpcPalette: Record<string, string> = {
     ...NPC_PALETTE,
     a: "#4A6FA5",
     A: "#3A5A8A",
+    R: "#2A4A7A",
     h: "#3A5A8A",
     H: "#2A4A7A",
+    J: "#4A6FA5",
+    c: "#DDCC99",
+    C: "#BBAA77",
   };
   renderWithOutline(scene, "npc_armor", NPC_MERCHANT_ART, armorNpcPalette);
 
   renderWithOutline(scene, "npc_potion", NPC_POTION_ART, NPC_POTION_PALETTE);
 
-  const eliteNpcPalette = {
+  const eliteNpcPalette: Record<string, string> = {
     ...NPC_PALETTE,
     a: "#8B0000",
     A: "#660000",
+    R: "#440000",
     h: "#660000",
     H: "#440000",
+    J: "#8B0000",
+    c: "#DDCC99",
+    C: "#BBAA77",
   };
   renderWithOutline(scene, "npc_elite", NPC_MERCHANT_ART, eliteNpcPalette);
 
@@ -1263,12 +2144,12 @@ function generateTileTextures(scene: Phaser.Scene): void {
     };
   };
 
-  // Grass tile with tufts - 3 variants
+  // Grass tile with tufts and detail - 3 variants
   for (let v = 0; v < 3; v++) {
     const key = v === 0 ? "tile_grass" : `tile_grass_v${v}`;
     const rng = seededRng(v * 1337);
     generateTileTexture(scene, key, "#2E5A22", (ctx, w) => {
-      // Variation patches
+      // Large variation patches
       ctx.fillStyle = "#3A6A2E";
       ctx.fillRect(4 + rng() * 10, 4 + rng() * 8, 8 + rng() * 4, 6 + rng() * 4);
       ctx.fillRect(
@@ -1277,25 +2158,55 @@ function generateTileTextures(scene: Phaser.Scene): void {
         8 + rng() * 6,
         6 + rng() * 6,
       );
-      // Grass tufts
-      ctx.fillStyle = "#4A7A3A";
-      for (let i = 0; i < 4 + v; i++) {
+      // Mid-tone patches
+      ctx.fillStyle = "#356830";
+      ctx.fillRect(2 + rng() * 12, 14 + rng() * 8, 5, 4);
+      // Grass blade tufts
+      ctx.fillStyle = "#4A8A3A";
+      for (let i = 0; i < 6 + v * 2; i++) {
         const x = Math.floor(rng() * 28) + 2;
         const y = Math.floor(rng() * 22) + 4;
         ctx.fillRect(x, y, 1, 2 + Math.floor(rng() * 3));
+        ctx.fillRect(x + 1, y + 1, 1, 1 + Math.floor(rng() * 2));
       }
-      // Small flowers on some variants
+      // Darker grass tips
+      ctx.fillStyle = "#2A5222";
+      for (let i = 0; i < 3; i++) {
+        const x = Math.floor(rng() * 26) + 3;
+        const y = Math.floor(rng() * 20) + 6;
+        ctx.fillRect(x, y, 1, 2);
+      }
+      // Small pebbles
+      ctx.fillStyle = "#7A7A6A";
+      ctx.globalAlpha = 0.3;
+      if (v >= 1) {
+        ctx.fillRect(
+          Math.floor(rng() * 24) + 4,
+          Math.floor(rng() * 24) + 4,
+          2,
+          1,
+        );
+      }
+      ctx.globalAlpha = 1;
+      // Small flowers on variant 2
       if (v === 2) {
         ctx.fillStyle = "#FFEE44";
         ctx.fillRect(8, 14, 2, 2);
+        ctx.fillStyle = "#FFFF88";
+        ctx.fillRect(9, 14, 1, 1);
         ctx.fillStyle = "#FF6688";
         ctx.fillRect(22, 8, 2, 2);
+        ctx.fillStyle = "#FF99AA";
+        ctx.fillRect(23, 8, 1, 1);
       }
-      // Darker edges for depth
+      // Subtle edge shadows for depth
       ctx.fillStyle = "#000000";
-      ctx.globalAlpha = 0.05;
+      ctx.globalAlpha = 0.06;
       ctx.fillRect(0, 0, w, 1);
       ctx.fillRect(0, 0, 1, w);
+      ctx.globalAlpha = 0.03;
+      ctx.fillRect(0, w - 1, w, 1);
+      ctx.fillRect(w - 1, 0, 1, w);
       ctx.globalAlpha = 1;
     });
   }
@@ -1310,44 +2221,77 @@ function generateTileTextures(scene: Phaser.Scene): void {
       ctx.fillStyle = "#2A4A24";
       ctx.fillRect(8 + v * 4, 14, 1, 3);
       ctx.fillRect(20 - v * 4, 18, 1, 3);
+      // Dead grass blades
+      ctx.fillStyle = "#334828";
+      ctx.fillRect(6 + v * 3, 10, 1, 3);
+      ctx.fillRect(18 - v * 2, 6, 1, 4);
+      ctx.fillRect(24, 16, 1, 3);
       // Mushroom on variant 1
       if (v === 1) {
         ctx.fillStyle = "#664422";
         ctx.fillRect(6, 22, 2, 4);
         ctx.fillStyle = "#884422";
         ctx.fillRect(4, 20, 6, 3);
+        ctx.fillStyle = "#995533";
+        ctx.fillRect(5, 20, 4, 2);
       }
+      // Subtle ambient darkening
+      ctx.fillStyle = "#000000";
+      ctx.globalAlpha = 0.08;
+      ctx.fillRect(0, 0, 32, 1);
+      ctx.fillRect(0, 0, 1, 32);
+      ctx.globalAlpha = 1;
     });
   }
 
-  // Dirt
+  // Dirt - pebbles and texture
   generateTileTexture(scene, "tile_dirt", "#5C4A32", (ctx) => {
+    // Color patches
     ctx.fillStyle = "#4A3A28";
-    ctx.fillRect(6, 4, 6, 4);
+    ctx.fillRect(6, 4, 8, 6);
     ctx.fillRect(20, 18, 8, 6);
     ctx.fillStyle = "#6A5A42";
-    ctx.fillRect(10, 14, 3, 2);
-    ctx.fillRect(24, 8, 2, 2);
+    ctx.fillRect(10, 14, 4, 3);
+    ctx.fillRect(24, 8, 3, 2);
+    ctx.fillRect(3, 20, 5, 3);
+    // Pebbles
+    ctx.fillStyle = "#7A6A52";
+    ctx.fillRect(14, 6, 3, 2);
+    ctx.fillRect(8, 24, 2, 2);
     ctx.fillStyle = "#4A3A22";
     ctx.fillRect(4, 22, 2, 2);
+    ctx.fillRect(26, 14, 2, 1);
+    // Subtle tracks
+    ctx.fillStyle = "#000000";
+    ctx.globalAlpha = 0.05;
+    ctx.fillRect(8, 16, 16, 1);
+    ctx.globalAlpha = 1;
   });
 
-  // Stone - 2 variants
+  // Stone - mortar lines, moss patches - 2 variants
   for (let v = 0; v < 2; v++) {
     const key = v === 0 ? "tile_stone" : `tile_stone_v${v}`;
     generateTileTexture(scene, key, "#555560", (ctx, w, h) => {
+      // Mortar lines (dark)
       ctx.fillStyle = "#000000";
-      ctx.globalAlpha = 0.2;
+      ctx.globalAlpha = 0.25;
       ctx.fillRect(0, 0, w, 1);
       ctx.fillRect(0, 0, 1, h);
       ctx.fillRect(0, 15 + v * 2, w, 1);
       ctx.fillRect(12 + v * 4, 0, 1, 16);
       ctx.fillRect(24 - v * 4, 16, 1, 16);
-      ctx.globalAlpha = 0.06;
+      ctx.globalAlpha = 1;
+      // Stone texture highlights
       ctx.fillStyle = "#ffffff";
+      ctx.globalAlpha = 0.08;
       ctx.fillRect(2, 2, 8, 1);
       ctx.fillRect(14, 18, 8, 1);
+      ctx.fillRect(4, 6, 1, 4);
       ctx.globalAlpha = 1;
+      // Darker patches
+      ctx.fillStyle = "#4A4A55";
+      ctx.fillRect(6 + v * 3, 4, 3, 3);
+      ctx.fillRect(20 - v * 2, 22, 4, 3);
       // Cracks on variant 1
       if (v === 1) {
         ctx.strokeStyle = "#333338";
@@ -1357,72 +2301,118 @@ function generateTileTextures(scene: Phaser.Scene): void {
         ctx.lineTo(14, 12);
         ctx.lineTo(18, 10);
         ctx.stroke();
+        // Moss patch
+        ctx.fillStyle = "#3A5A2A";
+        ctx.globalAlpha = 0.3;
+        ctx.fillRect(22, 4, 4, 3);
+        ctx.globalAlpha = 1;
       }
     });
   }
 
-  // Water
+  // Water - ripples, depth, sparkles
   generateTileTexture(scene, "tile_water", "#1A4A7A", (ctx, w) => {
+    // Depth gradient (darker center)
     ctx.fillStyle = "#0E3A5E";
     ctx.globalAlpha = 0.4;
-    ctx.fillRect(1, 1, w - 2, w - 2);
-    ctx.globalAlpha = 0.3;
+    ctx.fillRect(2, 2, w - 4, w - 4);
+    ctx.globalAlpha = 0.2;
+    ctx.fillRect(4, 4, w - 8, w - 8);
+    ctx.globalAlpha = 1;
+    // Ripple lines
     ctx.fillStyle = "#3A7AAA";
+    ctx.globalAlpha = 0.35;
     ctx.fillRect(3, 8, 20, 1);
     ctx.fillRect(8, 20, 16, 1);
-    ctx.globalAlpha = 0.2;
+    ctx.fillRect(2, 26, 12, 1);
+    ctx.globalAlpha = 0.25;
     ctx.fillStyle = "#4A8ABA";
-    ctx.fillRect(6, 14, 12, 1);
+    ctx.fillRect(6, 14, 14, 1);
+    ctx.fillRect(14, 4, 10, 1);
+    ctx.globalAlpha = 1;
     // Sparkle highlights
-    ctx.globalAlpha = 0.4;
     ctx.fillStyle = "#88CCEE";
+    ctx.globalAlpha = 0.5;
     ctx.fillRect(10, 6, 2, 1);
     ctx.fillRect(20, 16, 2, 1);
+    ctx.fillRect(6, 22, 1, 1);
+    ctx.fillStyle = "#AADDFF";
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(16, 10, 1, 1);
+    ctx.fillRect(24, 24, 1, 1);
     ctx.globalAlpha = 1;
   });
 
-  // Sand
+  // Sand - dunes, pebbles
   generateTileTexture(scene, "tile_sand", "#8A7A4A", (ctx) => {
+    // Dune lines
     ctx.fillStyle = "#9A8A5A";
-    ctx.globalAlpha = 0.2;
+    ctx.globalAlpha = 0.25;
     ctx.fillRect(3, 10, 26, 1);
     ctx.fillRect(6, 22, 20, 1);
     ctx.globalAlpha = 0.15;
     ctx.fillRect(10, 4, 14, 1);
+    ctx.fillRect(2, 16, 18, 1);
+    ctx.globalAlpha = 1;
+    // Light patches
+    ctx.fillStyle = "#A89A5A";
+    ctx.globalAlpha = 0.2;
+    ctx.fillRect(8, 6, 6, 4);
+    ctx.fillRect(18, 18, 8, 5);
     ctx.globalAlpha = 1;
     // Scattered pebbles
     ctx.fillStyle = "#7A6A3A";
     ctx.fillRect(14, 18, 2, 2);
     ctx.fillRect(8, 26, 2, 1);
+    ctx.fillRect(22, 8, 1, 1);
   });
 
-  // Wall
+  // Wall - brick pattern with highlights
   generateTileTexture(scene, "tile_wall", "#3A3A42", (ctx, w, h) => {
+    // Brick lines
     ctx.fillStyle = "#000000";
-    ctx.globalAlpha = 0.25;
+    ctx.globalAlpha = 0.3;
     ctx.fillRect(0, 0, w, 1);
     ctx.fillRect(0, 0, 1, h);
     ctx.fillRect(0, 16, w, 1);
     ctx.fillRect(14, 0, 1, 16);
     ctx.fillRect(26, 16, 1, 16);
-    ctx.globalAlpha = 0.08;
+    ctx.fillRect(8, 16, 1, 16);
+    ctx.globalAlpha = 1;
+    // Highlight on some bricks
     ctx.fillStyle = "#ffffff";
+    ctx.globalAlpha = 0.08;
     ctx.fillRect(2, 2, 10, 1);
     ctx.fillRect(16, 18, 8, 1);
+    ctx.fillRect(2, 4, 1, 6);
+    ctx.globalAlpha = 1;
+    // Darker mortar
+    ctx.fillStyle = "#2A2A30";
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(0, 15, w, 2);
     ctx.globalAlpha = 1;
   });
 
-  // Tree
+  // Tree - detailed canopy, trunk, roots
   generateTileTexture(scene, "tile_tree", "#1A3A12", (ctx, w) => {
+    // Ground shadow
     ctx.fillStyle = "#122A0E";
     ctx.fillRect(2, 22, w - 4, 10);
+    // Trunk
     ctx.fillStyle = "#3A2812";
     ctx.fillRect(12, 12, 8, 20);
+    // Trunk detail (bark)
     ctx.fillStyle = "#2A1A08";
     ctx.globalAlpha = 0.4;
-    ctx.fillRect(14, 16, 2, 4);
+    ctx.fillRect(13, 16, 2, 4);
     ctx.fillRect(17, 20, 2, 3);
+    ctx.fillRect(14, 26, 1, 3);
     ctx.globalAlpha = 1;
+    // Roots
+    ctx.fillStyle = "#3A2812";
+    ctx.fillRect(10, 28, 3, 2);
+    ctx.fillRect(19, 28, 3, 2);
+    // Canopy layers (back to front for depth)
     ctx.fillStyle = "#1A4A0E";
     ctx.beginPath();
     ctx.arc(12, 10, 10, 0, Math.PI * 2);
@@ -1434,70 +2424,139 @@ function generateTileTextures(scene: Phaser.Scene): void {
     ctx.beginPath();
     ctx.arc(16, 7, 10, 0, Math.PI * 2);
     ctx.fill();
+    // Highlight leaves
     ctx.fillStyle = "#2A5A1E";
-    ctx.globalAlpha = 0.6;
+    ctx.globalAlpha = 0.7;
     ctx.beginPath();
     ctx.arc(14, 5, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
+    // Individual leaf clusters
+    ctx.fillStyle = "#3A6A2A";
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(8, 4, 3, 2);
+    ctx.fillRect(18, 2, 2, 2);
+    ctx.fillRect(22, 8, 2, 3);
+    ctx.globalAlpha = 1;
   });
 
-  // Floor
+  // Floor - wooden planks
   generateTileTexture(scene, "tile_floor", "#6A5E4A", (ctx, w, h) => {
+    // Plank lines
     ctx.fillStyle = "#000000";
     ctx.globalAlpha = 0.12;
     ctx.fillRect(0, 0, w, 1);
     ctx.fillRect(0, 0, 1, h);
-    ctx.globalAlpha = 0.06;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(2, 2, 6, 1);
+    ctx.fillRect(0, 8, w, 1);
+    ctx.fillRect(0, 16, w, 1);
+    ctx.fillRect(0, 24, w, 1);
     ctx.globalAlpha = 1;
+    // Grain highlights
+    ctx.fillStyle = "#ffffff";
+    ctx.globalAlpha = 0.06;
+    ctx.fillRect(2, 2, 8, 1);
+    ctx.fillRect(14, 10, 6, 1);
+    ctx.fillRect(4, 18, 10, 1);
+    ctx.fillRect(20, 26, 8, 1);
+    ctx.globalAlpha = 1;
+    // Knot
+    ctx.fillStyle = "#5A4E3A";
+    ctx.fillRect(20, 4, 3, 3);
   });
 
-  // Bridge
+  // Bridge - wooden planks with railings
   generateTileTexture(scene, "tile_bridge", "#5A4A1A", (ctx, w, h) => {
+    // Plank gaps
     ctx.fillStyle = "#3A2A0A";
-    ctx.globalAlpha = 0.3;
+    ctx.globalAlpha = 0.35;
     for (let y = 0; y < h; y += 8) {
       ctx.fillRect(0, y + 1, w, 1);
     }
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 1;
+    // Railings
+    ctx.fillStyle = "#4A3A10";
+    ctx.globalAlpha = 0.6;
     ctx.fillRect(0, 0, 2, h);
     ctx.fillRect(w - 2, 0, 2, h);
     ctx.globalAlpha = 1;
+    // Plank highlights
+    ctx.fillStyle = "#6A5A2A";
+    ctx.globalAlpha = 0.2;
+    ctx.fillRect(4, 3, 10, 1);
+    ctx.fillRect(8, 11, 12, 1);
+    ctx.fillRect(6, 19, 8, 1);
+    ctx.fillRect(12, 27, 10, 1);
+    ctx.globalAlpha = 1;
+    // Nail heads
+    ctx.fillStyle = "#333333";
+    ctx.fillRect(3, 4, 1, 1);
+    ctx.fillRect(28, 12, 1, 1);
+    ctx.fillRect(3, 20, 1, 1);
+    ctx.fillRect(28, 28, 1, 1);
   });
 
-  // Lava
-  generateTileTexture(scene, "tile_lava", "#AA2200", (ctx) => {
+  // Lava - glowing flow, dark crust, bright spots
+  generateTileTexture(scene, "tile_lava", "#882200", (ctx) => {
+    // Dark crust areas
+    ctx.fillStyle = "#551100";
+    ctx.fillRect(0, 0, 10, 8);
+    ctx.fillRect(20, 18, 12, 8);
+    ctx.fillRect(24, 0, 8, 6);
+    // Bright lava flow
     ctx.fillStyle = "#CC4400";
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(12, 16, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#FF6600";
     ctx.globalAlpha = 0.5;
     ctx.beginPath();
-    ctx.arc(12, 16, 6, 0, Math.PI * 2);
+    ctx.arc(20, 10, 5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#FF8800";
-    ctx.globalAlpha = 0.3;
-    ctx.beginPath();
-    ctx.arc(20, 10, 4, 0, Math.PI * 2);
-    ctx.fill();
-    // Bright spots
+    ctx.globalAlpha = 1;
+    // Hot spots (yellow-white)
     ctx.fillStyle = "#FFCC00";
-    ctx.globalAlpha = 0.25;
-    ctx.fillRect(8, 10, 3, 2);
-    ctx.fillRect(22, 20, 2, 2);
+    ctx.globalAlpha = 0.4;
+    ctx.fillRect(10, 14, 4, 2);
+    ctx.fillRect(18, 8, 3, 2);
+    ctx.globalAlpha = 1;
+    // Embers
+    ctx.fillStyle = "#FF8800";
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(6, 10, 2, 1);
+    ctx.fillRect(26, 20, 1, 1);
+    ctx.fillRect(14, 26, 2, 1);
+    ctx.globalAlpha = 1;
+    // Crust edge cracks
+    ctx.fillStyle = "#FF4400";
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(8, 6, 1, 3);
+    ctx.fillRect(22, 16, 1, 2);
     ctx.globalAlpha = 1;
   });
 
-  // Snow
+  // Snow - sparkles, footprint hints, varied white
   generateTileTexture(scene, "tile_snow", "#C0C5CC", (ctx) => {
+    // Lighter patches
     ctx.fillStyle = "#D0D5DC";
     ctx.fillRect(4, 4, 10, 8);
-    ctx.fillRect(18, 16, 8, 10);
+    ctx.fillRect(18, 16, 10, 10);
+    ctx.fillRect(2, 20, 6, 6);
+    // Sparkle highlights
     ctx.fillStyle = "#FFFFFF";
-    ctx.globalAlpha = 0.3;
-    ctx.fillRect(8, 10, 2, 2);
-    ctx.fillRect(22, 6, 2, 2);
+    ctx.globalAlpha = 0.4;
+    ctx.fillRect(8, 10, 2, 1);
+    ctx.fillRect(22, 6, 1, 1);
+    ctx.fillRect(14, 22, 1, 1);
+    ctx.fillRect(26, 14, 2, 1);
     ctx.globalAlpha = 1;
-    // Footprint hint
+    // Subtle blue shadows
+    ctx.fillStyle = "#A8B0C0";
+    ctx.globalAlpha = 0.2;
+    ctx.fillRect(12, 8, 4, 2);
+    ctx.fillRect(6, 26, 3, 2);
+    ctx.globalAlpha = 1;
+    // Footprint impressions
     ctx.fillStyle = "#B0B5BC";
     ctx.globalAlpha = 0.3;
     ctx.fillRect(14, 20, 3, 2);
@@ -1507,31 +2566,41 @@ function generateTileTextures(scene: Phaser.Scene): void {
 
   // Ice
   generateTileTexture(scene, "tile_ice", "#6A9AB8", (ctx) => {
+    // Crack lines
     ctx.fillStyle = "#8ABACE";
-    ctx.globalAlpha = 0.3;
+    ctx.globalAlpha = 0.35;
     ctx.fillRect(8, 4, 1, 12);
     ctx.fillRect(14, 10, 10, 1);
     ctx.fillRect(22, 2, 1, 8);
+    ctx.fillRect(4, 18, 1, 10);
+    ctx.globalAlpha = 1;
     // Reflective highlights
     ctx.fillStyle = "#AADDEE";
-    ctx.globalAlpha = 0.25;
+    ctx.globalAlpha = 0.3;
     ctx.fillRect(12, 8, 4, 1);
     ctx.fillRect(4, 18, 6, 1);
+    ctx.fillRect(20, 22, 3, 1);
+    ctx.globalAlpha = 1;
+    // Bright spot
+    ctx.fillStyle = "#CCEEFF";
+    ctx.globalAlpha = 0.2;
+    ctx.fillRect(14, 14, 3, 2);
     ctx.globalAlpha = 1;
   });
 
   // Swamp
   generateTileTexture(scene, "tile_swamp", "#2A3A1A", (ctx) => {
     ctx.fillStyle = "#1A2A0E";
-    ctx.globalAlpha = 0.3;
+    ctx.globalAlpha = 0.35;
     ctx.beginPath();
-    ctx.arc(14, 14, 6, 0, Math.PI * 2);
+    ctx.arc(14, 14, 7, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#3A4A2A";
     ctx.globalAlpha = 0.4;
     ctx.beginPath();
-    ctx.arc(8, 20, 3, 0, Math.PI * 2);
+    ctx.arc(8, 20, 4, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
     // Bubbles
     ctx.fillStyle = "#4A5A3A";
     ctx.globalAlpha = 0.5;
@@ -1541,7 +2610,14 @@ function generateTileTextures(scene: Phaser.Scene): void {
     ctx.beginPath();
     ctx.arc(10, 8, 1.5, 0, Math.PI * 2);
     ctx.fill();
+    ctx.beginPath();
+    ctx.arc(24, 12, 1, 0, Math.PI * 2);
+    ctx.fill();
     ctx.globalAlpha = 1;
+    // Reeds
+    ctx.fillStyle = "#3A5A2A";
+    ctx.fillRect(4, 4, 1, 5);
+    ctx.fillRect(26, 16, 1, 4);
   });
 
   // Dark stone
@@ -1554,10 +2630,14 @@ function generateTileTextures(scene: Phaser.Scene): void {
     ctx.fillRect(16, 0, 1, 16);
     ctx.fillRect(8, 16, 1, 16);
     ctx.globalAlpha = 1;
-    // Faint blue crystal on some tiles
+    // Faint blue crystal
     ctx.fillStyle = "#334466";
-    ctx.globalAlpha = 0.15;
+    ctx.globalAlpha = 0.2;
     ctx.fillRect(20, 22, 3, 4);
+    ctx.fillRect(21, 21, 1, 1);
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = "#445588";
+    ctx.fillRect(19, 24, 1, 1);
     ctx.globalAlpha = 1;
   });
 
@@ -1573,10 +2653,15 @@ function generateTileTextures(scene: Phaser.Scene): void {
     ctx.fillStyle = "#AA6ACC";
     ctx.globalAlpha = 0.5;
     ctx.beginPath();
-    ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#CC88EE";
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#DDAAFF";
-    ctx.globalAlpha = 0.6;
+    ctx.globalAlpha = 0.8;
     ctx.beginPath();
     ctx.arc(cx, cy, 3, 0, Math.PI * 2);
     ctx.fill();

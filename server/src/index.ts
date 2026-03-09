@@ -51,8 +51,11 @@ async function connectDatabase(): Promise<void> {
 
   try {
     let mongoose = await import("mongoose");
-    await mongoose.default.connect(Config.MONGODB_URI);
-    console.log("[Database] Connected to MongoDB");
+    console.log("[Database] Connecting to MongoDB...");
+    await mongoose.default.connect(Config.MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
+    });
+    console.log("[Database] Connected to MongoDB successfully");
 
     // Clean up corrupted accounts (empty passwordHash from previous bug)
     let cleaned = await mongoose.default.connection
@@ -102,7 +105,12 @@ async function connectDatabase(): Promise<void> {
       async loadPlayer(name: string) {
         let doc = await PlayerModel.findOne({
           name: { $regex: new RegExp(`^${name}$`, "i") },
-        }).lean();
+        })
+          .lean()
+          .catch((err: unknown) => {
+            console.error(`[Database] loadPlayer error for ${name}:`, err);
+            return null;
+          });
         if (!doc) return null;
         // Return all fields - strict:false ensures everything is saved/loaded
         let result: any = { ...doc };
@@ -114,8 +122,8 @@ async function connectDatabase(): Promise<void> {
       async savePlayer(data) {
         let { name, ...updateData } = data as any;
         await PlayerModel.findOneAndUpdate(
-          { name: { $regex: new RegExp(`^${name}$`, "i") } },
-          { $set: updateData },
+          { name: name },
+          { $set: { ...updateData, name } },
           { upsert: true },
         );
       },
